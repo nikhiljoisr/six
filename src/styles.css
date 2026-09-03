@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Design tokens (docs/SPEC.md §3). Colours come from Tailwind's stone and amber scales;
+   nothing else is ever used. Weights: 400 and 500 only. */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Roboto,
+    system-ui, sans-serif;
+  --font-serif: "New York", "Iowan Old Style", Charter, Georgia, "Times New Roman", serif;
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+html {
+  background: var(--color-stone-50);
+  color: var(--color-stone-900);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Small uppercase section labels: "TOMORROW", "EVENING RITUAL". */
+@utility label {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-stone-500);
+}
