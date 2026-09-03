@@ -149,6 +149,7 @@ function EveningRitual({ snapshot }: { snapshot: DaySnapshot }) {
         <Label>Tomorrow's six</Label>
         <PlanPreview plan={tomorrow} onEdit={() => navigate({ name: "planner", date: snapshot.tomorrow })} />
         <p className="mt-6 text-sm text-stone-400">Planned. Morning starts clear.</p>
+        <PlanTodayInstead date={snapshot.today} className="mt-8" />
       </section>
     );
   }
@@ -160,7 +161,22 @@ function EveningRitual({ snapshot }: { snapshot: DaySnapshot }) {
       <Button className="mt-8 px-6" onClick={() => navigate({ name: "planner", date: snapshot.tomorrow })}>
         Plan tomorrow's six
       </Button>
+      <PlanTodayInstead date={snapshot.today} className="mt-6 block w-full text-center" />
     </section>
+  );
+}
+
+/** Late start: the evening ritual leads, but today can still get its six. */
+function PlanTodayInstead({ date, className = "" }: { date: string; className?: string }) {
+  const navigate = useStore((s) => s.navigate);
+  return (
+    <button
+      type="button"
+      className={`text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 ${className}`}
+      onClick={() => navigate({ name: "planner", date })}
+    >
+      Plan today instead
+    </button>
   );
 }
 

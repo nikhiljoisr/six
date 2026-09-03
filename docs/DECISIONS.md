@@ -29,3 +29,7 @@ differs from it, or that it left open, is recorded here.
   1.5-second press-and-hold. Cancelling at any step logs nothing. Completing the hold sends
   `activate(task, override_order = true)` and logs one `overridden` event, as before.
   The "stay" option is always the primary button.
+- **"Plan today instead" on the evening screen.** SPEC §4.1 state B (no list for today, after
+  the evening hour) shows only the tomorrow ritual. Nikhil: planning today late must stay
+  possible. A quiet text link below the ritual opens today's planner; the ritual stays the
+  primary action.
