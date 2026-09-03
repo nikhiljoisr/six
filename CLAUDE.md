@@ -30,7 +30,7 @@ brief is `docs/SPEC.md`; it is the single source of truth, amended only by dated
 - SQLite via `tauri-plugin-sql` (sqlx). Migrations are numbered SQL files in `src-tauri/migrations/`. The frontend has no SQL permissions; Rust takes the plugin's pool.
 - Every mutation emits one `state_changed` event carrying the full day snapshot. No optimistic UI.
 - Notifications: `tauri-plugin-notifications` (Choochmeque). Menu bar: Tauri tray with `title`.
-- Settings live in the SQLite `settings` table. Sync (Phase 2): Supabase, last-write-wins by `updated_at`.
+- Settings live in the SQLite `settings` table. Single device; no sync, no network.
 - "Today" is the local date at (now − day_start_hour). Rollover is checked on every state read.
 
 ## Working rules (SPEC §7)

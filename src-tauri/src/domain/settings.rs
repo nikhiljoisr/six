@@ -22,6 +22,10 @@ pub struct Settings {
     pub pomodoros_before_long_break: u32,
     /// Menu bar style: "full" (task title) or "compact" (position only).
     pub tray_style: String,
+    /// A gentle sound when a pomodoro or a break ends. Off by default: Six is silent.
+    pub sound_enabled: bool,
+    /// The first-launch guide has been seen.
+    pub onboarded: bool,
 }
 
 impl Default for Settings {
@@ -36,6 +40,8 @@ impl Default for Settings {
             long_break_minutes: 15,
             pomodoros_before_long_break: 4,
             tray_style: "full".to_string(),
+            sound_enabled: false,
+            onboarded: false,
         }
     }
 }
@@ -53,7 +59,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 9] = [
+    pub const KEYS: [&'static str; 11] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -63,6 +69,8 @@ impl Settings {
         "long_break_minutes",
         "pomodoros_before_long_break",
         "tray_style",
+        "sound_enabled",
+        "onboarded",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
@@ -81,13 +89,19 @@ impl Settings {
             };
             return Ok(());
         }
-        if key == "pomodoro_enabled" {
-            self.pomodoro_enabled = match value.trim() {
+        let bool_slot: Option<(&mut bool, &'static str)> = match key {
+            "pomodoro_enabled" => Some((&mut self.pomodoro_enabled, "pomodoro_enabled")),
+            "sound_enabled" => Some((&mut self.sound_enabled, "sound_enabled")),
+            "onboarded" => Some((&mut self.onboarded, "onboarded")),
+            _ => None,
+        };
+        if let Some((slot, name)) = bool_slot {
+            *slot = match value.trim() {
                 "1" | "true" | "on" => true,
                 "0" | "false" | "off" => false,
                 _ => {
                     return Err(SettingsError::OutOfRange {
-                        key: "pomodoro_enabled",
+                        key: name,
                         min: 0,
                         max: 1,
                     })
@@ -181,6 +195,11 @@ mod tests {
         s.apply("tray_style", "compact").unwrap();
         assert_eq!(s.tray_style, "compact");
         assert!(s.apply("tray_style", "huge").is_err());
+        assert!(!Settings::default().sound_enabled, "silent by default");
+        assert!(!Settings::default().onboarded);
+        s.apply("sound_enabled", "on").unwrap();
+        s.apply("onboarded", "1").unwrap();
+        assert!(s.sound_enabled && s.onboarded);
     }
 
     #[test]

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "sign:adhoc": "codesign --force --deep --sign - --identifier com.nikhiljois.six src-tauri/target/release/bundle/macos/Six.app",
-    "build:mac": "tauri build && pnpm sign:adhoc"
+    "build:mac": "tauri build && pnpm sign:adhoc",
+    "build:mac:universal": "tauri build --target universal-apple-darwin && codesign --force --deep --sign - --identifier com.nikhiljois.six src-tauri/target/universal-apple-darwin/release/bundle/macos/Six.app"
   },
   "dependencies": {
     "@choochmeque/tauri-plugin-notifications-api": "^0.4.6",

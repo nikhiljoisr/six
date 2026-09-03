@@ -1,25 +1,92 @@
 # Six
 
-A personal Ivy Lee Method app for macOS, built with Tauri v2 (Rust core, React view).
-Six tasks a day, one active at a time, planned the evening before. The brief lives in [`docs/SPEC.md`](docs/SPEC.md).
+A calm daily companion for the Mac that does two things: it holds the six tasks that
+matter today, and it keeps you on the one at the top.
 
+Six is built on the **Ivy Lee method** (1918): at the end of each day, write down the six
+most important tasks for tomorrow, in order. Next day, work on the first until it is done,
+then the second. Whatever is unfinished rolls into tomorrow's list. Nothing else. On top of
+that sits an optional **Pomodoro** layer: a 25-minute countdown on the task you are on, a
+silent ring, a short break, a long one after four.
 
-## Install (macOS 13 or later, Apple Silicon)
+Everything stays on your Mac. There is no account, no server, and nothing leaves the
+machine.
 
-1. Download `Six.app.zip` from the latest [release](https://github.com/nikhiljoisr/six/releases)
-   and unzip it, or build it yourself (below).
-2. Move `Six.app` to Applications and open it. macOS will refuse the first time because the
-   app is signed locally rather than notarised: open System Settings → Privacy & Security,
-   scroll to the message about Six, and click **Open Anyway**. Once is enough.
-3. In Six, open History → Settings → Notifications and click **Allow** so the silent nudges
-   can reach you when the window is closed.
+## Download
 
-Six keeps everything in one local SQLite file (see "Where data lives"). There is no account
-and nothing leaves your Mac.
+1. Get `Six.app.zip` from the [latest release](https://github.com/nikhiljoisr/six/releases/latest)
+   and unzip it.
+2. Move `Six.app` to your Applications folder.
+3. Open it. **The first time, macOS will refuse** (see the next section). After that it
+   opens like any other app.
+
+Universal build: Apple Silicon and Intel Macs, macOS 13 or later.
+
+## "Six cannot be opened" the first time
+
+Six is signed locally rather than notarised with an Apple Developer certificate, so
+Gatekeeper blocks it once. Either of these fixes it for good:
+
+- Open **System Settings → Privacy & Security**, scroll down to the message about Six, and
+  click **Open Anyway**. Confirm, and it opens.
+- Or, in Terminal, remove the quarantine flag and open it:
+
+  ```bash
+  xattr -cr /Applications/Six.app && open /Applications/Six.app
+  ```
+
+On older versions of macOS, right-clicking the app and choosing **Open** works too.
+
+## First run
+
+A two-screen guide explains the method and takes you straight to your first six. Allow
+notifications when asked (or later in Settings) so the quiet nudges can reach you when the
+window is closed. Six never makes a sound unless you switch one on in Settings.
+
+## The day in Six
+
+- **Evening:** plan tomorrow's six, most important at the top. Unfinished tasks are
+  pre-filled so nothing is lost. Lock the list.
+- **Morning:** task 1 is active. The timer runs from timestamps, so a sleeping laptop still
+  records the truth. Mark it complete and task 2 takes over. Skipping ahead is possible, but
+  Six asks twice and the last answer is a press-and-hold.
+- **Focus:** start a pomodoro on the active task if you like. When it rings, take five, one
+  more, or keep going. Leaving a task early is recorded as a fact, never a penalty.
+- **Breaks:** Take 5 pauses the clock; a quiet banner asks you back.
+- **End of day:** the review. What happened (facts only), what carries to tomorrow, and
+  tomorrow's six. A one-line thought if you want one.
+- **History and Stats:** the last 30 days, this week's numbers, a seven-day trend, the task
+  that has rolled over the most, and a plain-text or JSON export.
+
+## Menu bar
+
+Six lives in the menu bar during the day: `1/6 · Draft the Q2 playbook`, or the day's state
+when nothing is running. Left-click opens a small panel with the countdown and
+Done · Take 5 · Defer; right-click gives Open Six · Plan tomorrow · Pause · Review today ·
+Quit. Closing the window (Cmd+W) hides it there; the app keeps running until you quit
+(Cmd+Q). If your menu bar is crowded (a MacBook with a notch), choose the compact style in
+Settings.
+
+## Keyboard
+
+| Keys | Does |
+|---|---|
+| Space | Pause the active task (Take 5) or resume it |
+| Cmd+N | Open the planner for the next unplanned day |
+| Cmd+, | Settings |
+| Cmd+W | Hide the window to the menu bar |
+| Cmd+Q | Quit |
+
+## Privacy and data
+
+All data is one SQLite file at
+`~/Library/Application Support/com.nikhiljois.six/six.db`. Exports go to
+`~/Six/exports/`. Six makes no network requests of any kind. Deleting the app and that
+folder removes everything.
 
 ## Build from source
 
-You need Rust (stable), Node 20+, pnpm, and the Xcode Command Line Tools.
+You need Rust (stable, via rustup), Node 20+, pnpm, and the Xcode Command Line Tools.
 
 ```bash
 git clone https://github.com/nikhiljoisr/six.git && cd six
@@ -27,148 +94,28 @@ pnpm install
 pnpm build:mac
 ```
 
-The app lands in `src-tauri/target/release/bundle/macos/Six.app`. For a development run
-with live reload use `pnpm tauri dev` (notifications need the packaged app, banners still
-show). `cargo test` in `src-tauri` runs the domain tests.
-
-## Status
-
-| Step | What | State |
-|---|---|---|
-| 0 | Prerequisites | done |
-| 1 | Scaffold, schema, Rust core + tests | done |
-| 2 | Day, Planner, History views | done |
-| 3 | Timer, sessions, evening review | done |
-| 4 | macOS menu bar | done |
-| 4b | Pomodoro (agreed addition) | done |
-| 5 | Notifications, stats, settings | next |
-| 6 | Android + sync (on request) | |
-| 7 | Packaging | done |
-
-## Prerequisites (macOS)
-
-- Xcode Command Line Tools (`xcode-select --install`)
-- Rust stable via rustup (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
-- Node 20+ and pnpm (`brew install pnpm`)
-
-The Tauri CLI is a dev dependency; no global install is needed.
-
-## Run
+The app lands in `src-tauri/target/release/bundle/macos/Six.app`, signed ad-hoc with a
+stable identifier (macOS needs that before it will ask about notifications). For a
+universal build add the Intel target first:
 
 ```bash
-pnpm install
-pnpm tauri dev
+rustup target add x86_64-apple-darwin && pnpm build:mac:universal
 ```
 
-The first run compiles the Rust side (a few minutes); later runs are fast. The window is
-480×760 by default.
+`pnpm tauri dev` runs the app with live reload (in-app banners work; OS notifications need
+the packaged app). `cargo test` in `src-tauri` runs the Rust tests, which cover the whole
+state machine.
 
-## Test
+Releases are built by GitHub Actions on a macOS runner: push a tag like `v1.1.0` and a
+release with the zip appears.
 
-```bash
-cd src-tauri && cargo test
-```
+## Design notes
 
-Domain logic (`src-tauri/src/domain/`) is pure and fully unit-tested: the task state
-machine, overrides, day rollover, the six-task ceiling, timing, idle detection, streak,
-settings. The store (`src-tauri/src/db/`) is tested against an in-memory SQLite database
-with the real migrations. The frontend is type-checked only:
+Six is a Tauri v2 app: the Rust core owns every rule (the task state machine, timing,
+streaks, nudges, the menu bar) and the React view only renders what Rust reports. The
+original brief is in [`docs/SPEC.md`](docs/SPEC.md); every decision that departed from it
+is dated in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
-```bash
-pnpm typecheck
-```
+## Licence
 
-## Build
-
-```bash
-pnpm tauri build
-```
-
-Produces an ad-hoc-signed `Six.app` under `src-tauri/target/release/bundle/macos/`.
-(Packaging is finalised in Step 7.)
-
-## Pomodoro
-
-A pomodoro (25 minutes by default) runs on the active task and rings at its planned end;
-the active card and the popover count it down. A ring waits for a tap: a break ("Take 5",
-or a long break after every fourth), "One more", or "Keep going". Leaving the task early
-records the pomodoro as interrupted or finished early. Sessions remain the truth for focus
-time; pomodoros only annotate them. Settings keys: `pomodoro_enabled`, `pomodoro_minutes`,
-`long_break_minutes`, `pomodoros_before_long_break` (migration 0002).
-
-## Nudges
-
-Six silent nudges: evening ritual, check-in, break over, unplanned morning, end of day,
-and pomodoro done. Rust plans them from state; the OS shows them while the window is
-away, and in-app banners take over while it is focused. Every button, on the banner or
-the notification, runs the same `nudge_action` command. OS notifications work only from
-the packaged app (`pnpm tauri build` followed by `pnpm sign:adhoc`, which gives the ad-hoc
-signature a stable identifier), never from `pnpm tauri dev`.
-
-## Stats and export
-
-History → Stats: this week's facts, a seven-day trend, the most carried-over task, and
-"Export this week", which writes plain text and JSON to `~/Six/exports/`. Settings can
-export everything as JSON.
-
-## Menu bar (macOS)
-
-The tray title shows the active task (`1/6 · Draft Q2 playbook`) or the day's state
-(`Six · plan today`, `Six · 4/6`, `Six · done`, `Six · plan tomorrow`). Left-click opens the
-popover with Done · Take 5 · Defer; right-click opens the menu (Open Six · Plan tomorrow ·
-Pause/Resume · Review today · Quit Six). Closing the main window keeps Six running in the
-menu bar without a Dock icon; Quit is explicit.
-
-On a notched MacBook, macOS hides the newest status item when the bar is crowded, so the
-title may not appear until other menu bar items are removed (see docs/DECISIONS.md).
-
-## Build and install
-
-```bash
-pnpm build:mac
-```
-
-This runs `tauri build` (release, `.app` only) and then re-signs the bundle ad-hoc with
-the stable identifier `com.nikhiljois.six`, which macOS needs before it will show the
-notification permission prompt. The result is
-`src-tauri/target/release/bundle/macos/Six.app`. Copy it to `/Applications` (or run it
-from where it is) and open it once; allow notifications from Settings → Notifications.
-The app is never distributed, so ad-hoc signing is all it needs.
-
-## Where data lives
-
-| What | Where |
-|---|---|
-| Database | `~/Library/Application Support/com.nikhiljois.six/six.db` (SQLite, WAL mode) |
-| Exports | `~/Six/exports/` (Step 5) |
-
-Schema: `src-tauri/migrations/0001_init.sql`. Deleting the database file resets the app.
-
-## Layout
-
-```
-src/                 React + TypeScript frontend (renders the Rust snapshot, dispatches intents)
-  app/               views: Day, Planner, Review, History, Stats, Settings, TrayPopover
-  components/
-  store/             Zustand mirror of the snapshot
-  lib/               invoke wrappers, formatting helpers (no domain logic)
-src-tauri/
-  src/domain/        state machine, timing, streak, day boundaries, settings — pure, tested
-  src/db/            sqlx store over the tauri-plugin-sql pool
-  src/commands/      Tauri commands and the read model (snapshot)
-  src/scheduler/     notifications + rollover scheduling (Step 5)
-  src/tray/          macOS menu bar (Step 4)
-  migrations/        numbered SQL migrations
-docs/SPEC.md         the brief
-docs/DECISIONS.md    dated amendments and interpretations
-```
-
-## Commands exposed to the frontend
-
-Plans: `get_snapshot`, `get_day`, `get_range`, `get_carryover`, `draft_plan`, `lock_plan`, `edit_plan`.
-Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`, `get_elapsed`, `start_pomodoro`, `acknowledge_pomodoro`.
-Review: `get_review`, `trim_session`, `complete_review`. Stats: `get_streak`.
-Stats: `get_stats`, `export_range`, `export_all`. Nudges: `nudge_action`, `snooze`,
-`notification_status`, `request_notification_permission`, `get_app_info`. Settings:
-`get_settings`, `set_setting`. Window: `show_main`, `hide_popover`. Every mutation
-broadcasts `state_changed` with the full day snapshot and updates the macOS tray.
+MIT.

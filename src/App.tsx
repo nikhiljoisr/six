@@ -5,8 +5,10 @@ import { Planner } from "./app/Planner";
 import { Review } from "./app/Review";
 import { Settings } from "./app/Settings";
 import { Stats } from "./app/Stats";
+import { Welcome } from "./app/Welcome";
 import { Banner } from "./components/Banner";
 import { installNotificationActions } from "./lib/notifications";
+import { installShortcuts } from "./lib/shortcuts";
 import { installInteractionStamps } from "./lib/touch";
 import { useStore } from "./store";
 
@@ -19,8 +21,21 @@ export default function App() {
 
   useEffect(() => {
     void installNotificationActions();
-    return installInteractionStamps();
+    const stamps = installInteractionStamps();
+    const keys = installShortcuts();
+    return () => {
+      stamps();
+      keys();
+    };
   }, []);
+
+  if (snapshot && !snapshot.settings.onboarded) {
+    return (
+      <main className="mx-auto min-h-screen w-full max-w-md px-6">
+        <Welcome snapshot={snapshot} />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-6 pt-10">

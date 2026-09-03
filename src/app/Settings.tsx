@@ -85,6 +85,9 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Long break after">
           <NumberField value={s.pomodoros_before_long_break} min={1} max={12} onChange={(v) => set("pomodoros_before_long_break", v)} suffix="pomodoros" />
         </Row>
+        <Row label="Sound when a pomodoro or break ends" hint="Off by default. Six is otherwise silent.">
+          <Toggle value={s.sound_enabled} onChange={(v) => set("sound_enabled", v)} />
+        </Row>
       </Section>
 
       <Section title="Menu bar">

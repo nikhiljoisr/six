@@ -73,6 +73,8 @@ export interface Settings {
   long_break_minutes: number;
   pomodoros_before_long_break: number;
   tray_style: "full" | "compact";
+  sound_enabled: boolean;
+  onboarded: boolean;
 }
 
 export type Phase = "before_evening" | "after_evening";

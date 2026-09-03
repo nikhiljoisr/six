@@ -148,3 +148,23 @@ the pomodoro "foreground-only exactness on Android" note is moot.
 - App icon: a serif "6" on stone-50 with a hairline stone-200 border, generated from an
   SVG via `pnpm tauri icon`. Nothing else decorative.
 - Version 1.0.0. Minimum macOS 13.
+
+## 2026-09-03 — Public release polish (Nikhil's request)
+
+Assessed against the app as built; adjusted where the request assumed a different stack.
+- **Local-first:** already true. Migration 0003 drops the never-used `sync_queue` table and
+  the docs stop mentioning sync. A strict content security policy is set.
+- **Sound:** conflicts with SPEC §2 ("no sounds, ever"), so it is a Settings switch, off by
+  default: the system sound on the pomodoro-done and break-over notifications and a soft
+  synthesised two-note chime on the in-app banner. Nothing else ever sounds.
+- **Shortcuts:** Space toggles the active task between running and Take 5 (never while
+  typing); Cmd+N opens the planner for the next unplanned day, not a quick-capture box,
+  which would break the six ceiling; Cmd+, opens Settings; Cmd+W is the native Close
+  Window, which hides to the menu bar.
+- **Menu bar countdown:** already in the popover. A ticking title is ruled out by SPEC
+  §4.11 (state change only) and by crowded notched menu bars.
+- **Six ceiling, rollover, review, archive:** already built (Steps 1 to 3).
+- **First launch:** a two-screen guide, stored as the `onboarded` setting, with an optional
+  "Allow notifications" button, ending in the planner.
+- **Distribution:** audit found no personal paths, secrets or test data; the CI release is
+  now a universal binary; README rewritten for the public, with the Gatekeeper steps.

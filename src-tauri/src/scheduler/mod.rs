@@ -275,7 +275,7 @@ async fn os_sync(
                     continue;
                 }
                 let _ = notifications.cancel(vec![kind.id()]);
-                let shown = notifications
+                let builder = notifications
                     .builder()
                     .id(kind.id())
                     .title(&n.title)
@@ -285,9 +285,16 @@ async fn os_sync(
                         date: to_offset(n.due),
                         repeating: false,
                         allow_while_idle: true,
-                    })
-                    .show()
-                    .await;
+                    });
+                // Silent unless the user asked for a sound on timer transitions.
+                let timer_transition =
+                    matches!(kind, NudgeKind::PomodoroDone | NudgeKind::BreakOver);
+                let builder = if settings.sound_enabled && timer_transition {
+                    builder.sound("default")
+                } else {
+                    builder
+                };
+                let shown = builder.show().await;
                 match shown {
                     Ok(()) => {
                         next.insert(kind, fp);

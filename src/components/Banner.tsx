@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { api } from "../lib/api";
+import { chime } from "../lib/sound";
 import type { Nudge } from "../lib/types";
 import { useStore } from "../store";
 import { Button } from "./ui";
@@ -9,6 +11,10 @@ import { Button } from "./ui";
 export function Banner({ nudge }: { nudge: Nudge }) {
   const dispatch = useStore((s) => s.dispatch);
   const dismiss = useStore((s) => s.dismissNudge);
+  const sound = useStore((s) => s.snapshot?.settings.sound_enabled ?? false);
+  useEffect(() => {
+    if (sound && (nudge.kind === "pomodoro_done" || nudge.kind === "break_over")) chime();
+  }, [sound, nudge.kind, nudge.due]);
   const act = async (id: string) => {
     dismiss(nudge.kind);
     await dispatch(() => api.nudgeAction(nudge.kind, id));
