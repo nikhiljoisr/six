@@ -133,3 +133,18 @@ Implementation notes:
   permission request outright (UNErrorDomain 1) and shows no prompt. Re-signing the bundle
   with `--identifier com.nikhiljois.six` (see `pnpm sign:adhoc`) fixes it. Step 7 makes
   this part of packaging.
+
+## 2026-09-03 — Mac only (Nikhil's decision)
+
+Android and Supabase sync (SPEC §5.5, Step 6) are dropped. Six is a single-device macOS app.
+The `sync_queue` table from migration 0001 stays, empty and unused; `device_id` and
+`updated_at` stay on every row. The Settings screen no longer shows a Sync section, and
+the pomodoro "foreground-only exactness on Android" note is moot.
+
+## 2026-09-03 — Step 7 (packaging)
+
+- `pnpm build:mac` runs `tauri build` (release, `.app` only) then re-signs ad-hoc with the
+  stable identifier `com.nikhiljois.six`, which macOS notifications require.
+- App icon: a serif "6" on stone-50 with a hairline stone-200 border, generated from an
+  SVG via `pnpm tauri icon`. Nothing else decorative.
+- Version 1.0.0. Minimum macOS 13.

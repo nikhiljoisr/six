@@ -39,3 +39,6 @@ brief is `docs/SPEC.md`; it is the single source of truth, amended only by dated
 - Every piece of domain logic has tests (`cd src-tauri && cargo test`). Frontend: type-check only.
 - Verify library APIs against current docs before use.
 - If the brief is impossible or wrong in practice, say so and propose the smallest change. Never deviate silently.
+
+
+macOS only, single device: Android and Supabase sync were dropped on 3 Sep 2026.

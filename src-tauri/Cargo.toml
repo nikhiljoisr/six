@@ -1,6 +1,6 @@
 [package]
 name = "six"
-version = "0.1.0"
+version = "1.0.0"
 description = "Six — a personal Ivy Lee Method app"
 authors = ["Nikhil Jois"]
 edition = "2021"

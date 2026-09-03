@@ -15,7 +15,7 @@ tasks a day, one active at a time. The brief lives in [`docs/SPEC.md`](docs/SPEC
 | 4b | Pomodoro (agreed addition) | done |
 | 5 | Notifications, stats, settings | next |
 | 6 | Android + sync (on request) | |
-| 7 | Packaging | |
+| 7 | Packaging | done |
 
 ## Prerequisites (macOS)
 
@@ -93,6 +93,19 @@ menu bar without a Dock icon; Quit is explicit.
 
 On a notched MacBook, macOS hides the newest status item when the bar is crowded, so the
 title may not appear until other menu bar items are removed (see docs/DECISIONS.md).
+
+## Build and install
+
+```bash
+pnpm build:mac
+```
+
+This runs `tauri build` (release, `.app` only) and then re-signs the bundle ad-hoc with
+the stable identifier `com.nikhiljois.six`, which macOS needs before it will show the
+notification permission prompt. The result is
+`src-tauri/target/release/bundle/macos/Six.app`. Copy it to `/Applications` (or run it
+from where it is) and open it once; allow notifications from Settings → Notifications.
+The app is never distributed, so ad-hoc signing is all it needs.
 
 ## Where data lives
 

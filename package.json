@@ -1,7 +1,7 @@
 {
   "name": "six",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
-    "sign:adhoc": "codesign --force --deep --sign - --identifier com.nikhiljois.six src-tauri/target/release/bundle/macos/Six.app"
+    "sign:adhoc": "codesign --force --deep --sign - --identifier com.nikhiljois.six src-tauri/target/release/bundle/macos/Six.app",
+    "build:mac": "tauri build && pnpm sign:adhoc"
   },
   "dependencies": {
     "@choochmeque/tauri-plugin-notifications-api": "^0.4.6",

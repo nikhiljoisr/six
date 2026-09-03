@@ -113,10 +113,6 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         )}
       </Section>
 
-      <Section title="Sync">
-        <Row label="Status" hint="Not set up. Arrives with the Android build." />
-      </Section>
-
       <Section title="Data">
         <Row label="Export all data" hint={exported ?? (info ? `JSON, to ${info.exports_dir.replace(/^\/Users\/[^/]+/, "~")}.` : "")}>
           <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => void exportAll()}>
