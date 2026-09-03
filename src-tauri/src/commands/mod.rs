@@ -141,7 +141,9 @@ pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) 
         }
     }
     if let Some(mut day) = db::load_day(&state.pool, clock.today).await? {
-        if day.ensure_active(&ctx).is_some() {
+        let activated = day.ensure_active(&ctx).is_some();
+        let rang = day.settle_pomodoros(&ctx);
+        if activated || rang {
             db::save_day(&state.pool, &mut day).await?;
         }
     }

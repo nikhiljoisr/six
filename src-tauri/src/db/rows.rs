@@ -177,3 +177,42 @@ mod tests {
         assert!(parse_date("3/9/2026").is_err());
     }
 }
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct PomodoroRow {
+    pub id: String,
+    pub task_id: String,
+    pub session_id: Option<String>,
+    pub started_at: String,
+    pub planned_seconds: i64,
+    pub ended_at: Option<String>,
+    pub outcome: Option<String>,
+    pub acknowledged_at: Option<String>,
+    pub device_id: String,
+    pub updated_at: String,
+}
+
+impl TryFrom<PomodoroRow> for Pomodoro {
+    type Error = DbError;
+    fn try_from(r: PomodoroRow) -> Result<Self, DbError> {
+        let outcome = match r.outcome.as_deref() {
+            None => None,
+            Some(s) => Some(
+                PomodoroOutcome::parse(s)
+                    .ok_or_else(|| DbError::Corrupt(format!("unknown pomodoro outcome {s}")))?,
+            ),
+        };
+        Ok(Pomodoro {
+            id: r.id,
+            task_id: r.task_id,
+            session_id: r.session_id,
+            started_at: parse_ts(&r.started_at)?,
+            planned_seconds: r.planned_seconds,
+            ended_at: parse_opt_ts(r.ended_at.as_deref())?,
+            outcome,
+            acknowledged_at: parse_opt_ts(r.acknowledged_at.as_deref())?,
+            device_id: r.device_id,
+            updated_at: parse_ts(&r.updated_at)?,
+        })
+    }
+}

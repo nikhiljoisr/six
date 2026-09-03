@@ -58,6 +58,8 @@ pub fn run() {
             commands::tasks::set_note,
             commands::tasks::touch,
             commands::tasks::get_elapsed,
+            commands::tasks::start_pomodoro,
+            commands::tasks::acknowledge_pomodoro,
             commands::review::get_review,
             commands::review::trim_session,
             commands::review::complete_review,

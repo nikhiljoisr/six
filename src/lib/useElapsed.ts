@@ -1,19 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import type { PomodoroPhase } from "./types";
 import { useStore } from "../store";
 
 // The active card's clock. Nothing is counted here: once a second, while the window is
-// focused and visible, Rust is asked for the task's focus time (derived from session
-// timestamps) and the answer is displayed. Unfocused or hidden, nothing ticks.
+// focused and visible, Rust is asked for the task's focus time and pomodoro state
+// (derived from timestamps) and the answer is displayed. Unfocused or hidden, nothing
+// ticks. A ring is Rust's to notice; it broadcasts a new snapshot when one happens.
 
-export function useElapsed(taskId: string, initial: number, ticking: boolean): number {
-  const [seconds, setSeconds] = useState(initial);
+export interface Live {
+  seconds: number;
+  pomodoro: PomodoroPhase;
+  remaining: number;
+}
+
+export function useElapsed(taskId: string, initial: Live, ticking: boolean): Live {
+  const [live, setLive] = useState<Live>(initial);
   const mismatched = useRef(false);
 
   useEffect(() => {
-    setSeconds(initial);
+    setLive(initial);
     mismatched.current = false;
-  }, [initial, taskId]);
+  }, [initial.seconds, initial.pomodoro, initial.remaining, taskId]);
 
   useEffect(() => {
     if (!ticking) return;
@@ -24,7 +32,7 @@ export function useElapsed(taskId: string, initial: number, ticking: boolean): n
         const e = await api.getElapsed();
         if (stopped) return;
         if (e && e.task_id === taskId) {
-          setSeconds(e.focus_seconds);
+          setLive({ seconds: e.focus_seconds, pomodoro: e.pomodoro, remaining: e.pomodoro_remaining });
         } else {
           // The day moved on without us (rollover, or a change from the menu bar).
           mismatched.current = true;
@@ -45,5 +53,5 @@ export function useElapsed(taskId: string, initial: number, ticking: boolean): n
     };
   }, [taskId, ticking]);
 
-  return seconds;
+  return live;
 }

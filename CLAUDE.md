@@ -11,7 +11,7 @@ brief is `docs/SPEC.md`; it is the single source of truth, amended only by dated
 - The evening ritual (planning tomorrow's six) is the heart; it is the primary action once the evening hour passes.
 - Nothing makes noise. No sounds. Silent banners only.
 - Facts, not gamification. The only counter is the planning streak.
-- Timers measure, they don't nag. Focus time exists for the evening reflection.
+- Timers measure, they don't nag. Pomodoro (Nikhil's addition, on by default) is a rhythm layer over sessions: a countdown on the active card, a silent ring answered by a tap; interruptions are recorded as facts, never penalised. Focus time exists for the evening reflection.
 - Offline first. Sync (Phase 2) never blocks.
 - Boring technology. Solo maintainer; every choice must still make sense in a year.
 - When in doubt, remove rather than add.

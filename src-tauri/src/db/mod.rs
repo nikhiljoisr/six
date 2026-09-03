@@ -29,12 +29,20 @@ pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
 /// The migrations in the form `tauri-plugin-sql` expects.
 pub fn migrations() -> Vec<tauri_plugin_sql::Migration> {
-    vec![tauri_plugin_sql::Migration {
-        version: 1,
-        description: "init",
-        sql: include_str!("../../migrations/0001_init.sql"),
-        kind: tauri_plugin_sql::MigrationKind::Up,
-    }]
+    vec![
+        tauri_plugin_sql::Migration {
+            version: 1,
+            description: "init",
+            sql: include_str!("../../migrations/0001_init.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 2,
+            description: "pomodoro",
+            sql: include_str!("../../migrations/0002_pomodoro.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+    ]
 }
 
 /// The database URL the plugin preloads (see `tauri.conf.json` → plugins.sql.preload).

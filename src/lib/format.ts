@@ -30,3 +30,10 @@ export function hourLabel(hour: number): string {
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   return `${h12} ${hour < 12 ? "AM" : "PM"}`;
 }
+
+/** A countdown as m:ss, for the pomodoro line. */
+export function countdown(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}

@@ -69,9 +69,9 @@ differs from it, or that it left open, is recorded here.
   "Review today" (enabled when today's list is locked and unreviewed), "Plan tomorrow" /
   "Edit tomorrow".
 
-## Planned — Step 4b (Pomodoro), agreed 2026-09-03
+## 2026-09-03 — Step 4b (Pomodoro), Nikhil's addition
 
-Nikhil's addition. On by default with one switch to turn it off; after a break the next
+Agreed terms. On by default with one switch to turn it off; after a break the next
 pomodoro waits for a tap; interruptions are recorded as facts, never voided or penalised;
 on Android the timer is exact only while the app is in the foreground (no exact-alarm
 permission). Countdown on the active card and in the popover, never in the tray title.
@@ -87,3 +87,19 @@ Pomodoros annotate sessions; sessions remain the single truth for focus time.
 - **Popover focus grace.** The status item takes key focus back for an instant after the
   click that opens the popover; a blur within 600 ms of showing is ignored and focus is
   re-asserted once after 150 ms. Without this the popover closed itself immediately.
+
+Implementation notes:
+- One pomodoro at a time, only on the active task. It rings at `started_at + planned`
+  exactly, whenever the app next looks (every read settles rings, like the rollover; the
+  elapsed poll broadcasts the change while the window is focused). Step 5 adds the banner.
+- Leaving the active slot ends the pomodoro: `finished_early` on completion, `interrupted`
+  for a break, defer, skip-ahead, day end, or an idle trim, unless it had already rung,
+  in which case it is `completed` at its planned end and the transition answers the ring.
+- "Keep going" answers a ring without starting anything; "One more" starts the next and
+  answers the last; a break pauses the task as before. Nothing starts by itself.
+- The long break is offered after every `pomodoros_before_long_break` completed
+  pomodoros of the day, counted across tasks.
+- The tray title is unchanged (no countdown, no count): it is already too long for a
+  crowded notched menu bar. The popover carries the countdown and the dots.
+- Settings: `pomodoro_enabled` (1), `pomodoro_minutes` (25), `long_break_minutes` (15),
+  `pomodoros_before_long_break` (4). The switch lands in the Settings screen in Step 5.

@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::model::*;
+use super::pomodoro::{Pomodoro, PomodoroOutcome, PomodoroPhase};
 use super::timing::{self, IdleFlag};
 
 /// Everything a transition needs from the outside world.
@@ -76,6 +77,10 @@ pub enum DomainError {
     AlreadyReviewed,
     #[error("the trim must fall inside the session")]
     InvalidTrim,
+    #[error("a pomodoro is already running")]
+    PomodoroRunning,
+    #[error("a pomodoro needs a positive length")]
+    InvalidPomodoroLength,
 }
 
 impl DomainError {
@@ -95,6 +100,8 @@ impl DomainError {
             DomainError::NotToday => "not_today",
             DomainError::AlreadyReviewed => "already_reviewed",
             DomainError::InvalidTrim => "invalid_trim",
+            DomainError::PomodoroRunning => "pomodoro_running",
+            DomainError::InvalidPomodoroLength => "invalid_pomodoro_length",
         }
     }
 }
@@ -152,6 +159,8 @@ pub struct Day {
     pub tasks: Vec<Task>,
     /// Every session of every task on this plan.
     pub sessions: Vec<Session>,
+    /// Every pomodoro of every task on this plan.
+    pub pomodoros: Vec<Pomodoro>,
     /// Events produced since the last save; the store appends and clears them.
     pub pending_events: Vec<Event>,
 }
@@ -187,12 +196,18 @@ fn clean_inputs(inputs: Vec<TaskInput>) -> Result<Vec<TaskInput>, DomainError> {
 
 impl Day {
     /// Rebuild an aggregate from stored rows.
-    pub fn from_rows(plan: Plan, mut tasks: Vec<Task>, sessions: Vec<Session>) -> Self {
+    pub fn from_rows(
+        plan: Plan,
+        mut tasks: Vec<Task>,
+        sessions: Vec<Session>,
+        pomodoros: Vec<Pomodoro>,
+    ) -> Self {
         tasks.sort_by_key(|t| t.position);
         Self {
             plan,
             tasks,
             sessions,
+            pomodoros,
             pending_events: Vec::new(),
         }
     }
@@ -230,6 +245,7 @@ impl Day {
             },
             tasks,
             sessions: Vec::new(),
+            pomodoros: Vec::new(),
             pending_events: Vec::new(),
         })
     }
@@ -366,6 +382,7 @@ impl Day {
         }
         // Their rows go with them (the store cascades); drop them from the aggregate too.
         self.sessions.retain(|s| kept.contains(&s.task_id));
+        self.pomodoros.retain(|s| kept.contains(&s.task_id));
         self.tasks = new_tasks;
         self.touch_plan(ctx);
         if self.plan.is_locked() {
@@ -401,12 +418,17 @@ impl Day {
             return 0;
         }
         let mut closed = 0;
+        let mut ended: Vec<(String, DateTime<Utc>)> = Vec::new();
         for s in self.sessions.iter_mut().filter(|s| s.is_open()) {
             let end = day_end.max(s.started_at).min(ctx.now);
             s.ended_at = Some(end);
             s.ended_reason = Some(EndedReason::DayEnd);
             s.updated_at = ctx.now;
+            ended.push((s.task_id.clone(), end));
             closed += 1;
+        }
+        for (task_id, end) in ended {
+            self.end_pomodoros_for(&task_id, end, PomodoroOutcome::Interrupted, ctx);
         }
         closed
     }
@@ -481,6 +503,7 @@ impl Day {
             s.updated_at = ctx.now;
         }
         if was_open {
+            self.end_pomodoros_for(&task_id, new_end, PomodoroOutcome::Interrupted, ctx);
             self.start_session(&task_id, ctx);
         }
         Ok(())
@@ -669,6 +692,154 @@ impl Day {
 
     // ----- internals ---------------------------------------------------------------
 
+    // ----- pomodoro ---------------------------------------------------------------------
+
+    /// The running pomodoro, if any (at most one per day).
+    pub fn open_pomodoro(&self) -> Option<&Pomodoro> {
+        self.pomodoros.iter().find(|p| p.is_open())
+    }
+
+    /// Start a pomodoro on the active task. Rings that are due are settled first; a
+    /// pomodoro still running refuses a second one. Starting the next answers any ring.
+    pub fn start_pomodoro(
+        &mut self,
+        task_id: &str,
+        planned_seconds: i64,
+        ctx: &Ctx,
+    ) -> Result<(), DomainError> {
+        if planned_seconds <= 0 {
+            return Err(DomainError::InvalidPomodoroLength);
+        }
+        let idx = self.index_of(task_id)?;
+        let status = self.tasks[idx].status;
+        if status != TaskStatus::Active {
+            return Err(DomainError::InvalidTransition {
+                status,
+                action: "start a pomodoro",
+            });
+        }
+        self.settle_pomodoros(ctx);
+        if self.open_pomodoro().is_some() {
+            return Err(DomainError::PomodoroRunning);
+        }
+        self.acknowledge_pomodoro(task_id, ctx)?;
+        let session_id = self.open_session().map(|s| s.id.clone());
+        self.pomodoros.push(Pomodoro {
+            id: new_id(),
+            task_id: task_id.to_string(),
+            session_id,
+            started_at: ctx.now,
+            planned_seconds,
+            ended_at: None,
+            outcome: None,
+            acknowledged_at: None,
+            device_id: ctx.device_id.to_string(),
+            updated_at: ctx.now,
+        });
+        Ok(())
+    }
+
+    /// Close every running pomodoro whose planned end has passed, exactly at that end.
+    /// Returns whether anything rang. Called on every read, like the rollover.
+    pub fn settle_pomodoros(&mut self, ctx: &Ctx) -> bool {
+        let mut rang = false;
+        for p in self.pomodoros.iter_mut().filter(|p| p.is_open()) {
+            let end = p.planned_end();
+            if end <= ctx.now {
+                p.ended_at = Some(end);
+                p.outcome = Some(PomodoroOutcome::Completed);
+                p.updated_at = ctx.now;
+                rang = true;
+            }
+        }
+        rang
+    }
+
+    /// "Keep going": answer the ring without a break or another pomodoro.
+    pub fn acknowledge_pomodoro(&mut self, task_id: &str, ctx: &Ctx) -> Result<(), DomainError> {
+        self.index_of(task_id)?;
+        self.settle_pomodoros(ctx);
+        for p in self
+            .pomodoros
+            .iter_mut()
+            .filter(|p| p.task_id == task_id && p.is_awaiting_ack())
+        {
+            p.acknowledged_at = Some(ctx.now);
+            p.updated_at = ctx.now;
+        }
+        Ok(())
+    }
+
+    /// Completed pomodoros, for one task or the whole day.
+    pub fn pomodoros_completed(&self, task_id: Option<&str>) -> usize {
+        self.pomodoros
+            .iter()
+            .filter(|p| p.outcome == Some(PomodoroOutcome::Completed))
+            .filter(|p| task_id.is_none_or(|id| p.task_id == id))
+            .count()
+    }
+
+    /// The pomodoro phase of the active task at `now`, and the pomodoro it refers to.
+    pub fn pomodoro_state(&self, now: DateTime<Utc>) -> (PomodoroPhase, Option<&Pomodoro>) {
+        let Some(task) = self.current_task() else {
+            return (PomodoroPhase::Idle, None);
+        };
+        if task.status != TaskStatus::Active {
+            return (PomodoroPhase::Idle, None);
+        }
+        if let Some(p) = self
+            .pomodoros
+            .iter()
+            .find(|p| p.is_open() && p.task_id == task.id)
+        {
+            let phase = if p.planned_end() > now {
+                PomodoroPhase::Running
+            } else {
+                PomodoroPhase::Done
+            };
+            return (phase, Some(p));
+        }
+        match self.pomodoros.iter().rev().find(|p| p.task_id == task.id) {
+            Some(p) if p.is_awaiting_ack() => (PomodoroPhase::Done, Some(p)),
+            _ => (PomodoroPhase::Idle, None),
+        }
+    }
+
+    /// End the task's running pomodoro at `at`: completed if the planned end had passed
+    /// (at that end), otherwise with `outcome`. A rung pomodoro counts as answered by
+    /// the transition.
+    fn end_pomodoros_for(
+        &mut self,
+        task_id: &str,
+        at: DateTime<Utc>,
+        outcome: PomodoroOutcome,
+        ctx: &Ctx,
+    ) {
+        for p in self
+            .pomodoros
+            .iter_mut()
+            .filter(|p| p.task_id == task_id && p.is_open())
+        {
+            let planned_end = p.planned_end();
+            if planned_end <= at {
+                p.ended_at = Some(planned_end);
+                p.outcome = Some(PomodoroOutcome::Completed);
+            } else {
+                p.ended_at = Some(at.max(p.started_at));
+                p.outcome = Some(outcome);
+            }
+            p.updated_at = ctx.now;
+        }
+        for p in self
+            .pomodoros
+            .iter_mut()
+            .filter(|p| p.task_id == task_id && p.is_awaiting_ack())
+        {
+            p.acknowledged_at = Some(at);
+            p.updated_at = ctx.now;
+        }
+    }
+
     fn index_of(&self, task_id: &str) -> Result<usize, DomainError> {
         self.tasks
             .iter()
@@ -712,7 +883,7 @@ impl Day {
         at: DateTime<Utc>,
         ctx: &Ctx,
     ) -> bool {
-        match self
+        let closed = match self
             .sessions
             .iter_mut()
             .find(|s| s.task_id == task_id && s.is_open())
@@ -724,7 +895,15 @@ impl Day {
                 true
             }
             None => false,
-        }
+        };
+        // Leaving the active slot ends any pomodoro on the task: finished early if the
+        // task is done, interrupted otherwise (unless it had already rung).
+        let outcome = match reason {
+            EndedReason::Done => PomodoroOutcome::FinishedEarly,
+            _ => PomodoroOutcome::Interrupted,
+        };
+        self.end_pomodoros_for(task_id, at, outcome, ctx);
+        closed
     }
 
     /// Whatever holds the slot goes back to planned; its running session is superseded.
@@ -829,6 +1008,36 @@ impl Day {
                 if s.started_at < o_end && other.started_at < s_end {
                     return Err(format!("sessions {} and {} overlap", s.id, other.id));
                 }
+            }
+        }
+        let open_pomodoros: Vec<&Pomodoro> =
+            self.pomodoros.iter().filter(|p| p.is_open()).collect();
+        if open_pomodoros.len() > 1 {
+            return Err(format!(
+                "{} pomodoros running at once",
+                open_pomodoros.len()
+            ));
+        }
+        for p in &self.pomodoros {
+            if !self.tasks.iter().any(|t| t.id == p.task_id) {
+                return Err(format!("pomodoro {} belongs to no task on this plan", p.id));
+            }
+            if p.is_open() != p.outcome.is_none() {
+                return Err(format!("pomodoro {} outcome disagrees with ended_at", p.id));
+            }
+            if let Some(end) = p.ended_at {
+                if end < p.started_at {
+                    return Err(format!("pomodoro {} ends before it starts", p.id));
+                }
+            }
+        }
+        if let Some(p) = open_pomodoros.first() {
+            let task = self.tasks.iter().find(|t| t.id == p.task_id);
+            if task.map(|t| t.status) != Some(TaskStatus::Active) {
+                return Err(format!(
+                    "pomodoro {} runs on a task that is not active",
+                    p.id
+                ));
             }
         }
         Ok(())

@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::{housekeeping, read_clock, AppState, CmdResult};
 use crate::db;
-use crate::domain::{streak, Day, Settings, TaskInput, TaskStatus};
+use crate::domain::{streak, Day, PomodoroPhase, Settings, TaskInput, TaskStatus};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskView {
@@ -20,6 +20,8 @@ pub struct TaskView {
     pub focus_seconds: i64,
     /// Start of the running session, if this task is active.
     pub session_started_at: Option<DateTime<Utc>>,
+    /// Pomodoros that ran to their planned end on this task.
+    pub pomodoros_completed: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -35,7 +37,70 @@ pub struct PlanView {
     pub done_count: usize,
     pub all_done: bool,
     pub total_focus_seconds: i64,
+    pub pomodoros_completed: usize,
     pub tasks: Vec<TaskView>,
+}
+
+/// The pomodoro layer as the active card and the popover show it.
+#[derive(Debug, Clone, Serialize)]
+pub struct PomodoroView {
+    pub enabled: bool,
+    pub minutes: u32,
+    pub long_break_minutes: u32,
+    pub set_size: u32,
+    pub phase: PomodoroPhase,
+    pub task_id: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub ends_at: Option<DateTime<Utc>>,
+    pub remaining_seconds: i64,
+    pub completed_today: usize,
+    pub completed_for_task: usize,
+    /// The break after this ring should be the long one (a set just finished).
+    pub long_break_next: bool,
+}
+
+impl PomodoroView {
+    pub fn from_day(day: Option<&Day>, settings: &Settings, now: DateTime<Utc>) -> Self {
+        let base = Self {
+            enabled: settings.pomodoro_enabled,
+            minutes: settings.pomodoro_minutes,
+            long_break_minutes: settings.long_break_minutes,
+            set_size: settings.pomodoros_before_long_break.max(1),
+            phase: PomodoroPhase::Idle,
+            task_id: None,
+            started_at: None,
+            ends_at: None,
+            remaining_seconds: 0,
+            completed_today: 0,
+            completed_for_task: 0,
+            long_break_next: false,
+        };
+        let Some(day) = day else {
+            return base;
+        };
+        let completed_today = day.pomodoros_completed(None);
+        let (phase, pomodoro) = day.pomodoro_state(now);
+        let task_id = day
+            .current_task()
+            .filter(|t| t.status == TaskStatus::Active)
+            .map(|t| t.id.clone());
+        let completed_for_task = task_id
+            .as_deref()
+            .map(|id| day.pomodoros_completed(Some(id)))
+            .unwrap_or(0);
+        let set = usize::try_from(base.set_size).unwrap_or(4);
+        Self {
+            phase,
+            task_id,
+            started_at: pomodoro.map(|p| p.started_at),
+            ends_at: pomodoro.map(|p| p.planned_end()),
+            remaining_seconds: pomodoro.map(|p| p.remaining_seconds(now)).unwrap_or(0),
+            completed_today,
+            completed_for_task,
+            long_break_next: completed_today > 0 && completed_today % set == 0,
+            ..base
+        }
+    }
 }
 
 impl PlanView {
@@ -54,6 +119,7 @@ impl PlanView {
                 completed_at: t.completed_at,
                 focus_seconds: day.focus_seconds(&t.id, now),
                 session_started_at: open.filter(|s| s.task_id == t.id).map(|s| s.started_at),
+                pomodoros_completed: day.pomodoros_completed(Some(&t.id)),
             })
             .collect();
         Self {
@@ -68,6 +134,7 @@ impl PlanView {
             done_count: day.done_count(),
             all_done: day.all_done(),
             total_focus_seconds: day.total_focus_seconds(now),
+            pomodoros_completed: day.pomodoros_completed(None),
             tasks,
         }
     }
@@ -99,6 +166,8 @@ pub struct DaySnapshot {
     pub tomorrow_plan: Option<PlanView>,
     /// What would roll into the next unplanned list (today's if unplanned, else tomorrow's).
     pub carryover_preview: Option<CarryoverPreview>,
+    /// The pomodoro layer for today's active task.
+    pub pomodoro: PomodoroView,
 }
 
 /// Carryover for a list dated `date`: the most recent locked list before it.
@@ -139,6 +208,7 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
         None
     };
 
+    let pomodoro = PomodoroView::from_day(today_day.as_ref(), &settings, clock.now);
     Ok(DaySnapshot {
         today,
         tomorrow,
@@ -157,5 +227,6 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
             .as_ref()
             .map(|d| PlanView::from_day(d, clock.now, today)),
         carryover_preview,
+        pomodoro,
     })
 }

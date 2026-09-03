@@ -16,6 +16,9 @@ const TASK_COLS: &str =
 const SESSION_COLS: &str =
     "id, task_id, started_at, ended_at, ended_reason, last_interaction_at, device_id, updated_at";
 const EVENT_COLS: &str = "id, task_id, plan_id, kind, occurred_at, device_id";
+const POMODORO_COLS: &str =
+    "id, task_id, session_id, started_at, planned_seconds, ended_at, outcome, \
+                             acknowledged_at, device_id, updated_at";
 
 // ----- loading -------------------------------------------------------------------------
 
@@ -107,7 +110,18 @@ async fn assemble(pool: &Pool, row: PlanRow) -> DbResult<Day> {
         .into_iter()
         .map(Session::try_from)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Day::from_rows(plan, tasks, sessions))
+    let pomodoros_sql = "SELECT p.id, p.task_id, p.session_id, p.started_at, p.planned_seconds, \
+                         p.ended_at, p.outcome, p.acknowledged_at, p.device_id, p.updated_at \
+                         FROM pomodoros p JOIN tasks t ON t.id = p.task_id WHERE t.plan_id = ? \
+                         ORDER BY p.started_at, p.id";
+    let pomodoros = sqlx::query_as::<_, PomodoroRow>(pomodoros_sql)
+        .bind(&plan.id)
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(Pomodoro::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Day::from_rows(plan, tasks, sessions, pomodoros))
 }
 
 // ----- saving --------------------------------------------------------------------------
@@ -144,6 +158,9 @@ pub async fn save_day(pool: &Pool, day: &mut Day) -> DbResult<()> {
     }
     for session in &day.sessions {
         upsert_session(&mut tx, session).await?;
+    }
+    for pomodoro in &day.pomodoros {
+        upsert_pomodoro(&mut tx, pomodoro).await?;
     }
     for event in &day.pending_events {
         insert_event(&mut tx, event).await?;
@@ -215,6 +232,31 @@ async fn upsert_session(tx: &mut Transaction<'_, Sqlite>, s: &Session) -> DbResu
         .bind(fmt_opt_ts(s.last_interaction_at))
         .bind(&s.device_id)
         .bind(fmt_ts(s.updated_at))
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}
+
+async fn upsert_pomodoro(tx: &mut Transaction<'_, Sqlite>, p: &Pomodoro) -> DbResult<()> {
+    let sql = format!(
+        "INSERT INTO pomodoros ({POMODORO_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         ON CONFLICT(id) DO UPDATE SET task_id = excluded.task_id, session_id = excluded.session_id, \
+         started_at = excluded.started_at, planned_seconds = excluded.planned_seconds, \
+         ended_at = excluded.ended_at, outcome = excluded.outcome, \
+         acknowledged_at = excluded.acknowledged_at, device_id = excluded.device_id, \
+         updated_at = excluded.updated_at"
+    );
+    sqlx::query(&sql)
+        .bind(&p.id)
+        .bind(&p.task_id)
+        .bind(&p.session_id)
+        .bind(fmt_ts(p.started_at))
+        .bind(p.planned_seconds)
+        .bind(fmt_opt_ts(p.ended_at))
+        .bind(p.outcome.map(PomodoroOutcome::as_str))
+        .bind(fmt_opt_ts(p.acknowledged_at))
+        .bind(&p.device_id)
+        .bind(fmt_ts(p.updated_at))
         .execute(&mut **tx)
         .await?;
     Ok(())

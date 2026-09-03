@@ -160,6 +160,7 @@ function WhatHappened({
       <h1 className="mt-6 font-serif text-3xl font-normal text-stone-900">What happened</h1>
       <p className="mt-3 text-[15px] leading-relaxed text-stone-900">
         {plan.done_count} of {plan.task_count} done. {top} {duration(plan.total_focus_seconds)} focused.{overrides}
+        {plan.pomodoros_completed > 0 && ` ${plan.pomodoros_completed} ${plan.pomodoros_completed === 1 ? "pomodoro" : "pomodoros"}.`}
       </p>
 
       <ol className="mt-6 space-y-2">

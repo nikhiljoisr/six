@@ -1,6 +1,7 @@
 import { duration } from "../lib/format";
-import type { TaskView } from "../lib/types";
+import type { PomodoroView, TaskView } from "../lib/types";
 import { useElapsed } from "../lib/useElapsed";
+import { breakLabel, initialLive, PomodoroLine } from "./Pomodoro";
 import { Button, Numeral } from "./ui";
 
 interface Actions {
@@ -14,17 +15,18 @@ interface Actions {
 
 interface Props extends Actions {
   task: TaskView;
+  pomodoro: PomodoroView;
   /** True while an earlier task is still unfinished, so starting this one breaks order. */
   isAhead: boolean;
   /** Undo and starting are only offered on today's list. */
   isToday: boolean;
 }
 
-export function TaskCard({ task, isAhead, isToday, ...on }: Props) {
+export function TaskCard({ task, pomodoro, isAhead, isToday, ...on }: Props) {
   switch (task.status) {
     case "active":
     case "paused":
-      return <CurrentCard task={task} {...on} />;
+      return <CurrentCard task={task} pomodoro={pomodoro} {...on} />;
     case "done":
       return (
         <CompactCard tone="done" task={task}>
@@ -72,9 +74,17 @@ export function TaskCard({ task, isAhead, isToday, ...on }: Props) {
   }
 }
 
-function CurrentCard({ task, onComplete, onTakeFive, onResume, onDefer }: { task: TaskView } & Actions) {
+function CurrentCard({
+  task,
+  pomodoro,
+  onComplete,
+  onTakeFive,
+  onResume,
+  onDefer,
+}: { task: TaskView; pomodoro: PomodoroView } & Actions) {
   const paused = task.status === "paused";
-  const seconds = useElapsed(task.id, task.focus_seconds, !paused);
+  const live = useElapsed(task.id, initialLive(task, pomodoro), !paused);
+  const seconds = live.seconds;
   return (
     <div className="rounded-card border-2 border-stone-900 bg-white px-5 py-5 transition-opacity duration-200">
       <div className="flex gap-4">
@@ -86,6 +96,7 @@ function CurrentCard({ task, onComplete, onTakeFive, onResume, onDefer }: { task
             {duration(seconds)}
             {paused && <span className="text-stone-400"> · paused</span>}
           </div>
+          <PomodoroLine task={task} pomodoro={pomodoro} phase={live.pomodoro} remaining={live.remaining} paused={paused} />
         </div>
       </div>
       {paused ? (
@@ -100,7 +111,7 @@ function CurrentCard({ task, onComplete, onTakeFive, onResume, onDefer }: { task
       <div className="mt-2 flex items-center justify-center gap-8">
         {!paused && (
           <Button variant="link" onClick={() => onTakeFive?.(task)}>
-            Take 5
+            {pomodoro.enabled && live.pomodoro === "done" ? breakLabel(pomodoro) : "Take 5"}
           </Button>
         )}
         <Button variant="link" onClick={() => onDefer?.(task)}>

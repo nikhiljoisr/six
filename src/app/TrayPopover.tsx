@@ -4,7 +4,8 @@ import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
 import { duration } from "../lib/format";
 import { useElapsed } from "../lib/useElapsed";
-import type { DaySnapshot, PlanView, TaskView } from "../lib/types";
+import type { DaySnapshot, PlanView, PomodoroView, TaskView } from "../lib/types";
+import { breakLabel, initialLive, PomodoroLine } from "../components/Pomodoro";
 import { useStore, type View } from "../store";
 
 // The menu bar popover (SPEC §4.11): about 320×220, anchored to the tray. The active
@@ -34,7 +35,7 @@ export function TrayPopover() {
   return (
     <div className="flex h-screen flex-col border border-stone-200 bg-stone-50 px-5 pb-4 pt-5 select-none">
       {snapshot && plan && current ? (
-        <Current task={current} />
+        <Current task={current} pomodoro={snapshot.pomodoro} />
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
       )}
@@ -56,10 +57,11 @@ export function TrayPopover() {
   );
 }
 
-function Current({ task }: { task: TaskView }) {
+function Current({ task, pomodoro }: { task: TaskView; pomodoro: PomodoroView }) {
   const dispatch = useStore((s) => s.dispatch);
   const paused = task.status === "paused";
-  const seconds = useElapsed(task.id, task.focus_seconds, !paused);
+  const live = useElapsed(task.id, initialLive(task, pomodoro), !paused);
+  const seconds = live.seconds;
   return (
     <div>
       <div className="flex items-start gap-3">
@@ -70,9 +72,10 @@ function Current({ task }: { task: TaskView }) {
             {duration(seconds)}
             {paused && <span className="text-stone-400"> · paused</span>}
           </div>
+          <PomodoroLine task={task} pomodoro={pomodoro} phase={live.pomodoro} remaining={live.remaining} paused={paused} compact />
         </div>
       </div>
-      <div className="mt-4 flex gap-2">
+      <div className="mt-3 flex gap-2">
         <Button className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.complete(task.id))}>
           Done
         </Button>
@@ -82,7 +85,7 @@ function Current({ task }: { task: TaskView }) {
           </Button>
         ) : (
           <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
-            Take 5
+            {pomodoro.enabled && live.pomodoro === "done" ? breakLabel(pomodoro) : "Take 5"}
           </Button>
         )}
         <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.defer(task.id))}>

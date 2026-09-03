@@ -12,8 +12,8 @@ tasks a day, one active at a time. The brief lives in [`docs/SPEC.md`](docs/SPEC
 | 2 | Day, Planner, History views | done |
 | 3 | Timer, sessions, evening review | done |
 | 4 | macOS menu bar | done |
-| 4b | Pomodoro (agreed addition) | next |
-| 5 | Notifications, stats, settings | |
+| 4b | Pomodoro (agreed addition) | done |
+| 5 | Notifications, stats, settings | next |
 | 6 | Android + sync (on request) | |
 | 7 | Packaging | |
 
@@ -59,6 +59,15 @@ pnpm tauri build
 Produces an ad-hoc-signed `Six.app` under `src-tauri/target/release/bundle/macos/`.
 (Packaging is finalised in Step 7.)
 
+## Pomodoro
+
+A pomodoro (25 minutes by default) runs on the active task and rings at its planned end;
+the active card and the popover count it down. A ring waits for a tap: a break ("Take 5",
+or a long break after every fourth), "One more", or "Keep going". Leaving the task early
+records the pomodoro as interrupted or finished early. Sessions remain the truth for focus
+time; pomodoros only annotate them. Settings keys: `pomodoro_enabled`, `pomodoro_minutes`,
+`long_break_minutes`, `pomodoros_before_long_break` (migration 0002).
+
 ## Menu bar (macOS)
 
 The tray title shows the active task (`1/6 · Draft Q2 playbook`) or the day's state
@@ -101,7 +110,7 @@ docs/DECISIONS.md    dated amendments and interpretations
 ## Commands exposed to the frontend
 
 Plans: `get_snapshot`, `get_day`, `get_range`, `get_carryover`, `draft_plan`, `lock_plan`, `edit_plan`.
-Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`, `get_elapsed`.
+Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`, `get_elapsed`, `start_pomodoro`, `acknowledge_pomodoro`.
 Review: `get_review`, `trim_session`, `complete_review`. Stats: `get_streak`.
 Settings: `get_settings`, `set_setting`. Window: `show_main`, `hide_popover`. Every mutation
 broadcasts `state_changed` with the full day snapshot and updates the macOS tray.

@@ -14,6 +14,7 @@ export interface TaskView {
   focus_seconds: number;
   /** Start of the running session, if this task is active. */
   session_started_at: string | null;
+  pomodoros_completed: number;
 }
 
 export interface PlanView {
@@ -28,7 +29,26 @@ export interface PlanView {
   done_count: number;
   all_done: boolean;
   total_focus_seconds: number;
+  pomodoros_completed: number;
   tasks: TaskView[];
+}
+
+export type PomodoroPhase = "idle" | "running" | "done";
+
+/** The pomodoro layer for today's active task, as Rust reports it. */
+export interface PomodoroView {
+  enabled: boolean;
+  minutes: number;
+  long_break_minutes: number;
+  set_size: number;
+  phase: PomodoroPhase;
+  task_id: string | null;
+  started_at: string | null;
+  ends_at: string | null;
+  remaining_seconds: number;
+  completed_today: number;
+  completed_for_task: number;
+  long_break_next: boolean;
 }
 
 export interface TaskInput {
@@ -48,6 +68,10 @@ export interface Settings {
   checkin_minutes: number;
   break_minutes: number;
   day_start_hour: number;
+  pomodoro_enabled: boolean;
+  pomodoro_minutes: number;
+  long_break_minutes: number;
+  pomodoros_before_long_break: number;
 }
 
 export type Phase = "before_evening" | "after_evening";
@@ -62,6 +86,7 @@ export interface DaySnapshot {
   today_plan: PlanView | null;
   tomorrow_plan: PlanView | null;
   carryover_preview: CarryoverPreview | null;
+  pomodoro: PomodoroView;
 }
 
 export interface IdleFlag {
@@ -87,6 +112,8 @@ export interface Elapsed {
   task_id: string;
   status: TaskStatus;
   focus_seconds: number;
+  pomodoro: PomodoroPhase;
+  pomodoro_remaining: number;
 }
 
 export type Decision = "carry" | "drop";

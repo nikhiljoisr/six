@@ -57,6 +57,7 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
               <li key={task.id}>
                 <TaskCard
                   task={task}
+                  pomodoro={snapshot.pomodoro}
                   isToday={plan.is_today}
                   isAhead={plan.tasks.some((t) => t.position < task.position && isOpen(t))}
                   onStart={start}

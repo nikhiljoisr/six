@@ -5,6 +5,7 @@
 pub mod day;
 pub mod model;
 pub mod plan;
+pub mod pomodoro;
 pub mod settings;
 pub mod streak;
 pub mod timing;
@@ -15,4 +16,5 @@ mod tests;
 
 pub use model::*;
 pub use plan::{Ctx, Day, DomainError, PauseReason, ReviewDecision, TaskInput};
+pub use pomodoro::{Pomodoro, PomodoroOutcome, PomodoroPhase};
 pub use settings::{Settings, SettingsError};

@@ -969,3 +969,225 @@ fn a_full_day_keeps_every_invariant() {
     assert_eq!(day.focus_seconds(&ids[1], at(3, 19, 0)), 7 * 60);
     assert_eq!(day.carryover().len(), 2);
 }
+
+// ----- pomodoro (Step 4b) -------------------------------------------------------------
+
+const POM: i64 = 25 * 60;
+
+fn pom(day: &Day, n: usize) -> &Pomodoro {
+    &day.pomodoros[n]
+}
+
+#[test]
+fn a_pomodoro_needs_the_active_task() {
+    let (mut day, c) = locked_today(2);
+    assert_eq!(
+        day.start_pomodoro(&id(&day, 2), POM, &c).unwrap_err(),
+        DomainError::InvalidTransition {
+            status: TaskStatus::Planned,
+            action: "start a pomodoro"
+        }
+    );
+    day.pause(&id(&day, 1), PauseReason::Break, &c).unwrap();
+    assert!(matches!(
+        day.start_pomodoro(&id(&day, 1), POM, &c),
+        Err(DomainError::InvalidTransition { .. })
+    ));
+    assert_eq!(
+        day.start_pomodoro(&id(&day, 1), 0, &c).unwrap_err(),
+        DomainError::InvalidPomodoroLength
+    );
+    ok(&day);
+}
+
+#[test]
+fn a_pomodoro_counts_down_rings_at_its_planned_end_and_waits_for_a_tap() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    ok(&day);
+    assert_eq!(
+        pom(&day, 0).session_id.as_deref(),
+        Some(day.sessions[0].id.as_str())
+    );
+    let (phase, p) = day.pomodoro_state(at(3, 9, 24));
+    assert_eq!(phase, PomodoroPhase::Running);
+    assert_eq!(p.unwrap().remaining_seconds(at(3, 9, 24)), 60);
+
+    // Read at 9:26: it rang at 9:25 exactly, whatever the clock said when we looked.
+    assert!(day.settle_pomodoros(&ctx(3, 9, 26)));
+    assert!(
+        !day.settle_pomodoros(&ctx(3, 9, 27)),
+        "settling is idempotent"
+    );
+    let p = pom(&day, 0);
+    assert_eq!(p.ended_at, Some(at(3, 9, 25)));
+    assert_eq!(p.outcome, Some(PomodoroOutcome::Completed));
+    assert!(p.is_awaiting_ack());
+    assert_eq!(day.pomodoro_state(at(3, 9, 26)).0, PomodoroPhase::Done);
+    assert_eq!(day.pomodoros_completed(Some(&t1)), 1);
+    assert_eq!(day.pomodoros_completed(None), 1);
+    assert!(
+        day.open_session().is_some(),
+        "the session keeps running; only the pomodoro ended"
+    );
+
+    // "Keep going" answers the ring; nothing starts by itself.
+    day.acknowledge_pomodoro(&t1, &ctx(3, 9, 30)).unwrap();
+    assert_eq!(day.pomodoro_state(at(3, 9, 30)).0, PomodoroPhase::Idle);
+    assert_eq!(pom(&day, 0).acknowledged_at, Some(at(3, 9, 30)));
+    ok(&day);
+}
+
+#[test]
+fn only_one_pomodoro_runs_at_a_time_and_the_next_answers_the_last_ring() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    assert_eq!(
+        day.start_pomodoro(&t1, POM, &ctx(3, 9, 10)).unwrap_err(),
+        DomainError::PomodoroRunning
+    );
+    // Past the ring, "One more" settles the old one and starts the next.
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 30)).unwrap();
+    assert_eq!(day.pomodoros.len(), 2);
+    assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::Completed));
+    assert_eq!(pom(&day, 0).acknowledged_at, Some(at(3, 9, 30)));
+    assert_eq!(day.pomodoro_state(at(3, 9, 31)).0, PomodoroPhase::Running);
+    ok(&day);
+}
+
+#[test]
+fn taking_a_break_interrupts_the_pomodoro_and_resuming_starts_nothing() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    day.pause(&t1, PauseReason::Break, &ctx(3, 9, 10)).unwrap();
+    let p = pom(&day, 0);
+    assert_eq!(p.ended_at, Some(at(3, 9, 10)));
+    assert_eq!(p.outcome, Some(PomodoroOutcome::Interrupted));
+    assert_eq!(
+        day.pomodoros_completed(None),
+        0,
+        "an interruption is a fact, not a count"
+    );
+    day.resume(&t1, &ctx(3, 9, 15)).unwrap();
+    assert_eq!(day.pomodoro_state(at(3, 9, 15)).0, PomodoroPhase::Idle);
+    assert!(
+        day.open_pomodoro().is_none(),
+        "the next pomodoro waits for a tap"
+    );
+    ok(&day);
+}
+
+#[test]
+fn finishing_the_task_early_or_after_the_ring_is_recorded_as_such() {
+    let (mut day, _) = locked_today(2);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    day.complete(&t1, &ctx(3, 9, 12)).unwrap();
+    assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::FinishedEarly));
+    assert_eq!(pom(&day, 0).ended_at, Some(at(3, 9, 12)));
+    assert_eq!(status(&day, 2), TaskStatus::Active);
+    assert_eq!(
+        day.pomodoro_state(at(3, 9, 12)).0,
+        PomodoroPhase::Idle,
+        "the next task starts without a pomodoro"
+    );
+
+    let t2 = id(&day, 2);
+    day.start_pomodoro(&t2, POM, &ctx(3, 9, 12)).unwrap();
+    day.complete(&t2, &ctx(3, 9, 50)).unwrap();
+    let p = pom(&day, 1);
+    assert_eq!(
+        p.outcome,
+        Some(PomodoroOutcome::Completed),
+        "it rang at 9:37 first"
+    );
+    assert_eq!(p.ended_at, Some(at(3, 9, 37)));
+    assert_eq!(
+        p.acknowledged_at,
+        Some(at(3, 9, 50)),
+        "completing the task answers the ring"
+    );
+    assert_eq!(day.pomodoros_completed(None), 1);
+    ok(&day);
+}
+
+#[test]
+fn skipping_ahead_and_deferring_interrupt_the_running_pomodoro() {
+    let (mut day, _) = locked_today(3);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    day.activate(&id(&day, 3), true, &ctx(3, 9, 5)).unwrap();
+    assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::Interrupted));
+    assert_eq!(pom(&day, 0).ended_at, Some(at(3, 9, 5)));
+    assert!(day.open_pomodoro().is_none());
+
+    let t3 = id(&day, 3);
+    day.start_pomodoro(&t3, POM, &ctx(3, 9, 5)).unwrap();
+    day.defer(&t3, &ctx(3, 9, 20)).unwrap();
+    assert_eq!(pom(&day, 1).outcome, Some(PomodoroOutcome::Interrupted));
+    ok(&day);
+}
+
+#[test]
+fn the_day_rollover_interrupts_a_pomodoro_unless_it_had_rung() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 23, 50)).unwrap();
+    // Rollover at 05:00 the next day; the app is opened at 09:00.
+    let next = Ctx::new(at(4, 9, 0), date(4), DEV);
+    assert_eq!(day.apply_rollover(at(4, 5, 0), &next), 1);
+    let p = pom(&day, 0);
+    assert_eq!(
+        p.outcome,
+        Some(PomodoroOutcome::Completed),
+        "it rang at 00:15, before the day ended"
+    );
+    assert_eq!(p.ended_at, Some(at(4, 0, 15)));
+
+    // Started ten minutes before the rollover: the day ends before it can ring.
+    let (mut day2, _) = locked_today(1);
+    let t = id(&day2, 1);
+    day2.start_pomodoro(&t, POM, &ctx(4, 4, 50)).unwrap();
+    day2.apply_rollover(at(4, 5, 0), &next);
+    let p = pom(&day2, 0);
+    assert_eq!(p.outcome, Some(PomodoroOutcome::Interrupted));
+    assert_eq!(p.ended_at, Some(at(4, 5, 0)));
+    ok(&day);
+    ok(&day2);
+}
+
+#[test]
+fn trimming_an_idle_session_ends_the_pomodoro_at_the_trim_point() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
+    let session = day.sessions[0].id.clone();
+    day.trim_session(&session, at(3, 9, 5), &ctx(3, 14, 0))
+        .unwrap();
+    assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::Interrupted));
+    assert_eq!(pom(&day, 0).ended_at, Some(at(3, 9, 5)));
+    assert!(
+        day.open_session().is_some(),
+        "a fresh session starts at the trim"
+    );
+    assert!(day.open_pomodoro().is_none());
+    ok(&day);
+}
+
+#[test]
+fn editing_a_task_away_drops_its_pomodoros() {
+    let (mut day, c) = locked_today(2);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, POM, &c).unwrap();
+    let keep = TaskInput {
+        id: Some(id(&day, 2)),
+        title: "Two".into(),
+        ..Default::default()
+    };
+    day.edit(vec![keep], &ctx(3, 9, 10)).unwrap();
+    assert!(day.pomodoros.is_empty());
+    ok(&day);
+}

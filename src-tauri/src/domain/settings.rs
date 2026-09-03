@@ -12,6 +12,14 @@ pub struct Settings {
     pub break_minutes: u32,
     /// Hour (0–23) at which a new day begins; late-night work belongs to the evening before.
     pub day_start_hour: u32,
+    /// Pomodoro layer on or off (on by default).
+    pub pomodoro_enabled: bool,
+    /// Length of one pomodoro, in minutes.
+    pub pomodoro_minutes: u32,
+    /// Length of the long break after a set, in minutes.
+    pub long_break_minutes: u32,
+    /// Pomodoros in a set before the long break.
+    pub pomodoros_before_long_break: u32,
 }
 
 impl Default for Settings {
@@ -21,6 +29,10 @@ impl Default for Settings {
             checkin_minutes: 75,
             break_minutes: 5,
             day_start_hour: 5,
+            pomodoro_enabled: true,
+            pomodoro_minutes: 25,
+            long_break_minutes: 15,
+            pomodoros_before_long_break: 4,
         }
     }
 }
@@ -38,20 +50,46 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 4] = [
+    pub const KEYS: [&'static str; 8] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
         "day_start_hour",
+        "pomodoro_enabled",
+        "pomodoro_minutes",
+        "long_break_minutes",
+        "pomodoros_before_long_break",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
     pub fn apply(&mut self, key: &str, value: &str) -> Result<(), SettingsError> {
+        if key == "pomodoro_enabled" {
+            self.pomodoro_enabled = match value.trim() {
+                "1" | "true" | "on" => true,
+                "0" | "false" | "off" => false,
+                _ => {
+                    return Err(SettingsError::OutOfRange {
+                        key: "pomodoro_enabled",
+                        min: 0,
+                        max: 1,
+                    })
+                }
+            };
+            return Ok(());
+        }
         let (slot, name, min, max): (&mut u32, &'static str, u32, u32) = match key {
             "evening_hour" => (&mut self.evening_hour, "evening_hour", 0, 23),
             "checkin_minutes" => (&mut self.checkin_minutes, "checkin_minutes", 5, 480),
             "break_minutes" => (&mut self.break_minutes, "break_minutes", 1, 60),
             "day_start_hour" => (&mut self.day_start_hour, "day_start_hour", 0, 23),
+            "pomodoro_minutes" => (&mut self.pomodoro_minutes, "pomodoro_minutes", 1, 180),
+            "long_break_minutes" => (&mut self.long_break_minutes, "long_break_minutes", 1, 120),
+            "pomodoros_before_long_break" => (
+                &mut self.pomodoros_before_long_break,
+                "pomodoros_before_long_break",
+                1,
+                12,
+            ),
             other => return Err(SettingsError::UnknownKey(other.to_string())),
         };
         let parsed: u32 = value
@@ -95,6 +133,33 @@ mod tests {
             ),
             (18, 75, 5, 5)
         );
+        assert!(
+            s.pomodoro_enabled,
+            "pomodoro is on by default (Nikhil, 3 Sep 2026)"
+        );
+        assert_eq!(
+            (
+                s.pomodoro_minutes,
+                s.long_break_minutes,
+                s.pomodoros_before_long_break
+            ),
+            (25, 15, 4)
+        );
+    }
+
+    #[test]
+    fn pomodoro_settings_apply_and_validate() {
+        let mut s = Settings::default();
+        s.apply("pomodoro_enabled", "0").unwrap();
+        assert!(!s.pomodoro_enabled);
+        s.apply("pomodoro_enabled", "true").unwrap();
+        assert!(s.pomodoro_enabled);
+        assert!(s.apply("pomodoro_enabled", "maybe").is_err());
+        s.apply("pomodoro_minutes", "50").unwrap();
+        assert_eq!(s.pomodoro_minutes, 50);
+        assert!(s.apply("pomodoro_minutes", "0").is_err());
+        assert!(s.apply("pomodoros_before_long_break", "13").is_err());
+        assert!(Settings::validate("long_break_minutes", "30").is_ok());
     }
 
     #[test]

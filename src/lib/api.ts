@@ -34,6 +34,8 @@ export const api = {
   setNote: (task_id: string, note: string | null) => invoke<DaySnapshot>("set_note", { task_id, note }),
   touch: () => invoke<boolean>("touch"),
   getElapsed: () => invoke<Elapsed | null>("get_elapsed"),
+  startPomodoro: (taskId: string) => invoke<DaySnapshot>("start_pomodoro", { task_id: taskId }),
+  acknowledgePomodoro: (taskId: string) => invoke<DaySnapshot>("acknowledge_pomodoro", { task_id: taskId }),
 
   getReview: (plan_id: string) => invoke<ReviewView>("get_review", { plan_id }),
   trimSession: (session_id: string, ended_at: string) =>
