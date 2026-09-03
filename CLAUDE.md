@@ -1,12 +1,13 @@
 # Six — working notes for Claude
 
 Six is a personal, single-user Ivy Lee Method app (macOS + Android, Tauri v2). The full
-brief is `docs/SPEC.md`; it is the single source of truth. This file is the short version.
+brief is `docs/SPEC.md`; it is the single source of truth, amended only by dated entries in
+`docs/DECISIONS.md`. This file is the short version.
 
 ## Product principles (SPEC §2)
 - Six is the ceiling, always. No seventh task, ever, by any path.
 - One task is active at a time. Task 1 until it is done, deferred or skipped.
-- Constraint with an escape hatch: skipping ahead needs a confirmation and is logged as an override.
+- Constraint with an escape hatch: skipping ahead is always possible but goes through a three-step ladder (two asks, then a press-and-hold) and is logged as an override. Never a hard lock; never a single tap. See docs/DECISIONS.md.
 - The evening ritual (planning tomorrow's six) is the heart; it is the primary action once the evening hour passes.
 - Nothing makes noise. No sounds. Silent banners only.
 - Facts, not gamification. The only counter is the planning streak.

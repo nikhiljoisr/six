@@ -9,8 +9,8 @@ tasks a day, one active at a time. The brief lives in [`docs/SPEC.md`](docs/SPEC
 |---|---|---|
 | 0 | Prerequisites | done |
 | 1 | Scaffold, schema, Rust core + tests | done |
-| 2 | Day, Planner, History views | next |
-| 3 | Timer, sessions, evening review | |
+| 2 | Day, Planner, History views | done |
+| 3 | Timer, sessions, evening review | next |
 | 4 | macOS menu bar | |
 | 5 | Notifications, stats, settings | |
 | 6 | Android + sync (on request) | |
@@ -83,6 +83,7 @@ src-tauri/
   src/tray/          macOS menu bar (Step 4)
   migrations/        numbered SQL migrations
 docs/SPEC.md         the brief
+docs/DECISIONS.md    dated amendments and interpretations
 ```
 
 ## Commands exposed to the frontend
