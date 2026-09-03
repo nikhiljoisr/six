@@ -60,6 +60,7 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
         let mut last: Option<(NaiveDate, bool)> = None;
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
+            deliver_now(&app).await;
             let tick = {
                 let state = app.state::<AppState>();
                 match commands::read_clock(&state).await {
@@ -87,7 +88,14 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
                 let _ = commands::publish(&app).await;
             }
             last = Some((today, evening));
-            deliver_due(&app, now);
+            let system = {
+                let state = app.state::<AppState>();
+                db::load_settings(&state.pool)
+                    .await
+                    .map(|s| s.nudge_style == "system")
+                    .unwrap_or(false)
+            };
+            deliver_due(&app, now, system);
         }
     });
 }
@@ -147,23 +155,41 @@ pub async fn reconcile(app: &AppHandle) {
     *sched.planned.lock().unwrap() = planned.clone();
 
     let focused = sched.is_focused();
-    if focused {
-        deliver_due(app, clock.now);
-    }
+    let system = settings.nudge_style == "system";
+    deliver_due(app, clock.now, system);
     #[cfg(any(target_os = "macos", mobile))]
     if sched.notifications_available() {
-        os_sync(app, &planned, focused, clock.now, &settings).await;
+        // With Six's own banners, nothing is left with the OS.
+        os_sync(app, &planned, focused || !system, clock.now, &settings).await;
     }
     #[cfg(not(any(target_os = "macos", mobile)))]
     let _ = (&planned, focused, &settings);
 }
 
-/// Show, in-app, every planned nudge whose time has come (once each).
-fn deliver_due(app: &AppHandle, now: DateTime<Utc>) {
+/// Deliver what is due from the current plan. Called before anything settles state (a
+/// ring, a rollover), because settling re-plans and would drop the nudge unseen.
+pub async fn deliver_now(app: &AppHandle) {
+    let system = {
+        let Some(state) = app.try_state::<AppState>() else {
+            return;
+        };
+        db::load_settings(&state.pool)
+            .await
+            .map(|s| s.nudge_style == "system")
+            .unwrap_or(false)
+    };
+    deliver_due(app, Utc::now(), system);
+}
+
+/// Deliver every planned nudge whose time has come, once each: as a banner in the main
+/// window while it is focused, otherwise as Six's own banner under the menu bar, unless
+/// the user chose macOS notifications, in which case the OS already holds it.
+fn deliver_due(app: &AppHandle, now: DateTime<Utc>, system: bool) {
     let Some(sched) = app.try_state::<Scheduler>() else {
         return;
     };
-    if !sched.is_focused() {
+    let focused = sched.is_focused();
+    if !focused && system {
         return;
     }
     let due: Vec<Nudge> = sched
@@ -176,12 +202,25 @@ fn deliver_due(app: &AppHandle, now: DateTime<Utc>) {
         .collect();
     let mut delivered = sched.delivered.lock().unwrap();
     for n in due {
-        if delivered.insert((n.kind, n.due)) {
+        if !delivered.insert((n.kind, n.due)) {
+            continue;
+        }
+        if focused {
             eprintln!(
                 "[nudges] in-app: {} due {}",
                 n.kind.key(),
                 n.due.format("%H:%M:%S")
             );
+            let _ = app.emit_to(crate::commands::window::MAIN, NUDGE_EVENT, &n);
+        } else {
+            eprintln!(
+                "[nudges] banner: {} due {}",
+                n.kind.key(),
+                n.due.format("%H:%M:%S")
+            );
+            #[cfg(target_os = "macos")]
+            crate::tray::show_nudge(app, &n);
+            #[cfg(not(target_os = "macos"))]
             let _ = app.emit_to(crate::commands::window::MAIN, NUDGE_EVENT, &n);
         }
     }

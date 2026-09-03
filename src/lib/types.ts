@@ -75,6 +75,7 @@ export interface Settings {
   tray_style: "full" | "compact";
   sound_enabled: boolean;
   onboarded: boolean;
+  nudge_style: "banner" | "system";
 }
 
 export type Phase = "before_evening" | "after_evening";

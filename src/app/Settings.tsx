@@ -103,16 +103,25 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         </Row>
       </Section>
 
-      <Section title="Notifications">
-        <Row label="Silent banners" hint={notif ? (permissionWord[notif.permission] ?? notif.permission) : "…"}>
-          {notif?.available && notif.permission !== "granted" && (
-            <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => void askPermission()}>
-              Allow
-            </Button>
-          )}
+      <Section title="Nudges">
+        <Row label="When the window is away" hint={s.nudge_style === "system" ? "macOS Notification Centre. Needs a signed build; ad-hoc builds are silently ignored by macOS." : "Six's own banner under the menu bar. Works everywhere."}>
+          <select
+            value={s.nudge_style}
+            onChange={(e) => set("nudge_style", e.target.value)}
+            className="rounded-control border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 focus:border-stone-400 focus:outline-none"
+          >
+            <option value="banner">Six's banner</option>
+            <option value="system">macOS notifications</option>
+          </select>
         </Row>
-        {notif && !notif.available && (
-          <p className="mt-2 text-xs text-stone-400">OS notifications need the packaged app; in-app banners still show while Six is open.</p>
+        {s.nudge_style === "system" && (
+          <Row label="Permission" hint={notif ? (permissionWord[notif.permission] ?? notif.permission) : "…"}>
+            {notif?.available && notif.permission !== "granted" && (
+              <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => void askPermission()}>
+                Allow
+              </Button>
+            )}
+          </Row>
         )}
       </Section>
 

@@ -168,3 +168,21 @@ Assessed against the app as built; adjusted where the request assumed a differen
   "Allow notifications" button, ending in the planner.
 - **Distribution:** audit found no personal paths, secrets or test data; the CI release is
   now a universal binary; README rewritten for the public, with the Gatekeeper steps.
+
+## 2026-09-03 — Nudges: Six's own banner by default
+
+Finding: with an ad-hoc signature, macOS accepts the notification request, reports the
+permission as granted, schedules without error, and then never shows anything; the app
+never appears under System Settings → Notifications. A Developer ID (or at least a
+certificate-backed) signature is required, which a free public build cannot assume.
+Second finding: the plugin's Rust `Schedule::At` serialises nine fractional digits while
+its Swift side parses exactly three, so even signed builds may need the `Interval` form.
+Decision: nudges are delivered by Six itself. Focused window: banner in the window.
+Window away: the popover opens under the menu bar as a banner, without taking focus, with
+the nudge's buttons, and hides after 25 seconds unless the pointer is on it. The macOS
+Notification Centre path stays behind a Settings switch (`nudge_style = system`) for
+signed builds. The first-launch guide no longer asks for a permission.
+- **Deliver before settling.** A ring that the ticker (or any read) settles is re-planned
+  away before it can be shown. `scheduler::deliver_now` now runs at the start of the ticker,
+  of `publish`, of `get_snapshot`, and of the elapsed poll, so whatever is due from the
+  last plan is delivered first. Found by watching a ring vanish in the log.

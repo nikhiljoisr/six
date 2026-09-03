@@ -38,6 +38,8 @@ pub struct Tray {
     last_title: Mutex<String>,
     popover_hidden_at: Mutex<Option<Instant>>,
     popover_shown_at: Mutex<Option<Instant>>,
+    /// Bumped on every show; a banner's auto-hide only fires for its own showing.
+    generation: Mutex<u64>,
 }
 
 /// Build the tray icon, its menu and the (hidden) popover window.
@@ -105,6 +107,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         last_title: Mutex::new(String::new()),
         popover_hidden_at: Mutex::new(None),
         popover_shown_at: Mutex::new(None),
+        generation: Mutex::new(0),
     });
     Ok(())
 }
@@ -265,13 +268,9 @@ fn toggle_popover(app: &AppHandle, rect: tauri::Rect) {
         hide_popover(app);
         return;
     }
-    let scale = popover.scale_factor().unwrap_or(1.0);
-    let position = rect.position.to_logical::<f64>(scale);
-    let size = rect.size.to_logical::<f64>(scale);
-    let x = position.x + size.width / 2.0 - POPOVER_WIDTH / 2.0;
-    let y = position.y + size.height + 4.0;
-    let _ = popover.set_position(LogicalPosition::new(x, y));
+    place_popover(&popover, &rect);
     *tray.popover_shown_at.lock().unwrap() = Some(Instant::now());
+    *tray.generation.lock().unwrap() += 1;
     let _ = popover.show();
     let _ = popover.set_focus();
     let _ = app.emit_to(POPOVER, "popover_shown", ());
@@ -284,6 +283,54 @@ fn toggle_popover(app: &AppHandle, rect: tauri::Rect) {
         });
     }
     refresh(app);
+}
+
+fn place_popover(popover: &tauri::WebviewWindow, rect: &tauri::Rect) {
+    let scale = popover.scale_factor().unwrap_or(1.0);
+    let position = rect.position.to_logical::<f64>(scale);
+    let size = rect.size.to_logical::<f64>(scale);
+    let x = position.x + size.width / 2.0 - POPOVER_WIDTH / 2.0;
+    let y = position.y + size.height + 4.0;
+    let _ = popover.set_position(LogicalPosition::new(x, y));
+}
+
+/// How long Six's own banner stays under the menu bar before it slips away.
+const BANNER_SECS: u64 = 25;
+
+/// Show a nudge as Six's own banner: the popover, under the tray, without taking focus,
+/// gone again after a while unless the user is on it.
+pub fn show_nudge(app: &AppHandle, nudge: &crate::domain::nudges::Nudge) {
+    let Some(tray) = app.try_state::<Tray>() else {
+        return;
+    };
+    let Some(popover) = app.get_webview_window(POPOVER) else {
+        return;
+    };
+    if let Ok(Some(rect)) = tray.icon.rect() {
+        place_popover(&popover, &rect);
+    }
+    *tray.popover_shown_at.lock().unwrap() = Some(Instant::now());
+    let generation = {
+        let mut g = tray.generation.lock().unwrap();
+        *g += 1;
+        *g
+    };
+    let _ = popover.show();
+    let _ = app.emit_to(POPOVER, "popover_nudge", nudge);
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(BANNER_SECS)).await;
+        let still_ours = app
+            .try_state::<Tray>()
+            .is_some_and(|t| *t.generation.lock().unwrap() == generation);
+        let focused = app
+            .get_webview_window(POPOVER)
+            .and_then(|w| w.is_focused().ok())
+            .unwrap_or(false);
+        if still_ours && !focused {
+            hide_popover(&app);
+        }
+    });
 }
 
 pub fn hide_popover(app: &AppHandle) {

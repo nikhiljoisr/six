@@ -11,21 +11,11 @@ export function Welcome({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
   const dispatch = useStore((s) => s.dispatch);
   const [step, setStep] = useState(0);
-  const [notif, setNotif] = useState<string | null>(null);
 
   const begin = async () => {
     const err = await dispatch(() => api.setSetting("onboarded", "1"));
     if (err) return;
     navigate({ name: "planner", date: snapshot.today_plan?.locked_at ? snapshot.tomorrow : snapshot.today });
-  };
-
-  const allow = async () => {
-    try {
-      const s = await api.requestNotificationPermission();
-      setNotif(s.permission === "granted" ? "Allowed." : s.available ? "You can change this later in Settings." : "Available in the packaged app.");
-    } catch {
-      setNotif("You can change this later in Settings.");
-    }
   };
 
   return (
@@ -52,15 +42,9 @@ export function Welcome({ snapshot }: { snapshot: DaySnapshot }) {
           <h1 className="mt-3 font-serif text-4xl font-normal text-stone-900">Quiet by design.</h1>
           <ol className="mt-8 space-y-6">
             <Step n={1} title="Pomodoros, if you want them." body="Start a 25-minute pomodoro on the task you're on. When it rings, take five, or keep going. Interruptions are just recorded, never judged." />
-            <Step n={2} title="Nudges are silent banners." body="A check-in after 75 minutes, a reminder to plan tomorrow in the evening. No sounds unless you switch them on in Settings." />
+            <Step n={2} title="Nudges are quiet banners." body="A check-in after 75 minutes, a reminder to plan tomorrow in the evening. They appear in the window, or under the menu bar when it is closed. No sounds unless you switch them on." />
             <Step n={3} title="Six lives in the menu bar." body="Close the window and the active task stays up there. Cmd+W hides, Cmd+Q quits." />
           </ol>
-          <div className="mt-8 flex items-center gap-4">
-            <Button variant="secondary" className="px-4 py-2 text-sm" onClick={() => void allow()}>
-              Allow notifications
-            </Button>
-            {notif && <span className="text-xs text-stone-500">{notif}</span>}
-          </div>
         </section>
       )}
 

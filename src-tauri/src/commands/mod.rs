@@ -184,6 +184,7 @@ pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) 
 
 /// Build the current snapshot and broadcast it to every window.
 pub async fn publish(app: &AppHandle) -> CmdResult<DaySnapshot> {
+    crate::scheduler::deliver_now(app).await;
     let state = app.state::<AppState>();
     let snap = snapshot::build(&state).await?;
     let _ = app.emit(STATE_CHANGED, &snap);

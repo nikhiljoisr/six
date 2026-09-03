@@ -26,6 +26,9 @@ pub struct Settings {
     pub sound_enabled: bool,
     /// The first-launch guide has been seen.
     pub onboarded: bool,
+    /// How nudges reach you when the window is away: "banner" (Six's own banner under the
+    /// menu bar, works everywhere) or "system" (macOS Notification Centre; needs a signed app).
+    pub nudge_style: String,
 }
 
 impl Default for Settings {
@@ -42,6 +45,7 @@ impl Default for Settings {
             tray_style: "full".to_string(),
             sound_enabled: false,
             onboarded: false,
+            nudge_style: "banner".to_string(),
         }
     }
 }
@@ -59,7 +63,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 11] = [
+    pub const KEYS: [&'static str; 12] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -71,10 +75,25 @@ impl Settings {
         "tray_style",
         "sound_enabled",
         "onboarded",
+        "nudge_style",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
     pub fn apply(&mut self, key: &str, value: &str) -> Result<(), SettingsError> {
+        if key == "nudge_style" {
+            self.nudge_style = match value.trim() {
+                "banner" => "banner".to_string(),
+                "system" => "system".to_string(),
+                _ => {
+                    return Err(SettingsError::OutOfRange {
+                        key: "nudge_style",
+                        min: 0,
+                        max: 1,
+                    })
+                }
+            };
+            return Ok(());
+        }
         if key == "tray_style" {
             self.tray_style = match value.trim() {
                 "full" => "full".to_string(),
@@ -200,6 +219,14 @@ mod tests {
         s.apply("sound_enabled", "on").unwrap();
         s.apply("onboarded", "1").unwrap();
         assert!(s.sound_enabled && s.onboarded);
+        assert_eq!(
+            Settings::default().nudge_style,
+            "banner",
+            "Six's own banner by default"
+        );
+        s.apply("nudge_style", "system").unwrap();
+        assert_eq!(s.nudge_style, "system");
+        assert!(s.apply("nudge_style", "carrier pigeon").is_err());
     }
 
     #[test]

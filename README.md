@@ -39,9 +39,22 @@ On older versions of macOS, right-clicking the app and choosing **Open** works t
 
 ## First run
 
-A two-screen guide explains the method and takes you straight to your first six. Allow
-notifications when asked (or later in Settings) so the quiet nudges can reach you when the
-window is closed. Six never makes a sound unless you switch one on in Settings.
+A two-screen guide explains the method and takes you straight to your first six. Nothing
+to allow and nothing to sign in to. Six never makes a sound unless you switch one on in
+Settings.
+
+## Nudges
+
+Six nudges you six ways, all quiet: the evening ritual, a check-in after 75 minutes on a
+task, break over, an unplanned morning, the end of the day, and a finished pomodoro. While
+the window is open they appear as a banner inside it. When the window is closed they
+appear as Six's own small banner under the menu bar, with the same buttons, and slip away
+after a while. That works on every Mac with no permission prompt.
+
+If you build Six yourself with a Developer ID certificate you can switch Settings → Nudges
+to macOS Notification Centre instead. Ad-hoc signed builds, including the ones on the
+Releases page, are silently ignored by Notification Centre on current macOS, which is why
+the banner is the default.
 
 ## The day in Six
 
@@ -75,6 +88,7 @@ Settings.
 | Cmd+N | Open the planner for the next unplanned day |
 | Cmd+, | Settings |
 | Cmd+W | Hide the window to the menu bar |
+| Esc | Close the menu bar panel |
 | Cmd+Q | Quit |
 
 ## Privacy and data

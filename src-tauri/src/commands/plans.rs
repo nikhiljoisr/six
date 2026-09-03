@@ -8,12 +8,16 @@ use crate::domain::{Day, TaskInput};
 /// The full day snapshot (also what `state_changed` carries).
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_snapshot(app: AppHandle) -> CmdResult<DaySnapshot> {
-    let state = app.state::<AppState>();
-    let snap = snapshot::build(&state).await?;
-    // Reads happen on focus and when the popover opens: a cheap moment to let the tray
-    // catch up with the clock (the evening hour passes without any mutation).
+    crate::scheduler::deliver_now(&app).await;
+    let snap = {
+        let state = app.state::<AppState>();
+        snapshot::build(&state).await?
+    };
     #[cfg(target_os = "macos")]
     crate::tray::sync(&app, &snap);
+    // A read can move state (the rollover, a ring, the first task taking the slot), so
+    // the nudges are re-planned here as well as after writes.
+    crate::scheduler::reconcile(&app).await;
     Ok(snap)
 }
 

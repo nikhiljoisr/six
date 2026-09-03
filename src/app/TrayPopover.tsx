@@ -3,8 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
 import { duration } from "../lib/format";
+import { chime } from "../lib/sound";
 import { useElapsed } from "../lib/useElapsed";
-import type { DaySnapshot, PlanView, PomodoroView, TaskView } from "../lib/types";
+import type { DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
 import { breakLabel, initialLive, PomodoroLine } from "../components/Pomodoro";
 import { useStore, type View } from "../store";
 
@@ -12,9 +13,30 @@ import { useStore, type View } from "../store";
 // task's numeral and title, its clock (ticking while the popover is open), and three
 // actions. Everything else lives in the main window.
 
+const BANNER_MS = 25_000;
+
 export function TrayPopover() {
   const snapshot = useStore((s) => s.snapshot);
   const refresh = useStore((s) => s.refresh);
+  const nudge = useStore((s) => s.nudges[0] ?? null);
+  const pushNudge = useStore((s) => s.pushNudge);
+  const dismissNudge = useStore((s) => s.dismissNudge);
+
+  // A nudge shown as Six's own banner: the popover opens under the tray, the strip
+  // appears at the top, and both go away after a while unless answered.
+  useEffect(() => {
+    let timer: number | null = null;
+    const unlisten = listen<Nudge>("popover_nudge", (event) => {
+      pushNudge(event.payload);
+      void refresh();
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => dismissNudge(event.payload.kind), BANNER_MS);
+    });
+    return () => {
+      void unlisten.then((f) => f());
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [pushNudge, dismissNudge, refresh]);
 
   useEffect(() => {
     const unlisten = listen("popover_shown", () => void refresh());
@@ -34,6 +56,7 @@ export function TrayPopover() {
 
   return (
     <div className="flex h-screen flex-col border border-stone-200 bg-stone-50 px-5 pb-4 pt-5 select-none">
+      {nudge && <NudgeStrip nudge={nudge} sound={snapshot?.settings.sound_enabled ?? false} />}
       {snapshot && plan && current ? (
         <Current task={current} pomodoro={snapshot.pomodoro} />
       ) : (
@@ -136,6 +159,39 @@ function Prompt({ title, body, action, onAction, amber = false }: { title: strin
           {action}
         </Button>
       )}
+    </div>
+  );
+}
+
+function NudgeStrip({ nudge, sound }: { nudge: Nudge; sound: boolean }) {
+  const dispatch = useStore((s) => s.dispatch);
+  const dismiss = useStore((s) => s.dismissNudge);
+  useEffect(() => {
+    if (sound && (nudge.kind === "pomodoro_done" || nudge.kind === "break_over")) chime();
+  }, [sound, nudge.kind, nudge.due]);
+  const act = async (id: string) => {
+    dismiss(nudge.kind);
+    await dispatch(() => api.nudgeAction(nudge.kind, id));
+    void api.hidePopover();
+  };
+  return (
+    <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-3" role="status">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-medium text-stone-900">{nudge.title}</div>
+          {nudge.body && <div className="truncate text-sm text-stone-500">{nudge.body}</div>}
+        </div>
+        <button type="button" className="shrink-0 text-xs text-stone-400 hover:text-stone-600" aria-label="Dismiss" onClick={() => dismiss(nudge.kind)}>
+          ✕
+        </button>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4">
+        {nudge.actions.map((a) => (
+          <Button key={a.id} variant="link" className="px-0" onClick={() => void act(a.id)}>
+            {a.label}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }

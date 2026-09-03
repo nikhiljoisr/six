@@ -22,6 +22,7 @@ pub struct Elapsed {
 /// Returns `None` when nothing holds today's slot.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
+    crate::scheduler::deliver_now(&app).await;
     let state = app.state::<AppState>();
     let (_, clock) = read_clock(&state).await?;
     let Some(mut day) = db::load_day(&state.pool, clock.today).await? else {
