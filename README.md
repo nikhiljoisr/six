@@ -1,7 +1,35 @@
 # Six
 
-A personal Ivy Lee Method app for macOS and Android, built with Tauri v2. One user, six
-tasks a day, one active at a time. The brief lives in [`docs/SPEC.md`](docs/SPEC.md).
+A personal Ivy Lee Method app for macOS, built with Tauri v2 (Rust core, React view).
+Six tasks a day, one active at a time, planned the evening before. The brief lives in [`docs/SPEC.md`](docs/SPEC.md).
+
+
+## Install (macOS 13 or later, Apple Silicon)
+
+1. Download `Six.app.zip` from the latest [release](https://github.com/nikhiljoisr/six/releases)
+   and unzip it, or build it yourself (below).
+2. Move `Six.app` to Applications and open it. macOS will refuse the first time because the
+   app is signed locally rather than notarised: open System Settings → Privacy & Security,
+   scroll to the message about Six, and click **Open Anyway**. Once is enough.
+3. In Six, open History → Settings → Notifications and click **Allow** so the silent nudges
+   can reach you when the window is closed.
+
+Six keeps everything in one local SQLite file (see "Where data lives"). There is no account
+and nothing leaves your Mac.
+
+## Build from source
+
+You need Rust (stable), Node 20+, pnpm, and the Xcode Command Line Tools.
+
+```bash
+git clone https://github.com/nikhiljoisr/six.git && cd six
+pnpm install
+pnpm build:mac
+```
+
+The app lands in `src-tauri/target/release/bundle/macos/Six.app`. For a development run
+with live reload use `pnpm tauri dev` (notifications need the packaged app, banners still
+show). `cargo test` in `src-tauri` runs the domain tests.
 
 ## Status
 

@@ -1,0 +1,59 @@
+# Builds Six.app on a macOS runner and attaches it to a GitHub Release.
+# Runs on a version tag (v1.0.0) or by hand from the Actions tab.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build and sign
+        run: pnpm build:mac
+
+      - name: Zip the app
+        run: |
+          cd src-tauri/target/release/bundle/macos
+          ditto -c -k --keepParent Six.app Six.app.zip
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            src-tauri/target/release/bundle/macos/Six.app.zip \
+            --title "Six ${GITHUB_REF_NAME}" \
+            --notes "Six.app for Apple Silicon Macs (macOS 13+). Signed locally, not notarised: on first open use System Settings → Privacy & Security → Open Anyway." \
+            || gh release upload "${GITHUB_REF_NAME}" src-tauri/target/release/bundle/macos/Six.app.zip --clobber
+
+      - name: Keep the build as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Six.app
+          path: src-tauri/target/release/bundle/macos/Six.app.zip
