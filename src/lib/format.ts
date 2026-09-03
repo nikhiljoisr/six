@@ -37,3 +37,22 @@ export function countdown(seconds: number): string {
   const m = Math.floor(s / 60);
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
+
+export function shiftDays(iso: string, delta: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d + delta);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** Monday to Sunday of the week containing `iso`. */
+export function weekOf(iso: string): { from: string; to: string } {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = (new Date(y, m - 1, d).getDay() + 6) % 7; // Monday = 0
+  return { from: shiftDays(iso, -dow), to: shiftDays(iso, 6 - dow) };
+}
+
+/** "3 Sep" style short date. */
+export function shortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}

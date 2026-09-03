@@ -31,6 +31,14 @@ export function History({ snapshot }: { snapshot: DaySnapshot }) {
           Day
         </button>
         <Label>History</Label>
+        <div className="absolute right-0 flex gap-4">
+          <button type="button" className="text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate({ name: "stats" })}>
+            Stats
+          </button>
+          <button type="button" className="text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate({ name: "settings" })}>
+            Settings
+          </button>
+        </div>
       </header>
       <h1 className="mt-8 font-serif text-3xl font-normal text-stone-900">Last 30 days</h1>
 

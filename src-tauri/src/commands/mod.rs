@@ -2,6 +2,7 @@
 //! loads a `Day`, applies one transition, saves it, then broadcasts a fresh snapshot on
 //! the `state_changed` event.
 
+pub mod nudges;
 pub mod plans;
 pub mod review;
 pub mod settings;
@@ -109,14 +110,37 @@ impl Clock {
         let hour = self.local_now.hour();
         hour >= settings.evening_hour || hour < settings.day_start_hour
     }
+
+    /// The rollover instant that began today.
+    pub fn today_start(&self, settings: &Settings) -> DateTime<Utc> {
+        day_end_utc(self.today - Duration::days(1), settings.day_start_hour)
+    }
+
+    /// The next rollover instant.
+    pub fn tomorrow_start(&self, settings: &Settings) -> DateTime<Utc> {
+        day_end_utc(self.today, settings.day_start_hour)
+    }
+
+    /// The evening-hour instant of a business date (the next calendar day when the
+    /// evening hour lies past midnight, before the rollover).
+    pub fn evening(&self, date: NaiveDate, settings: &Settings) -> DateTime<Utc> {
+        let calendar = if settings.evening_hour < settings.day_start_hour {
+            date + Duration::days(1)
+        } else {
+            date
+        };
+        local_to_utc(
+            calendar
+                .and_hms_opt(settings.evening_hour, 0, 0)
+                .expect("evening_hour is validated to 0..=23"),
+        )
+    }
 }
 
-/// The UTC instant at which `date`'s business day ends.
-pub fn day_end_utc(date: NaiveDate, day_start_hour: u32) -> DateTime<Utc> {
-    let local = day_bounds::day_end_local(date, day_start_hour);
+/// A local wall-clock time as a UTC instant, tolerant of DST gaps.
+pub fn local_to_utc(local: NaiveDateTime) -> DateTime<Utc> {
     match Local.from_local_datetime(&local) {
         LocalResult::Single(dt) | LocalResult::Ambiguous(dt, _) => dt.with_timezone(&Utc),
-        // A DST gap: the wall-clock time never happened; use the hour after it.
         LocalResult::None => Local
             .from_local_datetime(&(local + Duration::hours(1)))
             .earliest()
@@ -125,10 +149,16 @@ pub fn day_end_utc(date: NaiveDate, day_start_hour: u32) -> DateTime<Utc> {
     }
 }
 
+/// The UTC instant at which `date`'s business day ends.
+pub fn day_end_utc(date: NaiveDate, day_start_hour: u32) -> DateTime<Utc> {
+    local_to_utc(day_bounds::day_end_local(date, day_start_hour))
+}
+
 /// Runs before every read and write: close running sessions on past days (the rollover)
 /// and give today's first planned task the slot if nothing holds it.
-pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) -> CmdResult<()> {
+pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) -> CmdResult<bool> {
     let ctx = clock.ctx(&state.device_id);
+    let mut changed = false;
     for (plan_id, plan_date) in db::plans_with_open_sessions(&state.pool).await? {
         if plan_date >= clock.today {
             continue;
@@ -137,6 +167,7 @@ pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) 
             let day_end = day_end_utc(plan_date, settings.day_start_hour);
             if day.apply_rollover(day_end, &ctx) > 0 {
                 db::save_day(&state.pool, &mut day).await?;
+                changed = true;
             }
         }
     }
@@ -145,9 +176,10 @@ pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) 
         let rang = day.settle_pomodoros(&ctx);
         if activated || rang {
             db::save_day(&state.pool, &mut day).await?;
+            changed = true;
         }
     }
-    Ok(())
+    Ok(changed)
 }
 
 /// Build the current snapshot and broadcast it to every window.
@@ -157,6 +189,7 @@ pub async fn publish(app: &AppHandle) -> CmdResult<DaySnapshot> {
     let _ = app.emit(STATE_CHANGED, &snap);
     #[cfg(target_os = "macos")]
     crate::tray::sync(app, &snap);
+    crate::scheduler::reconcile(app).await;
     Ok(snap)
 }
 

@@ -17,6 +17,8 @@ pub struct TraySummary {
     pub paused: bool,
     pub after_evening: bool,
     pub tomorrow_planned: bool,
+    /// Compact style: position only, for crowded (notched) menu bars.
+    pub compact: bool,
 }
 
 /// Cut a title to `TITLE_CHARS` characters, marking the cut with an ellipsis.
@@ -34,7 +36,13 @@ pub fn truncate_title(title: &str) -> String {
 
 pub fn tray_title(s: &TraySummary) -> String {
     if let Some((position, title)) = &s.active {
+        if s.compact {
+            return format!("{position}/{}", s.task_count);
+        }
         return format!("{position}/{} · {}", s.task_count, truncate_title(title));
+    }
+    if s.compact && (!s.has_list || (s.after_evening && !s.tomorrow_planned)) {
+        return "Six".to_string();
     }
     if s.after_evening && !s.tomorrow_planned {
         return "Six · plan tomorrow".to_string();
@@ -143,6 +151,42 @@ mod tests {
             ..base()
         };
         assert_eq!(tray_title(&between), "Six · 4/6");
+    }
+
+    #[test]
+    fn compact_style_keeps_only_the_position() {
+        let s = TraySummary {
+            active: Some((2, "Draft Q2 playbook".into())),
+            compact: true,
+            ..base()
+        };
+        assert_eq!(tray_title(&s), "2/6");
+        let idle = TraySummary {
+            has_list: false,
+            task_count: 0,
+            compact: true,
+            ..Default::default()
+        };
+        assert_eq!(tray_title(&idle), "Six");
+        let evening = TraySummary {
+            after_evening: true,
+            compact: true,
+            ..base()
+        };
+        assert_eq!(tray_title(&evening), "Six");
+        let between = TraySummary {
+            done_count: 4,
+            compact: true,
+            ..base()
+        };
+        assert_eq!(tray_title(&between), "Six · 4/6");
+        let done = TraySummary {
+            done_count: 6,
+            all_done: true,
+            compact: true,
+            ..base()
+        };
+        assert_eq!(tray_title(&done), "Six · done");
     }
 
     #[test]

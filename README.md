@@ -68,6 +68,21 @@ records the pomodoro as interrupted or finished early. Sessions remain the truth
 time; pomodoros only annotate them. Settings keys: `pomodoro_enabled`, `pomodoro_minutes`,
 `long_break_minutes`, `pomodoros_before_long_break` (migration 0002).
 
+## Nudges
+
+Six silent nudges: evening ritual, check-in, break over, unplanned morning, end of day,
+and pomodoro done. Rust plans them from state; the OS shows them while the window is
+away, and in-app banners take over while it is focused. Every button, on the banner or
+the notification, runs the same `nudge_action` command. OS notifications work only from
+the packaged app (`pnpm tauri build` followed by `pnpm sign:adhoc`, which gives the ad-hoc
+signature a stable identifier), never from `pnpm tauri dev`.
+
+## Stats and export
+
+History → Stats: this week's facts, a seven-day trend, the most carried-over task, and
+"Export this week", which writes plain text and JSON to `~/Six/exports/`. Settings can
+export everything as JSON.
+
 ## Menu bar (macOS)
 
 The tray title shows the active task (`1/6 · Draft Q2 playbook`) or the day's state
@@ -112,5 +127,7 @@ docs/DECISIONS.md    dated amendments and interpretations
 Plans: `get_snapshot`, `get_day`, `get_range`, `get_carryover`, `draft_plan`, `lock_plan`, `edit_plan`.
 Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`, `get_elapsed`, `start_pomodoro`, `acknowledge_pomodoro`.
 Review: `get_review`, `trim_session`, `complete_review`. Stats: `get_streak`.
-Settings: `get_settings`, `set_setting`. Window: `show_main`, `hide_popover`. Every mutation
+Stats: `get_stats`, `export_range`, `export_all`. Nudges: `nudge_action`, `snooze`,
+`notification_status`, `request_notification_permission`, `get_app_info`. Settings:
+`get_settings`, `set_setting`. Window: `show_main`, `hide_popover`. Every mutation
 broadcasts `state_changed` with the full day snapshot and updates the macOS tray.

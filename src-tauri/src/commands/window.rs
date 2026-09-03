@@ -1,29 +1,35 @@
+//! Window commands shared by the popover, the tray menu and nudge actions.
+
 use tauri::AppHandle;
+#[cfg(not(target_os = "macos"))]
+use tauri::{Emitter, Manager};
 
 use super::CmdResult;
 
-/// Show and focus the main window, optionally navigating it (`{"name": "planner", ...}`).
-#[tauri::command(rename_all = "snake_case")]
-pub async fn show_main(app: AppHandle, target: Option<serde_json::Value>) -> CmdResult<()> {
+pub const MAIN: &str = "main";
+
+/// Show and focus the main window, optionally asking it to navigate.
+pub fn open_main(app: &AppHandle, target: Option<serde_json::Value>) {
     #[cfg(target_os = "macos")]
-    {
-        crate::tray::show_main(&app, target);
-    }
+    crate::tray::show_main(app, target);
     #[cfg(not(target_os = "macos"))]
     {
-        use tauri::{Emitter, Manager};
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.show();
-            let _ = window.set_focus();
-            if let Some(target) = target {
-                let _ = app.emit_to("main", "navigate", target);
+        if let Some(w) = app.get_webview_window(MAIN) {
+            let _ = w.show();
+            let _ = w.set_focus();
+            if let Some(t) = target {
+                let _ = app.emit_to(MAIN, "navigate", t);
             }
         }
     }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn show_main(app: AppHandle, target: Option<serde_json::Value>) -> CmdResult<()> {
+    open_main(&app, target);
     Ok(())
 }
 
-/// Hide the tray popover (Escape, or after "Open Six").
 #[tauri::command(rename_all = "snake_case")]
 pub async fn hide_popover(app: AppHandle) -> CmdResult<()> {
     #[cfg(target_os = "macos")]

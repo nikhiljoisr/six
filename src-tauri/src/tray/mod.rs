@@ -186,6 +186,7 @@ fn summarize(snapshot: &DaySnapshot) -> TraySummary {
             .tomorrow_plan
             .as_ref()
             .is_some_and(|p| p.locked_at.is_some()),
+        compact: snapshot.settings.tray_style == "compact",
     }
 }
 

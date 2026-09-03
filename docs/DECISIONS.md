@@ -103,3 +103,33 @@ Implementation notes:
   crowded notched menu bar. The popover carries the countdown and the dots.
 - Settings: `pomodoro_enabled` (1), `pomodoro_minutes` (25), `long_break_minutes` (15),
   `pomodoros_before_long_break` (4). The switch lands in the Settings screen in Step 5.
+
+## 2026-09-03 — Step 5
+
+- **Nudges are planned in Rust, delivered two ways.** `domain::nudges::plan` (pure, tested)
+  returns at most one pending nudge per kind. The scheduler keeps the OS in line with that
+  list (cancel and re-schedule only when a time or text changes) and, while the main
+  window is focused, cancels the OS copies and shows in-app banners instead, so nothing
+  fires on top of an open window (SPEC §4.10). Focus changes re-sync both ways.
+- **Six kinds.** The five from the brief plus `pomodoro_done` (Take 5 / Take N after a set ·
+  One more). The check-in yields while a pomodoro is running: three pomodoros are the
+  75 minutes anyway. Past-due nudges are not re-fired; "Later", "Keep going" and "5 more"
+  are session-only snoozes.
+- **Actions go through one command.** OS buttons (via the plugin's listener in the main
+  window) and banner buttons both call `nudge_action(kind, action)`; nothing else knows
+  what a button does.
+- **Notifications need the bundle.** The plugin's native macOS path refuses to run outside
+  a `.app`, so `lib.rs` registers it only when bundled; `pnpm tauri dev` shows a line in
+  the log and keeps the banners. Settings says "Unavailable in this build" there.
+- **Timed flips.** A 15-second ticker republishes when the business date or the evening
+  phase changes, so the tray and the window follow the clock without a long-lived timer
+  per event (SPEC §5.4).
+- **Stats.** "This week" is Monday to Sunday; the trend is the last seven days. Export
+  writes `six-<from>_<to>.txt` and `.json` (and `six-all-<date>.json`) to `~/Six/exports`.
+- **Settings additions.** The pomodoro switch and lengths, and `tray_style` (`full` |
+  `compact`) for notched menu bars. Sync shows "Not set up" until Step 6.
+- **Ad-hoc signing needs a stable identifier.** Tauri's ad-hoc signature carries a random
+  code-signing identifier (`six-<hash>`); with that, macOS refuses the notification
+  permission request outright (UNErrorDomain 1) and shows no prompt. Re-signing the bundle
+  with `--identifier com.nikhiljois.six` (see `pnpm sign:adhoc`) fixes it. Step 7 makes
+  this part of packaging.

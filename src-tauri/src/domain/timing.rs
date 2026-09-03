@@ -14,6 +14,16 @@ pub fn session_seconds(session: &Session, now: DateTime<Utc>) -> i64 {
     (end - session.started_at).num_seconds().max(0)
 }
 
+/// "1h 15m" / "12m" / "0m": the app's one way of writing a duration.
+pub fn describe(seconds: i64) -> String {
+    let minutes = seconds.max(0) / 60;
+    if minutes >= 60 {
+        format!("{}h {}m", minutes / 60, minutes % 60)
+    } else {
+        format!("{minutes}m")
+    }
+}
+
 /// Total focus seconds recorded for a task.
 pub fn focus_seconds(sessions: &[Session], task_id: &str, now: DateTime<Utc>) -> i64 {
     sessions

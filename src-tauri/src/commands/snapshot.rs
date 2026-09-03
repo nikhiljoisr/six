@@ -190,7 +190,7 @@ pub async fn carryover_for(
 
 pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
     let (settings, clock) = read_clock(state).await?;
-    housekeeping(state, &settings, &clock).await?;
+    let _ = housekeeping(state, &settings, &clock).await?;
     let today = clock.today;
     let tomorrow = clock.tomorrow();
 

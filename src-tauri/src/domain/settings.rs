@@ -20,6 +20,8 @@ pub struct Settings {
     pub long_break_minutes: u32,
     /// Pomodoros in a set before the long break.
     pub pomodoros_before_long_break: u32,
+    /// Menu bar style: "full" (task title) or "compact" (position only).
+    pub tray_style: String,
 }
 
 impl Default for Settings {
@@ -33,6 +35,7 @@ impl Default for Settings {
             pomodoro_minutes: 25,
             long_break_minutes: 15,
             pomodoros_before_long_break: 4,
+            tray_style: "full".to_string(),
         }
     }
 }
@@ -50,7 +53,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 8] = [
+    pub const KEYS: [&'static str; 9] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -59,10 +62,25 @@ impl Settings {
         "pomodoro_minutes",
         "long_break_minutes",
         "pomodoros_before_long_break",
+        "tray_style",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
     pub fn apply(&mut self, key: &str, value: &str) -> Result<(), SettingsError> {
+        if key == "tray_style" {
+            self.tray_style = match value.trim() {
+                "full" => "full".to_string(),
+                "compact" => "compact".to_string(),
+                _ => {
+                    return Err(SettingsError::OutOfRange {
+                        key: "tray_style",
+                        min: 0,
+                        max: 1,
+                    })
+                }
+            };
+            return Ok(());
+        }
         if key == "pomodoro_enabled" {
             self.pomodoro_enabled = match value.trim() {
                 "1" | "true" | "on" => true,
@@ -160,6 +178,9 @@ mod tests {
         assert!(s.apply("pomodoro_minutes", "0").is_err());
         assert!(s.apply("pomodoros_before_long_break", "13").is_err());
         assert!(Settings::validate("long_break_minutes", "30").is_ok());
+        s.apply("tray_style", "compact").unwrap();
+        assert_eq!(s.tray_style, "compact");
+        assert!(s.apply("tray_style", "huge").is_err());
     }
 
     #[test]

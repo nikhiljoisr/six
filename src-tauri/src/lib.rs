@@ -8,37 +8,83 @@ mod tray;
 
 use tauri::Manager;
 
+/// The native macOS notification path needs a .app bundle; `pnpm tauri dev` runs the
+/// bare binary, where the plugin would refuse to initialise. Mobile always qualifies.
+fn notifications_available() -> bool {
+    if cfg!(mobile) {
+        return true;
+    }
+    if !cfg!(target_os = "macos") {
+        return false;
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| {
+            let macos = exe.parent()?;
+            let contents = macos.parent()?;
+            let bundle = contents.parent()?;
+            Some(
+                macos.file_name()? == "MacOS"
+                    && contents.file_name()? == "Contents"
+                    && bundle.extension().is_some_and(|e| e == "app"),
+            )
+        })
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(
-            tauri_plugin_sql::Builder::new()
-                .add_migrations(db::DB_URL, db::migrations())
-                .build(),
-        )
-        .setup(|app| {
+    let notifications = notifications_available();
+    let mut builder = tauri::Builder::default().plugin(
+        tauri_plugin_sql::Builder::new()
+            .add_migrations(db::DB_URL, db::migrations())
+            .build(),
+    );
+    #[cfg(any(target_os = "macos", mobile))]
+    if notifications {
+        builder = builder.plugin(tauri_plugin_notifications::init());
+    }
+    builder
+        .setup(move |app| {
             let pool = db::pool_from_plugin(app.handle())?;
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
             app.manage(commands::AppState { pool, device_id });
+            scheduler::setup(app.handle(), notifications);
+            if !notifications {
+                eprintln!("[nudges] OS notifications off: not running from a .app bundle; in-app banners only");
+            }
             #[cfg(target_os = "macos")]
             {
                 tray::setup(app.handle())?;
                 tray::refresh(app.handle());
             }
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                scheduler::reconcile(&handle).await;
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
-            // The main window closes to the menu bar; the app keeps running until Quit.
-            #[cfg(target_os = "macos")]
-            if window.label() == tray::MAIN {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    let _ = window.hide();
-                    tray::main_closed(window.app_handle());
+            if window.label() == commands::window::MAIN {
+                match event {
+                    // The main window closes to the menu bar; the app keeps running until Quit.
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        #[cfg(target_os = "macos")]
+                        {
+                            api.prevent_close();
+                            let _ = window.hide();
+                            tray::main_closed(window.app_handle());
+                        }
+                        #[cfg(not(target_os = "macos"))]
+                        let _ = api;
+                    }
+                    // Focused: nudges show in-app. Away: the OS delivers them.
+                    tauri::WindowEvent::Focused(focused) => {
+                        scheduler::set_focused(window.app_handle(), *focused);
+                    }
+                    _ => {}
                 }
             }
-            #[cfg(not(target_os = "macos"))]
-            let _ = (window, event);
         })
         .invoke_handler(tauri::generate_handler![
             commands::plans::get_snapshot,
@@ -64,6 +110,14 @@ pub fn run() {
             commands::review::trim_session,
             commands::review::complete_review,
             commands::stats::get_streak,
+            commands::stats::get_stats,
+            commands::stats::export_range,
+            commands::stats::export_all,
+            commands::nudges::nudge_action,
+            commands::nudges::snooze,
+            commands::nudges::notification_status,
+            commands::nudges::request_notification_permission,
+            commands::nudges::get_app_info,
             commands::settings::get_settings,
             commands::settings::set_setting,
             commands::window::show_main,

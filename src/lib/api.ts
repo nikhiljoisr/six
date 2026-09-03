@@ -4,8 +4,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CarryoverPreview,
+  AppInfo,
   DaySnapshot,
   Elapsed,
+  ExportResult,
+  NotificationStatus,
+  Stats,
   PauseReason,
   PlanView,
   ReviewDecision,
@@ -47,6 +51,15 @@ export const api = {
   /** Show the main window, optionally navigating it (used by the popover and tray menu). */
   showMain: (target?: unknown) => invoke<void>("show_main", { target: target ?? null }),
   hidePopover: () => invoke<void>("hide_popover"),
+  nudgeAction: (kind: string, action: string) => invoke<DaySnapshot>("nudge_action", { kind, action }),
+  snooze: (kind: string, minutes: number) => invoke<DaySnapshot>("snooze", { kind, minutes }),
+  notificationStatus: () => invoke<NotificationStatus>("notification_status"),
+  requestNotificationPermission: () => invoke<NotificationStatus>("request_notification_permission"),
+  getAppInfo: () => invoke<AppInfo>("get_app_info"),
+  getStats: (from: string, to: string) => invoke<Stats>("get_stats", { from, to }),
+  exportRange: (from: string, to: string, format: "text" | "json" | "both") =>
+    invoke<ExportResult>("export_range", { from, to, format }),
+  exportAll: () => invoke<ExportResult>("export_all"),
   getSettings: () => invoke<Settings>("get_settings"),
   setSetting: (key: keyof Settings, value: string) => invoke<DaySnapshot>("set_setting", { key, value }),
 };

@@ -2,10 +2,13 @@
 //! streak. Nothing in here touches the database, the clock, or Tauri. Every function
 //! takes its inputs (including "now" and "today") explicitly so it can be tested.
 
+pub mod analytics;
 pub mod day;
 pub mod model;
+pub mod nudges;
 pub mod plan;
 pub mod pomodoro;
+pub mod report;
 pub mod settings;
 pub mod streak;
 pub mod timing;

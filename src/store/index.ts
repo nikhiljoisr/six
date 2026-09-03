@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import { api } from "../lib/api";
-import { isAppError, type AppError, type DaySnapshot } from "../lib/types";
+import { isAppError, type AppError, type DaySnapshot, type Nudge } from "../lib/types";
 
 // The store mirrors the Rust snapshot and holds UI-only navigation state. Every
 // mutation goes through `dispatch`, and the Rust side answers with a fresh snapshot
@@ -11,12 +11,18 @@ export type View =
   | { name: "day" }
   | { name: "planner"; date: string }
   | { name: "history" }
-  | { name: "review"; planId: string };
+  | { name: "review"; planId: string }
+  | { name: "stats" }
+  | { name: "settings" };
 
 interface AppStore {
   snapshot: DaySnapshot | null;
   view: View;
   error: string | null;
+  /** In-app banners waiting to be answered, oldest first. */
+  nudges: Nudge[];
+  pushNudge: (n: Nudge) => void;
+  dismissNudge: (kind: Nudge["kind"]) => void;
   apply: (snapshot: DaySnapshot) => void;
   refresh: () => Promise<void>;
   navigate: (view: View) => void;
@@ -40,6 +46,9 @@ export const useStore = create<AppStore>((set) => ({
   snapshot: null,
   view: { name: "day" },
   error: null,
+  nudges: [],
+  pushNudge: (n) => set((s) => ({ nudges: [...s.nudges.filter((x) => x.kind !== n.kind), n] })),
+  dismissNudge: (kind) => set((s) => ({ nudges: s.nudges.filter((x) => x.kind !== kind) })),
   apply: (snapshot) => set({ snapshot }),
   refresh: async () => {
     try {
@@ -77,6 +86,7 @@ export async function bootstrap(): Promise<void> {
     const v = event.payload;
     if (v && typeof v === "object" && "name" in v) useStore.getState().navigate(v);
   });
+  await listen<Nudge>("nudge", (event) => useStore.getState().pushNudge(event.payload));
   await useStore.getState().refresh();
   window.addEventListener("focus", () => void useStore.getState().refresh());
 }

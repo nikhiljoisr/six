@@ -16,6 +16,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+# Native notifications (scheduling, actions). notify-rust is disabled so macOS uses the
+# UserNotifications framework; that path needs a .app bundle, so the plugin is only
+# registered when the app runs from one (see lib.rs).
+tauri-plugin-notifications = { version = "0.4", default-features = false }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -23,6 +27,7 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v7", "serde"] }
 thiserror = "2"
 tokio = { version = "1", features = ["time"] }
+time = "0.3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
