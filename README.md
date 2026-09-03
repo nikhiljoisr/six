@@ -10,8 +10,8 @@ tasks a day, one active at a time. The brief lives in [`docs/SPEC.md`](docs/SPEC
 | 0 | Prerequisites | done |
 | 1 | Scaffold, schema, Rust core + tests | done |
 | 2 | Day, Planner, History views | done |
-| 3 | Timer, sessions, evening review | next |
-| 4 | macOS menu bar | |
+| 3 | Timer, sessions, evening review | done |
+| 4 | macOS menu bar | next |
 | 5 | Notifications, stats, settings | |
 | 6 | Android + sync (on request) | |
 | 7 | Packaging | |
@@ -89,7 +89,7 @@ docs/DECISIONS.md    dated amendments and interpretations
 ## Commands exposed to the frontend
 
 Plans: `get_snapshot`, `get_day`, `get_range`, `get_carryover`, `draft_plan`, `lock_plan`, `edit_plan`.
-Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`.
+Tasks: `activate`, `complete`, `pause`, `resume`, `defer`, `skip`, `reopen`, `set_note`, `touch`, `get_elapsed`.
 Review: `get_review`, `trim_session`, `complete_review`. Stats: `get_streak`.
 Settings: `get_settings`, `set_setting`. Every mutation broadcasts `state_changed` with the
 full day snapshot.

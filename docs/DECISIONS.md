@@ -33,3 +33,22 @@ differs from it, or that it left open, is recorded here.
   the evening hour) shows only the tomorrow ritual. Nikhil: planning today late must stay
   possible. A quiet text link below the ritual opens today's planner; the ritual stays the
   primary action.
+
+## 2026-09-03 — Step 3
+
+- **The ticking clock asks Rust.** The active card polls `get_elapsed` once a second while
+  the window is focused and visible; Rust derives the number from session timestamps. The
+  frontend never adds seconds itself. Unfocused or hidden, nothing ticks (SPEC §4.4).
+- **Interaction stamps.** Any pointer or key activity calls `touch` at most once a minute,
+  which sets `last_interaction_at` on the running session. That is what the idle flag
+  (over three hours with no interaction) is measured against.
+- **Where "Review today" lives.** SPEC §4.1 names the button only for the all-done state.
+  Most evenings end with unfinished tasks, and the end-of-day notification (Step 5) is not
+  the only way in, so after the evening hour the Tomorrow area offers "Review today" as the
+  primary action (the review ends in tomorrow's planner) with "Plan tomorrow" as secondary.
+  Before the evening hour the area is exactly as specified.
+- **Review order.** Leaving panel 2 records the review (decisions, reflection, `reviewed`
+  event). Panel 3 is the planner for tomorrow; cancelling there keeps the review and leaves
+  tomorrow unplanned, which the Day view then offers as usual. If tomorrow was already
+  planned, carried tasks are added to its empty rows (deduplicated by title) only in this
+  review path, never when editing tomorrow directly.

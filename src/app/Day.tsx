@@ -74,6 +74,11 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
           )}
           <Rule className="my-8" />
           <TomorrowArea snapshot={snapshot} />
+          {plan.all_done && !plan.reviewed_at && (
+            <Button className="mt-8 px-6" onClick={() => navigate({ name: "review", planId: plan.id })}>
+              Review today
+            </Button>
+          )}
         </>
       )}
 
@@ -182,9 +187,16 @@ function PlanTodayInstead({ date, className = "" }: { date: string; className?: 
 
 function TomorrowArea({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
+  const today = snapshot.today_plan;
   const tomorrow = snapshot.tomorrow_plan;
   const evening = snapshot.phase === "after_evening";
-  const reviewed = !!snapshot.today_plan?.reviewed_at;
+  const reviewed = !!today?.reviewed_at;
+  // Once the evening hour passes, the review is the way to plan tomorrow: it ends in the
+  // planner. Before that, or after reviewing, planning tomorrow stands on its own. A list
+  // that is all done offers its review button separately (see Day).
+  const offerReview = !!today && evening && !reviewed && !today.all_done;
+  const planTomorrow = () => navigate({ name: "planner", date: snapshot.tomorrow });
+  const reviewToday = () => today && navigate({ name: "review", planId: today.id });
   return (
     <section>
       <div className="flex items-baseline justify-between">
@@ -192,19 +204,31 @@ function TomorrowArea({ snapshot }: { snapshot: DaySnapshot }) {
         {reviewed && <span className="text-[11px] text-stone-400">Reviewed</span>}
       </div>
       {tomorrow?.locked_at ? (
-        <PlanPreview plan={tomorrow} onEdit={() => navigate({ name: "planner", date: snapshot.tomorrow })} />
+        <>
+          <PlanPreview plan={tomorrow} onEdit={planTomorrow} />
+          {offerReview && (
+            <Button className="mt-5" onClick={reviewToday}>
+              Review today
+            </Button>
+          )}
+        </>
       ) : (
         <div className="mt-3">
           <p className="text-sm text-stone-500">
             {evening ? "Time to plan tomorrow's six." : `After ${hourLabel(snapshot.settings.evening_hour)}, plan tomorrow's six.`}
           </p>
-          <Button
-            variant={evening ? "primary" : "secondary"}
-            className="mt-3"
-            onClick={() => navigate({ name: "planner", date: snapshot.tomorrow })}
-          >
-            Plan tomorrow
-          </Button>
+          {offerReview ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={reviewToday}>Review today</Button>
+              <Button variant="secondary" onClick={planTomorrow}>
+                Plan tomorrow
+              </Button>
+            </div>
+          ) : (
+            <Button variant={evening ? "primary" : "secondary"} className="mt-3" onClick={planTomorrow}>
+              Plan tomorrow
+            </Button>
+          )}
         </div>
       )}
     </section>

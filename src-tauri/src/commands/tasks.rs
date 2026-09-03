@@ -1,8 +1,33 @@
+use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::{mutate_by_task, read_clock, AppState, CmdResult, DaySnapshot};
 use crate::db;
-use crate::domain::PauseReason;
+use crate::domain::{PauseReason, TaskStatus};
+
+/// Focus time of today's current task, measured from its session timestamps.
+#[derive(Debug, Clone, Serialize)]
+pub struct Elapsed {
+    pub task_id: String,
+    pub status: TaskStatus,
+    pub focus_seconds: i64,
+}
+
+/// Polled by the active card once a second while the window is focused. A cheap read:
+/// no housekeeping, no broadcast. Returns `None` when nothing holds today's slot.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
+    let state = app.state::<AppState>();
+    let (_, clock) = read_clock(&state).await?;
+    let Some(day) = db::load_day(&state.pool, clock.today).await? else {
+        return Ok(None);
+    };
+    Ok(day.current_task().map(|t| Elapsed {
+        task_id: t.id.clone(),
+        status: t.status,
+        focus_seconds: day.focus_seconds(&t.id, clock.now),
+    }))
+}
 
 /// Start a task. `override_order` confirms skipping ahead of an unfinished earlier task;
 /// without it the command fails with code `needs_override` so the UI can ask.

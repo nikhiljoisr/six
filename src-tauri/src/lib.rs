@@ -39,6 +39,7 @@ pub fn run() {
             commands::tasks::reopen,
             commands::tasks::set_note,
             commands::tasks::touch,
+            commands::tasks::get_elapsed,
             commands::review::get_review,
             commands::review::trim_session,
             commands::review::complete_review,

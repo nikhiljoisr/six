@@ -7,7 +7,11 @@ import { isAppError, type AppError, type DaySnapshot } from "../lib/types";
 // mutation goes through `dispatch`, and the Rust side answers with a fresh snapshot
 // that replaces the old one wholesale: no optimistic updates.
 
-export type View = { name: "day" } | { name: "planner"; date: string } | { name: "history" };
+export type View =
+  | { name: "day" }
+  | { name: "planner"; date: string }
+  | { name: "history" }
+  | { name: "review"; planId: string };
 
 interface AppStore {
   snapshot: DaySnapshot | null;

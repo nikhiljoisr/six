@@ -1,5 +1,6 @@
 import { duration } from "../lib/format";
 import type { TaskView } from "../lib/types";
+import { useElapsed } from "../lib/useElapsed";
 import { Button, Numeral } from "./ui";
 
 interface Actions {
@@ -73,6 +74,7 @@ export function TaskCard({ task, isAhead, isToday, ...on }: Props) {
 
 function CurrentCard({ task, onComplete, onTakeFive, onResume, onDefer }: { task: TaskView } & Actions) {
   const paused = task.status === "paused";
+  const seconds = useElapsed(task.id, task.focus_seconds, !paused);
   return (
     <div className="rounded-card border-2 border-stone-900 bg-white px-5 py-5 transition-opacity duration-200">
       <div className="flex gap-4">
@@ -81,7 +83,7 @@ function CurrentCard({ task, onComplete, onTakeFive, onResume, onDefer }: { task
           <div className="text-[18px] font-medium leading-snug text-stone-900">{task.title}</div>
           {task.note && <div className="mt-1 text-sm text-stone-500">{task.note}</div>}
           <div className="mt-1.5 text-sm tabular-nums text-stone-500">
-            {duration(task.focus_seconds)}
+            {duration(seconds)}
             {paused && <span className="text-stone-400"> · paused</span>}
           </div>
         </div>

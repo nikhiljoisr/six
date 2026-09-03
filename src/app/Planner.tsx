@@ -23,9 +23,21 @@ function sixRows(rows: Row[]): Row[] {
   return Array.from({ length: 6 }, (_, i) => rows[i] ?? { ...EMPTY });
 }
 
-export function Planner({ snapshot, date }: { snapshot: DaySnapshot; date: string }) {
+export function Planner({
+  snapshot,
+  date,
+  mergeCarryover = false,
+  onDone,
+}: {
+  snapshot: DaySnapshot;
+  date: string;
+  /** From the review: add carried tasks to the empty rows of an already-planned list. */
+  mergeCarryover?: boolean;
+  onDone?: () => void;
+}) {
   const navigate = useStore((s) => s.navigate);
   const dispatch = useStore((s) => s.dispatch);
+  const finish = () => (onDone ? onDone() : navigate({ name: "day" }));
   const isToday = date === snapshot.today;
   const existing: PlanView | null = isToday ? snapshot.today_plan : snapshot.tomorrow_plan;
   const editing = !!existing?.locked_at;
@@ -41,18 +53,32 @@ export function Planner({ snapshot, date }: { snapshot: DaySnapshot; date: strin
   useEffect(() => {
     let cancelled = false;
     if (existing) {
-      setRows(
-        sixRows(
-          existing.tasks.map((t) => ({
-            id: t.id,
-            title: t.title,
-            note: t.note ?? "",
-            carriedFrom: t.carried_from,
-            showNote: !!t.note,
-          })),
-        ),
-      );
-      return;
+      const base: Row[] = existing.tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        note: t.note ?? "",
+        carriedFrom: t.carried_from,
+        showNote: !!t.note,
+      }));
+      if (!mergeCarryover) {
+        setRows(sixRows(base));
+        return;
+      }
+      api
+        .getCarryover(date)
+        .then((carry) => {
+          if (cancelled) return;
+          if (carry) setCarriedFromLabel(carry.from_date === dayBefore(date) ? "yesterday" : longDate(carry.from_date));
+          const titles = new Set(base.map((r) => r.title.trim().toLowerCase()));
+          const extra: Row[] = (carry?.tasks ?? [])
+            .filter((t) => !titles.has(t.title.trim().toLowerCase()))
+            .map((t) => ({ id: null, title: t.title, note: t.note ?? "", carriedFrom: t.carried_from ?? null, showNote: !!t.note }));
+          setRows(sixRows([...base, ...extra].slice(0, 6)));
+        })
+        .catch(() => !cancelled && setRows(sixRows(base)));
+      return () => {
+        cancelled = true;
+      };
     }
     api
       .getCarryover(date)
@@ -112,7 +138,7 @@ export function Planner({ snapshot, date }: { snapshot: DaySnapshot; date: strin
         const lockErr = await dispatch(() => api.lockPlan(plan.id));
         if (lockErr) return;
       }
-      navigate({ name: "day" });
+      finish();
     } finally {
       setSaving(false);
     }
@@ -153,7 +179,7 @@ export function Planner({ snapshot, date }: { snapshot: DaySnapshot; date: strin
         <button
           type="button"
           className="absolute left-0 text-sm text-stone-500 hover:text-stone-900"
-          onClick={() => navigate({ name: "day" })}
+          onClick={finish}
         >
           Cancel
         </button>

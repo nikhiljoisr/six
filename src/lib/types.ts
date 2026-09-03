@@ -82,6 +82,13 @@ export interface ReviewView {
   unfinished: string[];
 }
 
+/** Focus time of today's current task, from Rust, for the ticking display. */
+export interface Elapsed {
+  task_id: string;
+  status: TaskStatus;
+  focus_seconds: number;
+}
+
 export type Decision = "carry" | "drop";
 
 export interface ReviewDecision {

@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CarryoverPreview,
   DaySnapshot,
+  Elapsed,
   PauseReason,
   PlanView,
   ReviewDecision,
@@ -32,6 +33,7 @@ export const api = {
   reopen: (task_id: string) => invoke<DaySnapshot>("reopen", { task_id }),
   setNote: (task_id: string, note: string | null) => invoke<DaySnapshot>("set_note", { task_id, note }),
   touch: () => invoke<boolean>("touch"),
+  getElapsed: () => invoke<Elapsed | null>("get_elapsed"),
 
   getReview: (plan_id: string) => invoke<ReviewView>("get_review", { plan_id }),
   trimSession: (session_id: string, ended_at: string) =>
