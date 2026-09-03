@@ -42,6 +42,9 @@ export const api = {
     invoke<DaySnapshot>("complete_review", { plan_id, reflection, decisions }),
 
   getStreak: () => invoke<number>("get_streak"),
+  /** Show the main window, optionally navigating it (used by the popover and tray menu). */
+  showMain: (target?: unknown) => invoke<void>("show_main", { target: target ?? null }),
+  hidePopover: () => invoke<void>("hide_popover"),
   getSettings: () => invoke<Settings>("get_settings"),
   setSetting: (key: keyof Settings, value: string) => invoke<DaySnapshot>("set_setting", { key, value }),
 };

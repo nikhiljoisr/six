@@ -72,6 +72,11 @@ export async function bootstrap(): Promise<void> {
   if (started) return;
   started = true;
   await listen<DaySnapshot>("state_changed", (event) => useStore.getState().apply(event.payload));
+  // The tray menu and popover ask the main window to open a view.
+  await listen<View>("navigate", (event) => {
+    const v = event.payload;
+    if (v && typeof v === "object" && "name" in v) useStore.getState().navigate(v);
+  });
   await useStore.getState().refresh();
   window.addEventListener("focus", () => void useStore.getState().refresh());
 }

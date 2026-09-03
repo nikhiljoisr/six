@@ -20,7 +20,25 @@ pub fn run() {
             let pool = db::pool_from_plugin(app.handle())?;
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
             app.manage(commands::AppState { pool, device_id });
+            #[cfg(target_os = "macos")]
+            {
+                tray::setup(app.handle())?;
+                tray::refresh(app.handle());
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // The main window closes to the menu bar; the app keeps running until Quit.
+            #[cfg(target_os = "macos")]
+            if window.label() == tray::MAIN {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    tray::main_closed(window.app_handle());
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (window, event);
         })
         .invoke_handler(tauri::generate_handler![
             commands::plans::get_snapshot,
@@ -46,7 +64,18 @@ pub fn run() {
             commands::stats::get_streak,
             commands::settings::get_settings,
             commands::settings::set_setting,
+            commands::window::show_main,
+            commands::window::hide_popover,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Six");
+        .build(tauri::generate_context!())
+        .expect("error while building Six")
+        .run(|app, event| {
+            // Clicking the Dock icon (when there is one) brings the main window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show_main(app, None);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }

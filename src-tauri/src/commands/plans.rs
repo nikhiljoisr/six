@@ -9,7 +9,12 @@ use crate::domain::{Day, TaskInput};
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_snapshot(app: AppHandle) -> CmdResult<DaySnapshot> {
     let state = app.state::<AppState>();
-    snapshot::build(&state).await
+    let snap = snapshot::build(&state).await?;
+    // Reads happen on focus and when the popover opens: a cheap moment to let the tray
+    // catch up with the clock (the evening hour passes without any mutation).
+    #[cfg(target_os = "macos")]
+    crate::tray::sync(&app, &snap);
+    Ok(snap)
 }
 
 /// One day's list, if any.

@@ -8,6 +8,7 @@ pub mod plan;
 pub mod settings;
 pub mod streak;
 pub mod timing;
+pub mod tray;
 
 #[cfg(test)]
 mod tests;

@@ -8,6 +8,7 @@ pub mod settings;
 pub mod snapshot;
 pub mod stats;
 pub mod tasks;
+pub mod window;
 
 use chrono::{
     DateTime, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc,
@@ -18,7 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::db::{self, DbError, Pool};
 use crate::domain::{day as day_bounds, Ctx, Day, DomainError, Settings, SettingsError};
 
-pub use snapshot::{DaySnapshot, PlanView};
+pub use snapshot::{DaySnapshot, PlanView, TaskView};
 
 pub const STATE_CHANGED: &str = "state_changed";
 
@@ -152,6 +153,8 @@ pub async fn publish(app: &AppHandle) -> CmdResult<DaySnapshot> {
     let state = app.state::<AppState>();
     let snap = snapshot::build(&state).await?;
     let _ = app.emit(STATE_CHANGED, &snap);
+    #[cfg(target_os = "macos")]
+    crate::tray::sync(app, &snap);
     Ok(snap)
 }
 

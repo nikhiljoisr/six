@@ -52,3 +52,38 @@ differs from it, or that it left open, is recorded here.
   tomorrow unplanned, which the Day view then offers as usual. If tomorrow was already
   planned, carried tasks are added to its empty rows (deduplicated by title) only in this
   review path, never when editing tomorrow directly.
+
+## 2026-09-03 — Step 4
+
+- **Title only, no tray icon.** SPEC §4.11 allows text alone; the menu bar shows the text.
+- **Dock icon while the window is open, none when closed.** Closing the main window hides
+  it and switches the app to the accessory activation policy, so Six lives in the menu bar
+  alone. "Open Six" (popover, menu, or the Dock when present) switches back.
+- **Tray refresh.** The title is set on every state change, and also on every snapshot
+  read (window focus, popover open), since the evening hour can pass without a mutation.
+  Never per second. The scheduler in Step 5 adds the timed flip at the evening hour.
+- **Popover toggling.** Clicking the tray while the popover is open closes it: the click
+  first takes the popover's focus (which hides it), and a click arriving within 400 ms of
+  that is not treated as a request to reopen.
+- **Menu text follows state.** "Pause" / "Resume" (disabled when nothing holds the slot),
+  "Review today" (enabled when today's list is locked and unreviewed), "Plan tomorrow" /
+  "Edit tomorrow".
+
+## Planned — Step 4b (Pomodoro), agreed 2026-09-03
+
+Nikhil's addition. On by default with one switch to turn it off; after a break the next
+pomodoro waits for a tap; interruptions are recorded as facts, never voided or penalised;
+on Android the timer is exact only while the app is in the foreground (no exact-alarm
+permission). Countdown on the active card and in the popover, never in the tray title.
+Silent banners: "Pomodoro done. Take 5?" (Take 5 · One more), long break after four.
+Pomodoros annotate sessions; sessions remain the single truth for focus time.
+- **Notched MacBooks can hide the title.** macOS hides any status item that would land in
+  the notch zone, and the newest item is placed leftmost. On Nikhil's 13" MacBook the
+  existing items leave roughly 65 points free, so `Six · plan today` (about 95) and an
+  active-task title (up to 180) are hidden until other items are removed, while the app
+  itself sets the title correctly (verified in the log). Options if it bites: hide other
+  menu bar items, use an external display, or a compact style (`1/6`) as a Settings choice
+  in Step 5. The popover and menu were verified with a temporarily shortened title.
+- **Popover focus grace.** The status item takes key focus back for an instant after the
+  click that opens the popover; a blur within 600 ms of showing is ignored and focus is
+  re-asserted once after 150 ms. Without this the popover closed itself immediately.
