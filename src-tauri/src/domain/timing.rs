@@ -5,8 +5,12 @@ use serde::Serialize;
 
 use super::model::Session;
 
-/// A session longer than this with no interaction is "likely idle".
+/// A stretch of a session longer than this with no interaction is "likely idle".
 pub const IDLE_THRESHOLD_SECS: i64 = 3 * 3600;
+
+pub fn idle_threshold() -> Duration {
+    Duration::seconds(IDLE_THRESHOLD_SECS)
+}
 
 /// Seconds a single session has run (or ran). Open sessions are measured up to `now`.
 pub fn session_seconds(session: &Session, now: DateTime<Utc>) -> i64 {
@@ -41,38 +45,49 @@ pub struct IdleFlag {
     /// Effective end: `ended_at`, or `now` for a running session.
     pub ended_at: DateTime<Utc>,
     pub seconds: i64,
-    /// Where the trim would cut: the last interaction, or the start if there was none.
-    pub suggested_end: DateTime<Utc>,
+    /// The silence: from the last interaction before it to the first one after it, or
+    /// to the end of the session when nothing followed.
+    pub gap_start: DateTime<Utc>,
+    pub gap_end: DateTime<Utc>,
+    pub gap_seconds: i64,
+    /// What the session would measure with the silence taken out.
     pub suggested_seconds: i64,
 }
 
-/// Sessions longer than three hours whose last interaction was more than three hours
-/// before they ended. The suggested cut is the last interaction.
+/// Sessions with a silence of more than three hours: the one the session recorded when
+/// the user came back, or the stretch since the last interaction when nothing followed.
+/// Whichever is longer is the one offered.
 pub fn idle_flags(sessions: &[Session], now: DateTime<Utc>) -> Vec<IdleFlag> {
-    let threshold = Duration::seconds(IDLE_THRESHOLD_SECS);
+    let threshold = idle_threshold();
     sessions
         .iter()
         .filter_map(|s| {
-            let end = s.ended_at.unwrap_or(now);
+            let end = s.ended_at.unwrap_or(now).max(s.started_at);
             let duration = end - s.started_at;
-            if duration <= threshold {
-                return None;
-            }
             let last = s
                 .last_interaction_at
                 .unwrap_or(s.started_at)
                 .clamp(s.started_at, end);
-            if end - last <= threshold {
-                return None;
-            }
+            let trailing = Some((last, end)).filter(|(a, b)| *b - *a > threshold);
+            let recorded = s
+                .idle_gap()
+                .map(|(a, b)| (a.clamp(s.started_at, end), b.clamp(s.started_at, end)))
+                .filter(|(a, b)| *b - *a > threshold);
+            let (gap_start, gap_end) = [recorded, trailing]
+                .into_iter()
+                .flatten()
+                .max_by_key(|(a, b)| *b - *a)?;
+            let gap = gap_end - gap_start;
             Some(IdleFlag {
                 session_id: s.id.clone(),
                 task_id: s.task_id.clone(),
                 started_at: s.started_at,
                 ended_at: end,
                 seconds: duration.num_seconds(),
-                suggested_end: last,
-                suggested_seconds: (last - s.started_at).num_seconds(),
+                gap_start,
+                gap_end,
+                gap_seconds: gap.num_seconds(),
+                suggested_seconds: (duration - gap).num_seconds().max(0),
             })
         })
         .collect()
@@ -102,6 +117,8 @@ mod tests {
             ended_at: end,
             ended_reason: end.map(|_| EndedReason::Paused),
             last_interaction_at: last,
+            idle_from: None,
+            idle_until: None,
             device_id: "dev".into(),
             updated_at: start,
         }
@@ -133,6 +150,7 @@ mod tests {
     fn duration_never_negative() {
         let s = session("a", "t1", at(9, 0), None, None);
         assert_eq!(session_seconds(&s, at(8, 0)), 0);
+        assert!(idle_flags(&[s], at(8, 0)).is_empty(), "a clock set back flags nothing");
     }
 
     #[test]
@@ -154,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn long_session_with_no_interaction_is_flagged_with_cut_at_last_touch() {
+    fn long_session_with_no_interaction_is_flagged_from_the_last_touch_to_the_end() {
         let sessions = vec![session(
             "a",
             "t1",
@@ -164,17 +182,49 @@ mod tests {
         )];
         let flags = idle_flags(&sessions, at(18, 0));
         assert_eq!(flags.len(), 1);
-        assert_eq!(flags[0].suggested_end, at(9, 5));
+        assert_eq!((flags[0].gap_start, flags[0].gap_end), (at(9, 5), at(18, 0)));
+        assert_eq!(flags[0].gap_seconds, 8 * 3600 + 55 * 60);
         assert_eq!(flags[0].suggested_seconds, 5 * 60);
         assert_eq!(flags[0].seconds, 9 * 3600);
     }
 
     #[test]
-    fn running_session_is_measured_to_now_and_cut_defaults_to_start() {
+    fn running_session_is_measured_to_now_and_the_silence_starts_at_the_start() {
         let sessions = vec![session("a", "t1", at(9, 0), None, None)];
         let flags = idle_flags(&sessions, at(13, 0));
         assert_eq!(flags.len(), 1);
         assert_eq!(flags[0].ended_at, at(13, 0));
-        assert_eq!(flags[0].suggested_end, at(9, 0));
+        assert_eq!((flags[0].gap_start, flags[0].gap_end), (at(9, 0), at(13, 0)));
+    }
+
+    #[test]
+    fn a_recorded_silence_is_offered_even_after_the_user_came_back() {
+        let mut s = session("a", "t1", at(9, 0), Some(at(18, 0)), Some(at(17, 55)));
+        s.idle_from = Some(at(10, 0));
+        s.idle_until = Some(at(14, 0));
+        let flags = idle_flags(&[s], at(18, 0));
+        assert_eq!((flags[0].gap_start, flags[0].gap_end), (at(10, 0), at(14, 0)));
+        assert_eq!(flags[0].suggested_seconds, 5 * 3600);
+    }
+
+    #[test]
+    fn the_longer_of_recorded_and_trailing_silence_wins() {
+        let mut s = session("a", "t1", at(9, 0), None, Some(at(14, 0)));
+        s.idle_from = Some(at(10, 0));
+        s.idle_until = Some(at(13, 30));
+        // Trailing 4h since 14:00 beats the recorded 3h30.
+        let flags = idle_flags(&[s.clone()], at(18, 0));
+        assert_eq!((flags[0].gap_start, flags[0].gap_end), (at(14, 0), at(18, 0)));
+        // Earlier, the recorded one is the only candidate over three hours.
+        let flags = idle_flags(&[s], at(16, 0));
+        assert_eq!((flags[0].gap_start, flags[0].gap_end), (at(10, 0), at(13, 30)));
+    }
+
+    #[test]
+    fn a_recorded_silence_under_the_threshold_is_ignored() {
+        let mut s = session("a", "t1", at(9, 0), Some(at(12, 0)), Some(at(11, 59)));
+        s.idle_from = Some(at(9, 0));
+        s.idle_until = Some(at(11, 0));
+        assert!(idle_flags(&[s], at(12, 0)).is_empty());
     }
 }

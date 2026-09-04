@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Label, Numeral } from "../components/ui";
 import { api } from "../lib/api";
-import { duration } from "../lib/format";
+import { clockTime, duration } from "../lib/format";
 import type { DaySnapshot, Decision, IdleFlag, ReviewView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
 import { Planner } from "./Planner";
@@ -52,7 +52,7 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
 
   const trim = async (flag: IdleFlag) => {
     setBusy(true);
-    const err = await dispatch(() => api.trimSession(flag.session_id, flag.suggested_end));
+    const err = await dispatch(() => api.trimSession(flag.session_id, flag.gap_start, flag.gap_end));
     if (!err) await load();
     setBusy(false);
   };
@@ -180,9 +180,9 @@ function WhatHappened({
         <div key={f.session_id} className="mt-6 rounded-card border border-stone-200 bg-white px-4 py-3">
           <Label>Likely idle</Label>
           <p className="mt-2 text-sm text-stone-900">
-            {titleOf(f.task_id)}: {duration(f.seconds)} recorded, nothing touched after the first {duration(f.suggested_seconds)}.
+            {titleOf(f.task_id)}: {duration(f.seconds)} recorded, nothing touched for {duration(f.gap_seconds)} ({clockTime(f.gap_start)} to {clockTime(f.gap_end)}).
           </p>
-          <p className="mt-1 text-sm text-stone-500">Trim to {duration(f.suggested_seconds)}?</p>
+          <p className="mt-1 text-sm text-stone-500">Take that stretch out and keep {duration(f.suggested_seconds)}?</p>
           <div className="mt-3 flex items-center gap-4">
             <Button variant="secondary" className="px-4 py-2 text-sm" disabled={busy} onClick={() => onTrim(f)}>
               Trim

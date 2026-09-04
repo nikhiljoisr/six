@@ -5,7 +5,8 @@ import { isAppError, type AppError, type DaySnapshot, type Nudge } from "../lib/
 
 // The store mirrors the Rust snapshot and holds UI-only navigation state. Every
 // mutation goes through `dispatch`, and the Rust side answers with a fresh snapshot
-// that replaces the old one wholesale: no optimistic updates.
+// that replaces the old one wholesale: no optimistic updates. Snapshots carry a
+// revision, so an answer that arrives after a newer broadcast is ignored.
 
 export type View =
   | { name: "day" }
@@ -34,7 +35,7 @@ interface AppStore {
   dispatch: (run: () => Promise<DaySnapshot>) => Promise<AppError | null>;
 }
 
-const SILENT_CODES = new Set(["needs_override"]);
+const SILENT_CODES = new Set(["needs_override", "stale_nudge"]);
 
 function describe(e: unknown): AppError {
   if (isAppError(e)) return e;
@@ -42,17 +43,47 @@ function describe(e: unknown): AppError {
   return { code: "unknown", message: typeof e === "string" ? e : JSON.stringify(e) };
 }
 
-export const useStore = create<AppStore>((set) => ({
+/** A queued nudge is kept only while what it says is still true. */
+function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
+  const plan = snap.today_plan?.locked_at ? snap.today_plan : null;
+  if (n.task_id) {
+    const task = plan?.tasks.find((t) => t.id === n.task_id);
+    if (!task) return false;
+    return n.kind === "break_over" ? task.status === "paused" : task.status === "active";
+  }
+  switch (n.kind) {
+    case "evening_ritual":
+      return !snap.tomorrow_plan?.locked_at;
+    case "end_of_day":
+      return !!plan && !plan.reviewed_at;
+    case "unplanned_morning":
+      return !plan;
+    default:
+      return true;
+  }
+}
+
+export const useStore = create<AppStore>((set, get) => ({
   snapshot: null,
   view: { name: "day" },
   error: null,
   nudges: [],
-  pushNudge: (n) => set((s) => ({ nudges: [...s.nudges.filter((x) => x.kind !== n.kind), n] })),
+  pushNudge: (n) =>
+    set((s) => {
+      // A nudge that no longer applies (the task moved on between planning and delivery)
+      // never shows, not even for a moment.
+      if (s.snapshot && !stillApplies(n, s.snapshot)) return {};
+      return { nudges: [...s.nudges.filter((x) => x.kind !== n.kind), n] };
+    }),
   dismissNudge: (kind) => set((s) => ({ nudges: s.nudges.filter((x) => x.kind !== kind) })),
-  apply: (snapshot) => set({ snapshot }),
+  apply: (snapshot) =>
+    set((s) => {
+      if (s.snapshot && snapshot.revision < s.snapshot.revision) return {};
+      return { snapshot, nudges: s.nudges.filter((n) => stillApplies(n, snapshot)) };
+    }),
   refresh: async () => {
     try {
-      set({ snapshot: await api.getSnapshot() });
+      get().apply(await api.getSnapshot());
     } catch (e) {
       set({ error: describe(e).message });
     }
@@ -64,7 +95,9 @@ export const useStore = create<AppStore>((set) => ({
   clearError: () => set({ error: null }),
   dispatch: async (run) => {
     try {
-      set({ snapshot: await run(), error: null });
+      const snapshot = await run();
+      get().apply(snapshot);
+      set({ error: null });
       return null;
     } catch (e) {
       const error = describe(e);

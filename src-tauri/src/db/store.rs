@@ -13,8 +13,8 @@ const PLAN_COLS: &str =
     "id, plan_date, locked_at, edited_after_lock, reviewed_at, reflection, updated_at, device_id";
 const TASK_COLS: &str =
     "id, plan_id, position, title, note, status, carried_from, completed_at, updated_at, device_id";
-const SESSION_COLS: &str =
-    "id, task_id, started_at, ended_at, ended_reason, last_interaction_at, device_id, updated_at";
+const SESSION_COLS: &str = "id, task_id, started_at, ended_at, ended_reason, last_interaction_at, \
+                            idle_from, idle_until, device_id, updated_at";
 const EVENT_COLS: &str = "id, task_id, plan_id, kind, occurred_at, device_id";
 const POMODORO_COLS: &str =
     "id, task_id, session_id, started_at, planned_seconds, ended_at, outcome, \
@@ -100,7 +100,8 @@ async fn assemble(pool: &Pool, row: PlanRow) -> DbResult<Day> {
         .map(Task::try_from)
         .collect::<Result<Vec<_>, _>>()?;
     let sessions_sql = "SELECT s.id, s.task_id, s.started_at, s.ended_at, s.ended_reason, \
-                        s.last_interaction_at, s.device_id, s.updated_at FROM sessions s \
+                        s.last_interaction_at, s.idle_from, s.idle_until, s.device_id, \
+                        s.updated_at FROM sessions s \
                         JOIN tasks t ON t.id = s.task_id WHERE t.plan_id = ? \
                         ORDER BY s.started_at, s.id";
     let sessions = sqlx::query_as::<_, SessionRow>(sessions_sql)
@@ -217,10 +218,11 @@ async fn upsert_task(tx: &mut Transaction<'_, Sqlite>, t: &Task) -> DbResult<()>
 
 async fn upsert_session(tx: &mut Transaction<'_, Sqlite>, s: &Session) -> DbResult<()> {
     let sql = format!(
-        "INSERT INTO sessions ({SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+        "INSERT INTO sessions ({SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
          ON CONFLICT(id) DO UPDATE SET task_id = excluded.task_id, started_at = excluded.started_at, \
          ended_at = excluded.ended_at, ended_reason = excluded.ended_reason, \
-         last_interaction_at = excluded.last_interaction_at, device_id = excluded.device_id, \
+         last_interaction_at = excluded.last_interaction_at, idle_from = excluded.idle_from, \
+         idle_until = excluded.idle_until, device_id = excluded.device_id, \
          updated_at = excluded.updated_at"
     );
     sqlx::query(&sql)
@@ -230,6 +232,8 @@ async fn upsert_session(tx: &mut Transaction<'_, Sqlite>, s: &Session) -> DbResu
         .bind(fmt_opt_ts(s.ended_at))
         .bind(s.ended_reason.map(EndedReason::as_str))
         .bind(fmt_opt_ts(s.last_interaction_at))
+        .bind(fmt_opt_ts(s.idle_from))
+        .bind(fmt_opt_ts(s.idle_until))
         .bind(&s.device_id)
         .bind(fmt_ts(s.updated_at))
         .execute(&mut **tx)
@@ -293,16 +297,11 @@ pub async fn latest_locked_date_before(
     found.as_deref().map(parse_date).transpose()
 }
 
-/// Dates in `from..=to` that have a locked plan.
-pub async fn locked_dates(
-    pool: &Pool,
-    from: NaiveDate,
-    to: NaiveDate,
-) -> DbResult<BTreeSet<NaiveDate>> {
+/// Every date up to `to` that has a locked plan: the streak counts back through all of them.
+pub async fn locked_dates_until(pool: &Pool, to: NaiveDate) -> DbResult<BTreeSet<NaiveDate>> {
     let rows: Vec<String> = sqlx::query_scalar(
-        "SELECT plan_date FROM daily_plans WHERE locked_at IS NOT NULL AND plan_date BETWEEN ? AND ?",
+        "SELECT plan_date FROM daily_plans WHERE locked_at IS NOT NULL AND plan_date <= ?",
     )
-    .bind(fmt_date(from))
     .bind(fmt_date(to))
     .fetch_all(pool)
     .await?;
@@ -585,8 +584,12 @@ mod tests {
         let mut draft = Day::draft(date(3), inputs(&["Draft"]), &ctx(3, 9, 0)).unwrap();
         save_day(&pool, &mut draft).await.unwrap();
 
-        let locked = locked_dates(&pool, date(1), date(3)).await.unwrap();
+        let locked = locked_dates_until(&pool, date(3)).await.unwrap();
         assert_eq!(locked, [date(1), date(2)].into_iter().collect());
+        assert_eq!(
+            locked_dates_until(&pool, date(1)).await.unwrap(),
+            [date(1)].into_iter().collect()
+        );
         assert_eq!(
             latest_locked_date_before(&pool, date(3)).await.unwrap(),
             Some(date(2))

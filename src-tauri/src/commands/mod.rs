@@ -1,6 +1,12 @@
 //! Tauri commands: thin adapters between the frontend and the domain. Every mutation
 //! loads a `Day`, applies one transition, saves it, then broadcasts a fresh snapshot on
 //! the `state_changed` event.
+//!
+//! One operation at a time. Every read-modify-save (a command, the ticker, an interaction
+//! stamp, the housekeeping inside a snapshot) runs under `AppState::gate`, so a slow
+//! command can never save a copy of the day that another one has already moved on from.
+//! Functions documented "gate held" never take the gate themselves (it is not
+//! re-entrant); their callers do.
 
 pub mod nudges;
 pub mod plans;
@@ -10,6 +16,8 @@ pub mod snapshot;
 pub mod stats;
 pub mod tasks;
 pub mod window;
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use chrono::{
     DateTime, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, TimeZone, Timelike, Utc,
@@ -27,6 +35,26 @@ pub const STATE_CHANGED: &str = "state_changed";
 pub struct AppState {
     pub pool: Pool,
     pub device_id: String,
+    /// Serialises every read-modify-save. See the module notes.
+    pub gate: tokio::sync::Mutex<()>,
+    /// Counts the snapshots built under the gate; the frontend keeps the newest.
+    revision: AtomicU64,
+}
+
+impl AppState {
+    pub fn new(pool: Pool, device_id: String) -> Self {
+        Self {
+            pool,
+            device_id,
+            gate: tokio::sync::Mutex::new(()),
+            revision: AtomicU64::new(0),
+        }
+    }
+
+    /// Gate held. The next snapshot revision, so revisions order the same way as state.
+    pub fn next_revision(&self) -> u64 {
+        self.revision.fetch_add(1, Ordering::SeqCst) + 1
+    }
 }
 
 /// What the frontend receives when a command fails. `code` is stable; `message` is for
@@ -105,10 +133,17 @@ impl Clock {
         self.today + Duration::days(1)
     }
 
-    /// Past the evening hour of the current business day (which may run past midnight).
+    /// Past the evening hour of the current business day. The business day runs from
+    /// the day-start hour to the next one; the evening hour may lie past midnight,
+    /// before it, in which case only those small hours are "after evening".
     pub fn after_evening(&self, settings: &Settings) -> bool {
         let hour = self.local_now.hour();
-        hour >= settings.evening_hour || hour < settings.day_start_hour
+        let (evening, start) = (settings.evening_hour, settings.day_start_hour);
+        if evening >= start {
+            hour >= evening || hour < start
+        } else {
+            hour >= evening && hour < start
+        }
     }
 
     /// The rollover instant that began today.
@@ -154,8 +189,9 @@ pub fn day_end_utc(date: NaiveDate, day_start_hour: u32) -> DateTime<Utc> {
     local_to_utc(day_bounds::day_end_local(date, day_start_hour))
 }
 
-/// Runs before every read and write: close running sessions on past days (the rollover)
-/// and give today's first planned task the slot if nothing holds it.
+/// Gate held. Runs before every read and write: close running sessions on past days
+/// (the rollover), settle rings, and give today's first planned task the slot if
+/// nothing holds it.
 pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) -> CmdResult<bool> {
     let ctx = clock.ctx(&state.device_id);
     let mut changed = false;
@@ -182,12 +218,29 @@ pub async fn housekeeping(state: &AppState, settings: &Settings, clock: &Clock) 
     Ok(changed)
 }
 
-/// Build the current snapshot and broadcast it to every window.
+/// Gate held. Build the current snapshot and broadcast it to every window.
 pub async fn publish(app: &AppHandle) -> CmdResult<DaySnapshot> {
     crate::scheduler::deliver_now(app).await;
-    let state = app.state::<AppState>();
-    let snap = snapshot::build(&state).await?;
+    let snap = {
+        let state = app.state::<AppState>();
+        snapshot::build(&state).await?
+    };
     let _ = app.emit(STATE_CHANGED, &snap);
+    #[cfg(target_os = "macos")]
+    crate::tray::sync(app, &snap);
+    crate::scheduler::reconcile(app).await;
+    Ok(snap)
+}
+
+/// The current snapshot, built under the gate (a read can move state: the rollover, a
+/// ring, the first task taking the slot), with the tray and the nudges brought in line.
+pub async fn read_snapshot(app: &AppHandle) -> CmdResult<DaySnapshot> {
+    crate::scheduler::deliver_now(app).await;
+    let snap = {
+        let state = app.state::<AppState>();
+        let _gate = state.gate.lock().await;
+        snapshot::build(&state).await?
+    };
     #[cfg(target_os = "macos")]
     crate::tray::sync(app, &snap);
     crate::scheduler::reconcile(app).await;
@@ -201,6 +254,29 @@ pub async fn read_clock(state: &AppState) -> CmdResult<(Settings, Clock)> {
     Ok((settings, clock))
 }
 
+/// Gate held. Housekeeping, then `f` on a fresh copy of the day, then save. `day` only
+/// names the plan; the copy that changes is loaded after housekeeping, under the gate.
+pub async fn mutate_locked<F>(
+    state: &AppState,
+    day: Option<Day>,
+    missing: AppError,
+    f: F,
+) -> CmdResult<()>
+where
+    F: FnOnce(&mut Day, &Ctx<'_>) -> Result<(), DomainError>,
+{
+    let (settings, clock) = read_clock(state).await?;
+    housekeeping(state, &settings, &clock).await?;
+    let plan_id = day.ok_or(missing)?.plan.id;
+    let mut day = db::load_day_by_plan(&state.pool, &plan_id)
+        .await?
+        .ok_or_else(|| AppError::new("plan_not_found", "list not found"))?;
+    let ctx = clock.ctx(&state.device_id);
+    f(&mut day, &ctx)?;
+    db::save_day(&state.pool, &mut day).await?;
+    Ok(())
+}
+
 async fn mutate_loaded<F>(
     app: &AppHandle,
     day: Option<Day>,
@@ -211,16 +287,8 @@ where
     F: FnOnce(&mut Day, &Ctx<'_>) -> Result<(), DomainError>,
 {
     let state = app.state::<AppState>();
-    let (settings, clock) = read_clock(&state).await?;
-    housekeeping(&state, &settings, &clock).await?;
-    let mut day = day.ok_or(missing)?;
-    // Re-read after housekeeping so the transition sees the rollover / auto-activation.
-    if let Some(fresh) = db::load_day_by_plan(&state.pool, &day.plan.id).await? {
-        day = fresh;
-    }
-    let ctx = clock.ctx(&state.device_id);
-    f(&mut day, &ctx)?;
-    db::save_day(&state.pool, &mut day).await?;
+    let _gate = state.gate.lock().await;
+    mutate_locked(&state, day, missing, f).await?;
     publish(app).await
 }
 
@@ -258,4 +326,51 @@ where
     let state = app.state::<AppState>();
     let day = db::load_day_by_session(&state.pool, session_id).await?;
     mutate_loaded(app, day, DomainError::SessionNotFound.into(), f).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn clock(hour: u32) -> Clock {
+        let day = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+        Clock {
+            now: Utc::now(),
+            local_now: day.and_hms_opt(hour, 0, 0).unwrap(),
+            today: day,
+        }
+    }
+
+    #[test]
+    fn after_evening_runs_from_the_evening_hour_to_the_day_start() {
+        let s = Settings::default(); // evening 18, day starts 5
+        assert!(!clock(9).after_evening(&s));
+        assert!(!clock(17).after_evening(&s));
+        assert!(clock(18).after_evening(&s));
+        assert!(clock(23).after_evening(&s));
+        assert!(clock(2).after_evening(&s), "the small hours belong to the evening before");
+        assert!(!clock(5).after_evening(&s));
+    }
+
+    #[test]
+    fn an_evening_hour_past_midnight_covers_only_the_small_hours() {
+        let mut s = Settings::default();
+        s.evening_hour = 2;
+        s.day_start_hour = 5;
+        assert!(!clock(12).after_evening(&s));
+        assert!(!clock(23).after_evening(&s));
+        assert!(!clock(1).after_evening(&s));
+        assert!(clock(2).after_evening(&s));
+        assert!(clock(4).after_evening(&s));
+        assert!(!clock(5).after_evening(&s));
+    }
+
+    #[test]
+    fn revisions_only_go_up() {
+        let pool = tauri::async_runtime::block_on(crate::db::open_in_memory()).unwrap();
+        let state = AppState::new(pool, "test".into());
+        let a = state.next_revision();
+        let b = state.next_revision();
+        assert!(b > a);
+    }
 }

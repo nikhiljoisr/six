@@ -103,6 +103,8 @@ pub struct SessionRow {
     pub ended_at: Option<String>,
     pub ended_reason: Option<String>,
     pub last_interaction_at: Option<String>,
+    pub idle_from: Option<String>,
+    pub idle_until: Option<String>,
     pub device_id: String,
     pub updated_at: String,
 }
@@ -124,6 +126,8 @@ impl TryFrom<SessionRow> for Session {
             ended_at: parse_opt_ts(r.ended_at.as_deref())?,
             ended_reason,
             last_interaction_at: parse_opt_ts(r.last_interaction_at.as_deref())?,
+            idle_from: parse_opt_ts(r.idle_from.as_deref())?,
+            idle_until: parse_opt_ts(r.idle_until.as_deref())?,
             device_id: r.device_id,
             updated_at: parse_ts(&r.updated_at)?,
         })

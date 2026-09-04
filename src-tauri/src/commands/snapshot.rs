@@ -1,6 +1,6 @@
 //! The read model. The frontend renders this and nothing else.
 
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
 use super::{housekeeping, read_clock, AppState, CmdResult};
@@ -156,6 +156,9 @@ pub enum Phase {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DaySnapshot {
+    /// Counts up with every snapshot built; the frontend ignores an older one that
+    /// arrives after a newer one.
+    pub revision: u64,
     pub today: NaiveDate,
     pub tomorrow: NaiveDate,
     pub now: DateTime<Utc>,
@@ -188,6 +191,7 @@ pub async fn carryover_for(
     Ok(Some(CarryoverPreview { from_date, tasks }))
 }
 
+/// Gate held (the housekeeping inside writes).
 pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
     let (settings, clock) = read_clock(state).await?;
     let _ = housekeeping(state, &settings, &clock).await?;
@@ -196,7 +200,7 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
 
     let today_day = db::load_day(&state.pool, today).await?;
     let tomorrow_day = db::load_day(&state.pool, tomorrow).await?;
-    let locked = db::locked_dates(&state.pool, today - Duration::days(400), tomorrow).await?;
+    let locked = db::locked_dates_until(&state.pool, tomorrow).await?;
 
     let today_planned = today_day.as_ref().is_some_and(|d| d.plan.is_locked());
     let tomorrow_planned = tomorrow_day.as_ref().is_some_and(|d| d.plan.is_locked());
@@ -210,6 +214,7 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
 
     let pomodoro = PomodoroView::from_day(today_day.as_ref(), &settings, clock.now);
     Ok(DaySnapshot {
+        revision: state.next_revision(),
         today,
         tomorrow,
         now: clock.now,

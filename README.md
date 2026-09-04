@@ -47,9 +47,11 @@ Settings.
 
 Six nudges you six ways, all quiet: the evening ritual, a check-in after 75 minutes on a
 task, break over, an unplanned morning, the end of the day, and a finished pomodoro. While
-the window is open they appear as a banner inside it. When the window is closed they
-appear as Six's own small banner under the menu bar, with the same buttons, and slip away
-after a while. That works on every Mac with no permission prompt.
+the window is in front they appear as a banner inside it. When it is not (hidden, or behind
+another app) they appear as Six's own small banner under the menu bar, one at a time, with
+the same buttons, and slip away after a while. That works on every Mac with no permission
+prompt. A nudge's buttons act on the task it was about; if that task has moved on by the
+time you press one, nothing happens.
 
 If you build Six yourself with a Developer ID certificate you can switch Settings → Nudges
 to macOS Notification Centre instead. Ad-hoc signed builds, including the ones on the
@@ -67,7 +69,8 @@ the banner is the default.
   more, or keep going. Leaving a task early is recorded as a fact, never a penalty.
 - **Breaks:** Take 5 pauses the clock; a quiet banner asks you back.
 - **End of day:** the review. What happened (facts only), what carries to tomorrow, and
-  tomorrow's six. A one-line thought if you want one.
+  tomorrow's six. A one-line thought if you want one. If a task ran for hours with nothing
+  touched, the review offers to take that stretch out; the work before and after it stays.
 - **History and Stats:** the last 30 days, this week's numbers, a seven-day trend, the task
   that has rolled over the most, and a plain-text or JSON export.
 
@@ -84,7 +87,9 @@ Settings.
 
 | Keys | Does |
 |---|---|
-| Space | Pause the active task (Take 5) or resume it |
+| Space | Pause the active task (Take 5) or resume it (not while a dialog is open) |
+| Space or Enter, held | The last step of skipping ahead, same as holding the button |
+| Esc | Leave the skip-ahead sheet |
 | Cmd+N | Open the planner for the next unplanned day |
 | Cmd+, | Settings |
 | Cmd+W | Hide the window to the menu bar |
@@ -120,8 +125,9 @@ rustup target add x86_64-apple-darwin && pnpm build:mac:universal
 the packaged app). `cargo test` in `src-tauri` runs the Rust tests, which cover the whole
 state machine.
 
-Releases are built by GitHub Actions on a macOS runner: push a tag like `v1.1.0` and a
-release with the zip appears.
+Releases are built by GitHub Actions on a macOS runner: push a tag like `v1.2.0` (it must
+match the version in `src-tauri/tauri.conf.json`) and, once the tests and the type-check
+pass, a release with the zip appears.
 
 ## Design notes
 

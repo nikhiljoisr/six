@@ -16,12 +16,7 @@ use crate::domain::{report, streak, Day, Event, Plan, Pomodoro, Session, Task};
 pub async fn get_streak(app: AppHandle) -> CmdResult<u32> {
     let state = app.state::<AppState>();
     let (_, clock) = read_clock(&state).await?;
-    let locked = db::locked_dates(
-        &state.pool,
-        clock.today - Duration::days(400),
-        clock.tomorrow(),
-    )
-    .await?;
+    let locked = db::locked_dates_until(&state.pool, clock.tomorrow()).await?;
     Ok(streak::streak(&locked, clock.today))
 }
 
@@ -85,6 +80,8 @@ pub fn exports_dir(app: &AppHandle) -> CmdResult<PathBuf> {
     Ok(home.join("Six").join("exports"))
 }
 
+/// Write a file whole: to a sibling first, then into place, so a crash or a full disk
+/// never leaves a half-written export or truncates the previous one.
 fn write(dir: &PathBuf, name: &str, contents: &str) -> CmdResult<String> {
     std::fs::create_dir_all(dir).map_err(|e| {
         AppError::new(
@@ -93,12 +90,16 @@ fn write(dir: &PathBuf, name: &str, contents: &str) -> CmdResult<String> {
         )
     })?;
     let path = dir.join(name);
-    std::fs::write(&path, contents).map_err(|e| {
-        AppError::new(
-            "export_failed",
-            format!("could not write {}: {e}", path.display()),
-        )
-    })?;
+    let partial = dir.join(format!(".{name}.partial"));
+    std::fs::write(&partial, contents)
+        .and_then(|()| std::fs::rename(&partial, &path))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&partial);
+            AppError::new(
+                "export_failed",
+                format!("could not write {}: {e}", path.display()),
+            )
+        })?;
     Ok(path.display().to_string())
 }
 

@@ -13,6 +13,13 @@ function typing(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
+/** Space belongs to a focused control (it activates it) and to an open dialog. */
+function spaceTakenBy(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.closest !== "function") return false;
+  return typing(el) || !!el.closest("button, a, [role='dialog']");
+}
+
 export function installShortcuts(): () => void {
   const onKey = (e: KeyboardEvent) => {
     const store = useStore.getState();
@@ -31,7 +38,8 @@ export function installShortcuts(): () => void {
       store.navigate({ name: "settings" });
       return;
     }
-    if (e.key === " " && !e.metaKey && !e.ctrlKey && !e.altKey && !typing(e.target) && store.view.name === "day") {
+    const dialogOpen = !!document.querySelector("[role='dialog']");
+    if (e.key === " " && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {
       const current = snap.today_plan?.tasks.find((t) => t.status === "active" || t.status === "paused");
       if (!current) return;
       e.preventDefault();

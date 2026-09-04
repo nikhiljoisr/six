@@ -7,33 +7,62 @@ use serde_json::json;
 use tauri::{AppHandle, Manager};
 
 use super::{
-    mutate_by_task, publish, read_clock, window, AppError, AppState, CmdResult, DaySnapshot,
+    mutate_locked, publish, read_clock, window, AppError, AppState, CmdResult, DaySnapshot,
 };
 use crate::db;
 use crate::domain::nudges::NudgeKind;
-use crate::domain::{PauseReason, TaskStatus};
+use crate::domain::{DomainError, PauseReason, TaskStatus};
 use crate::scheduler::{self, Scheduler, LATER};
 
 /// One action from a nudge: the same ids the OS buttons and the in-app banner use.
+/// `task_id` is the task the nudge was about; if another task holds the slot by now the
+/// nudge is stale and nothing happens (`stale_nudge`). Task snoozes (Keep going, 5 more)
+/// belong to the session or break they were given on.
 #[tauri::command(rename_all = "snake_case")]
-pub async fn nudge_action(app: AppHandle, kind: String, action: String) -> CmdResult<DaySnapshot> {
+pub async fn nudge_action(
+    app: AppHandle,
+    kind: String,
+    action: String,
+    task_id: Option<String>,
+) -> CmdResult<DaySnapshot> {
     let kind =
         NudgeKind::parse(&kind).ok_or_else(|| AppError::new("unknown_nudge", "unknown nudge"))?;
-    let (settings, clock, current, today_plan_id) = {
-        let state = app.state::<AppState>();
-        let (settings, clock) = read_clock(&state).await?;
-        let today = db::load_day(&state.pool, clock.today).await?;
-        let current = today.as_ref().and_then(|d| d.current_task().cloned());
-        (settings, clock, current, today.map(|d| d.plan.id))
-    };
+    let state = app.state::<AppState>();
+    let _gate = state.gate.lock().await;
+    let (settings, clock) = read_clock(&state).await?;
+    let today = db::load_day(&state.pool, clock.today).await?;
+    let current = today.as_ref().and_then(|d| d.current_task().cloned());
+    if let Some(wanted) = task_id.as_deref() {
+        if current.as_ref().map(|t| t.id.as_str()) != Some(wanted) {
+            return Err(AppError::new(
+                "stale_nudge",
+                "that nudge was about an earlier task",
+            ));
+        }
+    }
+    let open_session = today
+        .as_ref()
+        .and_then(|d| d.open_session())
+        .map(|s| s.id.clone());
+    let last_break = current
+        .as_ref()
+        .zip(today.as_ref())
+        .and_then(|(t, d)| d.last_closed_session(&t.id))
+        .map(|s| s.id.clone());
+    let today_plan_id = today.as_ref().map(|d| d.plan.id.clone());
     let sched = app.state::<Scheduler>();
     match action.as_str() {
-        "later" => sched.snooze(kind, clock.now + LATER),
+        "later" => sched.snooze(kind, clock.now + LATER, None),
         "keep_going" => sched.snooze(
             NudgeKind::CheckIn,
             clock.now + Duration::minutes(i64::from(settings.checkin_minutes)),
+            open_session,
         ),
-        "five_more" => sched.snooze(NudgeKind::BreakOver, clock.now + Duration::minutes(5)),
+        "five_more" => sched.snooze(
+            NudgeKind::BreakOver,
+            clock.now + Duration::minutes(5),
+            last_break,
+        ),
         "plan" => {
             let date = if kind == NudgeKind::UnplannedMorning {
                 clock.today
@@ -52,18 +81,26 @@ pub async fn nudge_action(app: AppHandle, kind: String, action: String) -> CmdRe
         }
         "done" => {
             if let Some(t) = current.filter(|t| t.status.is_current()) {
-                return mutate_by_task(&app, &t.id, |d, c| d.complete(&t.id, c)).await;
+                mutate_locked(&state, today, DomainError::TaskNotFound.into(), |d, c| {
+                    d.complete(&t.id, c)
+                })
+                .await?;
             }
         }
         "take_break" => {
             if let Some(t) = current.filter(|t| t.status == TaskStatus::Active) {
-                return mutate_by_task(&app, &t.id, |d, c| d.pause(&t.id, PauseReason::Break, c))
-                    .await;
+                mutate_locked(&state, today, DomainError::TaskNotFound.into(), |d, c| {
+                    d.pause(&t.id, PauseReason::Break, c)
+                })
+                .await?;
             }
         }
         "resume" => {
             if let Some(t) = current.filter(|t| t.status == TaskStatus::Paused) {
-                return mutate_by_task(&app, &t.id, |d, c| d.resume(&t.id, c)).await;
+                mutate_locked(&state, today, DomainError::TaskNotFound.into(), |d, c| {
+                    d.resume(&t.id, c)
+                })
+                .await?;
             }
         }
         "one_more" => {
@@ -75,8 +112,10 @@ pub async fn nudge_action(app: AppHandle, kind: String, action: String) -> CmdRe
                     ));
                 }
                 let seconds = i64::from(settings.pomodoro_minutes) * 60;
-                return mutate_by_task(&app, &t.id, |d, c| d.start_pomodoro(&t.id, seconds, c))
-                    .await;
+                mutate_locked(&state, today, DomainError::TaskNotFound.into(), |d, c| {
+                    d.start_pomodoro(&t.id, seconds, c)
+                })
+                .await?;
             }
         }
         other => {
@@ -94,10 +133,13 @@ pub async fn nudge_action(app: AppHandle, kind: String, action: String) -> CmdRe
 pub async fn snooze(app: AppHandle, kind: String, minutes: u32) -> CmdResult<DaySnapshot> {
     let kind =
         NudgeKind::parse(&kind).ok_or_else(|| AppError::new("unknown_nudge", "unknown nudge"))?;
+    let state = app.state::<AppState>();
+    let _gate = state.gate.lock().await;
     let now = chrono::Utc::now();
     app.state::<Scheduler>().snooze(
         kind,
         now + Duration::minutes(i64::from(minutes.clamp(1, 24 * 60))),
+        None,
     );
     publish(&app).await
 }

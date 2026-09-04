@@ -1,5 +1,7 @@
 # Builds Six.app on a macOS runner and attaches it to a GitHub Release.
-# Runs on a version tag (v1.0.0) or by hand from the Actions tab.
+# Runs on a version tag (v1.2.0) or by hand from the Actions tab. A tag must match the
+# version in src-tauri/tauri.conf.json, and nothing is built until the Rust tests and the
+# type-check pass.
 name: Release
 
 on:
@@ -33,10 +35,35 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: The tag names the version in tauri.conf.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "v$v" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} but src-tauri/tauri.conf.json says $v" >&2
+            exit 1
+          fi
+
       - run: pnpm install --frozen-lockfile
+
+      - name: Rust tests
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: Type-check the frontend
+        run: pnpm typecheck
 
       - name: Build (universal) and sign
         run: pnpm build:mac:universal
+
+      - name: Both architectures, and the signature holds
+        run: |
+          app=src-tauri/target/universal-apple-darwin/release/bundle/macos/Six.app
+          bin="$app/Contents/MacOS/$(ls "$app/Contents/MacOS" | head -1)"
+          archs="$(lipo -archs "$bin")"
+          echo "$bin: $archs"
+          case "$archs" in *arm64*x86_64*|*x86_64*arm64*) ;; *) echo "not universal" >&2; exit 1;; esac
+          codesign --verify --deep --strict --verbose=2 "$app"
 
       - name: Zip the app
         run: |

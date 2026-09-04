@@ -6,7 +6,9 @@ import { useStore } from "../store";
 import { Button } from "./ui";
 
 // The in-app form of a nudge (SPEC §4.10): while the window is focused nothing fires at
-// the OS; the same title, body and actions appear here instead. One at a time.
+// the OS; the same title, body and actions appear here instead. One at a time. A button
+// acts on the task the nudge was about; if that task has moved on, Rust says so and the
+// banner simply goes.
 
 export function Banner({ nudge }: { nudge: Nudge }) {
   const dispatch = useStore((s) => s.dispatch);
@@ -16,8 +18,8 @@ export function Banner({ nudge }: { nudge: Nudge }) {
     if (sound && (nudge.kind === "pomodoro_done" || nudge.kind === "break_over")) chime();
   }, [sound, nudge.kind, nudge.due]);
   const act = async (id: string) => {
-    dismiss(nudge.kind);
-    await dispatch(() => api.nudgeAction(nudge.kind, id));
+    const err = await dispatch(() => api.nudgeAction(nudge.kind, id, nudge.task_id));
+    if (!err || err.code === "stale_nudge") dismiss(nudge.kind);
   };
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center px-4 pt-4" role="status">

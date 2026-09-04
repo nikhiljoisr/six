@@ -103,6 +103,42 @@ pub struct NudgeInput<'a> {
     pub snoozes: &'a HashMap<NudgeKind, DateTime<Utc>>,
 }
 
+/// A "not before" time set by Later, Keep going or 5 more. Task nudges carry the session
+/// (or break) they were given on, so a snooze never outlives it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Snooze {
+    pub until: DateTime<Utc>,
+    pub scope: Option<String>,
+}
+
+/// The snoozes that still apply to `today`: unscoped ones always; a check-in snooze only
+/// while the session it was set on is still the open one; a break-over snooze only while
+/// the break it was set on is still the current task's last break.
+pub fn scope_snoozes(
+    raw: &HashMap<NudgeKind, Snooze>,
+    today: Option<&Day>,
+) -> HashMap<NudgeKind, DateTime<Utc>> {
+    raw.iter()
+        .filter(|(kind, s)| {
+            let Some(scope) = s.scope.as_deref() else {
+                return true;
+            };
+            let Some(day) = today else {
+                return false;
+            };
+            match kind {
+                NudgeKind::CheckIn => day.open_session().is_some_and(|s| s.id == scope),
+                NudgeKind::BreakOver => day
+                    .current_task()
+                    .and_then(|t| day.last_closed_session(&t.id))
+                    .is_some_and(|s| s.id == scope),
+                _ => true,
+            }
+        })
+        .map(|(kind, s)| (*kind, s.until))
+        .collect()
+}
+
 const UNPLANNED_AFTER: Duration = Duration::hours(3);
 
 pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
@@ -159,11 +195,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
 
         // Break over: after "Take 5" (or the long break after a set).
         if let Some(task) = current.filter(|t| t.status == super::model::TaskStatus::Paused) {
-            let last = day
-                .sessions
-                .iter()
-                .filter(|s| s.task_id == task.id && s.ended_at.is_some())
-                .max_by_key(|s| s.ended_at);
+            let last = day.last_closed_session(&task.id);
             if let Some(s) = last.filter(|s| s.ended_reason == Some(EndedReason::Break)) {
                 let completed = day.pomodoros_completed(None);
                 let set =
@@ -513,5 +545,71 @@ mod tests {
         let mut sorted = n.iter().map(|x| x.due).collect::<Vec<_>>();
         sorted.dedup();
         assert!(n.windows(2).all(|w| w[0].due <= w[1].due));
+    }
+
+    #[test]
+    fn a_check_in_snooze_dies_with_the_session_it_was_given_on() {
+        let mut day = locked(2);
+        let t1 = day.tasks[0].id.clone();
+        let sid = day.open_session().unwrap().id.clone();
+        let mut raw = HashMap::new();
+        raw.insert(
+            NudgeKind::CheckIn,
+            Snooze {
+                until: at(3, 11, 30),
+                scope: Some(sid),
+            },
+        );
+        raw.insert(
+            NudgeKind::EveningRitual,
+            Snooze {
+                until: at(3, 18, 30),
+                scope: None,
+            },
+        );
+        let scoped = scope_snoozes(&raw, Some(&day));
+        assert_eq!(scoped.get(&NudgeKind::CheckIn), Some(&at(3, 11, 30)));
+
+        // Task 1 done at 10:20: task 2's session is another one, so the snooze is gone
+        // and task 2 gets its own 75 minutes.
+        day.complete(&t1, &ctx(10, 20)).unwrap();
+        let scoped = scope_snoozes(&raw, Some(&day));
+        assert!(scoped.get(&NudgeKind::CheckIn).is_none());
+        assert_eq!(scoped.get(&NudgeKind::EveningRitual), Some(&at(3, 18, 30)));
+        let f = Fixture {
+            settings: Settings::default(),
+            snoozes: scoped,
+        };
+        let n = plan(&f.input(at(3, 10, 21), Some(&day), true));
+        assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().due, at(3, 11, 35));
+        assert!(scope_snoozes(&raw, None).get(&NudgeKind::CheckIn).is_none());
+    }
+
+    #[test]
+    fn five_more_belongs_to_one_break() {
+        let mut day = locked(1);
+        let t1 = day.tasks[0].id.clone();
+        day.pause(&t1, PauseReason::Break, &ctx(10, 0)).unwrap();
+        let brk = day.last_closed_session(&t1).unwrap().id.clone();
+        let mut raw = HashMap::new();
+        raw.insert(
+            NudgeKind::BreakOver,
+            Snooze {
+                until: at(3, 10, 10),
+                scope: Some(brk),
+            },
+        );
+        assert_eq!(
+            scope_snoozes(&raw, Some(&day)).get(&NudgeKind::BreakOver),
+            Some(&at(3, 10, 10))
+        );
+        day.resume(&t1, &ctx(10, 6)).unwrap();
+        day.pause(&t1, PauseReason::Break, &ctx(10, 30)).unwrap();
+        assert!(
+            scope_snoozes(&raw, Some(&day))
+                .get(&NudgeKind::BreakOver)
+                .is_none(),
+            "a later break is its own"
+        );
     }
 }

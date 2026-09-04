@@ -24,15 +24,18 @@ pub struct Elapsed {
 pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
     crate::scheduler::deliver_now(&app).await;
     let state = app.state::<AppState>();
-    let (_, clock) = read_clock(&state).await?;
-    let Some(mut day) = db::load_day(&state.pool, clock.today).await? else {
-        return Ok(None);
+    let (day, clock) = {
+        let _gate = state.gate.lock().await;
+        let (_, clock) = read_clock(&state).await?;
+        let Some(mut day) = db::load_day(&state.pool, clock.today).await? else {
+            return Ok(None);
+        };
+        if day.settle_pomodoros(&clock.ctx(&state.device_id)) {
+            db::save_day(&state.pool, &mut day).await?;
+            super::publish(&app).await?;
+        }
+        (day, clock)
     };
-    if day.settle_pomodoros(&clock.ctx(&state.device_id)) {
-        db::save_day(&state.pool, &mut day).await?;
-        drop(state);
-        super::publish(&app).await?;
-    }
     let (phase, pomodoro) = day.pomodoro_state(clock.now);
     Ok(day.current_task().map(|t| Elapsed {
         task_id: t.id.clone(),
@@ -140,6 +143,7 @@ pub async fn set_note(
 #[tauri::command(rename_all = "snake_case")]
 pub async fn touch(app: AppHandle) -> CmdResult<bool> {
     let state = app.state::<AppState>();
+    let _gate = state.gate.lock().await;
     let (_, clock) = read_clock(&state).await?;
     let Some(mut day) = db::load_day(&state.pool, clock.today).await? else {
         return Ok(false);

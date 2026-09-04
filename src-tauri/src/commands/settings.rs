@@ -16,6 +16,7 @@ pub async fn get_settings(app: AppHandle) -> CmdResult<Settings> {
 pub async fn set_setting(app: AppHandle, key: String, value: String) -> CmdResult<DaySnapshot> {
     let state = app.state::<AppState>();
     Settings::validate(&key, &value)?;
+    let _gate = state.gate.lock().await;
     db::save_setting(&state.pool, &key, value.trim(), chrono::Utc::now()).await?;
     super::publish(&app).await
 }

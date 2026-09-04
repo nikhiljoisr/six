@@ -4,6 +4,7 @@ import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
 import { duration } from "../lib/format";
 import { chime } from "../lib/sound";
+import { installInteractionStamps } from "../lib/touch";
 import { useElapsed } from "../lib/useElapsed";
 import type { DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
 import { breakLabel, initialLive, PomodoroLine } from "../components/Pomodoro";
@@ -20,23 +21,20 @@ export function TrayPopover() {
   const refresh = useStore((s) => s.refresh);
   const nudge = useStore((s) => s.nudges[0] ?? null);
   const pushNudge = useStore((s) => s.pushNudge);
-  const dismissNudge = useStore((s) => s.dismissNudge);
+  const error = useStore((s) => s.error);
+  const clearError = useStore((s) => s.clearError);
 
-  // A nudge shown as Six's own banner: the popover opens under the tray, the strip
-  // appears at the top, and both go away after a while unless answered.
+  // A nudge shown as Six's own banner: Rust opens the popover under the tray and sends
+  // the nudge here; the strip at the top shows them one at a time.
   useEffect(() => {
-    let timer: number | null = null;
     const unlisten = listen<Nudge>("popover_nudge", (event) => {
       pushNudge(event.payload);
       void refresh();
-      if (timer !== null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => dismissNudge(event.payload.kind), BANNER_MS);
     });
     return () => {
       void unlisten.then((f) => f());
-      if (timer !== null) window.clearTimeout(timer);
     };
-  }, [pushNudge, dismissNudge, refresh]);
+  }, [pushNudge, refresh]);
 
   useEffect(() => {
     const unlisten = listen("popover_shown", () => void refresh());
@@ -44,9 +42,12 @@ export function TrayPopover() {
       if (e.key === "Escape") void api.hidePopover();
     };
     window.addEventListener("keydown", onKey);
+    // A click here is an interaction too, for idle detection.
+    const stamps = installInteractionStamps();
     return () => {
       void unlisten.then((f) => f());
       window.removeEventListener("keydown", onKey);
+      stamps();
     };
   }, [refresh]);
 
@@ -62,19 +63,26 @@ export function TrayPopover() {
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
       )}
-      <div className="mt-auto flex items-center justify-between pt-3">
-        <button
-          type="button"
-          className="text-xs text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
-          onClick={() => open()}
-        >
-          Open Six
-        </button>
-        {plan && (
-          <span className="text-[11px] tabular-nums text-stone-400">
-            {plan.done_count} of {plan.task_count} done
-          </span>
+      <div className="mt-auto pt-3">
+        {error && (
+          <button type="button" className="mb-2 block w-full truncate text-left text-xs text-stone-500" onClick={clearError}>
+            {error}
+          </button>
         )}
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className="text-xs text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
+            onClick={() => open()}
+          >
+            Open Six
+          </button>
+          {plan && (
+            <span className="text-[11px] tabular-nums text-stone-400">
+              {plan.done_count} of {plan.task_count} done
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -163,16 +171,27 @@ function Prompt({ title, body, action, onAction, amber = false }: { title: strin
   );
 }
 
+// One nudge at a time. Each gets its own spell on screen from the moment it shows, and
+// asks Rust to keep the popover up for it (the previous banner's clock may be running
+// out). While the popover has focus the strip waits to be answered.
 function NudgeStrip({ nudge, sound }: { nudge: Nudge; sound: boolean }) {
   const dispatch = useStore((s) => s.dispatch);
   const dismiss = useStore((s) => s.dismissNudge);
   useEffect(() => {
+    void api.showBanner();
+    const t = window.setTimeout(() => {
+      if (!document.hasFocus()) dismiss(nudge.kind);
+    }, BANNER_MS);
+    return () => window.clearTimeout(t);
+  }, [nudge.kind, nudge.due, dismiss]);
+  useEffect(() => {
     if (sound && (nudge.kind === "pomodoro_done" || nudge.kind === "break_over")) chime();
   }, [sound, nudge.kind, nudge.due]);
   const act = async (id: string) => {
+    const err = await dispatch(() => api.nudgeAction(nudge.kind, id, nudge.task_id));
+    if (err && err.code !== "stale_nudge") return;
     dismiss(nudge.kind);
-    await dispatch(() => api.nudgeAction(nudge.kind, id));
-    void api.hidePopover();
+    if (useStore.getState().nudges.length === 0) void api.hidePopover();
   };
   return (
     <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-3" role="status">

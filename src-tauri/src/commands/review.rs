@@ -24,11 +24,15 @@ pub struct ReviewView {
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView> {
     let state = app.state::<AppState>();
-    let (settings, clock) = read_clock(&state).await?;
-    super::housekeeping(&state, &settings, &clock).await?;
-    let day = db::load_day_by_plan(&state.pool, &plan_id)
-        .await?
-        .ok_or_else(|| AppError::new("plan_not_found", "list not found"))?;
+    let (day, clock) = {
+        let _gate = state.gate.lock().await;
+        let (settings, clock) = read_clock(&state).await?;
+        super::housekeeping(&state, &settings, &clock).await?;
+        let day = db::load_day_by_plan(&state.pool, &plan_id)
+            .await?
+            .ok_or_else(|| AppError::new("plan_not_found", "list not found"))?;
+        (day, clock)
+    };
     let events = db::events_for_plan(&state.pool, &plan_id).await?;
     let top = day
         .tasks
@@ -52,16 +56,17 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
     })
 }
 
-/// Cut a likely-idle session at `ended_at` (RFC 3339).
+/// Take a silence out of a session: the bounds (RFC 3339) come from the review's flag.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn trim_session(
     app: AppHandle,
     session_id: String,
-    ended_at: String,
+    gap_start: String,
+    gap_end: String,
 ) -> CmdResult<DaySnapshot> {
-    let at = parse_ts(&ended_at)?;
+    let (from, to) = (parse_ts(&gap_start)?, parse_ts(&gap_end)?);
     mutate_by_session(&app, &session_id, |day, ctx| {
-        day.trim_session(&session_id, at, ctx)
+        day.trim_idle(&session_id, from, to, ctx)
     })
     .await
 }

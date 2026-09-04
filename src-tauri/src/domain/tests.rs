@@ -761,22 +761,17 @@ fn a_long_untouched_session_is_flagged_and_can_be_trimmed() {
     let flags = day.idle_flags(at(3, 18, 0));
     assert_eq!(flags.len(), 1);
     assert_eq!(
-        flags[0].suggested_end,
-        at(3, 9, 0),
+        (flags[0].gap_start, flags[0].gap_end),
+        (at(3, 9, 0), at(3, 18, 0)),
         "no interaction after the start"
     );
     let sid = flags[0].session_id.clone();
 
     let c = ctx(3, 18, 5);
-    assert_eq!(
-        day.trim_session(&sid, at(3, 8, 0), &c).unwrap_err(),
-        DomainError::InvalidTrim
-    );
-    assert_eq!(
-        day.trim_session(&sid, at(3, 18, 0), &c).unwrap_err(),
-        DomainError::InvalidTrim
-    );
-    day.trim_session(&sid, at(3, 9, 5), &c).unwrap();
+    // Trimming away all but the first five minutes: the session ends at 09:05 and, the
+    // silence having run to the end, nothing continues after it.
+    day.trim_idle(&sid, at(3, 9, 5), at(3, 18, 0), &c).unwrap();
+    assert_eq!(day.sessions.len(), 1);
     assert_eq!(day.sessions[0].ended_at, Some(at(3, 9, 5)));
     assert_eq!(day.sessions[0].ended_reason, Some(EndedReason::Trimmed));
     assert_eq!(day.focus_seconds(&id(&day, 1), c.now), 5 * 60);
@@ -785,9 +780,34 @@ fn a_long_untouched_session_is_flagged_and_can_be_trimmed() {
 }
 
 #[test]
+fn a_trim_must_lie_inside_the_session_and_remove_something() {
+    let (mut day, _) = locked_today(1);
+    let sid = day.open_session().unwrap().id.clone();
+    let c = ctx(3, 14, 0);
+    assert_eq!(
+        day.trim_idle(&sid, at(3, 8, 0), at(3, 14, 0), &c).unwrap_err(),
+        DomainError::InvalidTrim
+    );
+    assert_eq!(
+        day.trim_idle(&sid, at(3, 9, 0), at(3, 15, 0), &c).unwrap_err(),
+        DomainError::InvalidTrim
+    );
+    assert_eq!(
+        day.trim_idle(&sid, at(3, 12, 0), at(3, 12, 0), &c).unwrap_err(),
+        DomainError::InvalidTrim
+    );
+    assert_eq!(
+        day.trim_idle("nope", at(3, 9, 0), at(3, 14, 0), &c).unwrap_err(),
+        DomainError::SessionNotFound
+    );
+    assert_eq!(day.sessions.len(), 1);
+    ok(&day);
+}
+
+#[test]
 fn interacting_keeps_a_long_session_from_being_flagged() {
     let (mut day, _) = locked_today(1);
-    day.touch(&ctx(3, 12, 30));
+    day.touch(&ctx(3, 11, 30));
     assert!(day.idle_flags(at(3, 13, 0)).is_empty());
     assert!(
         !day.idle_flags(at(3, 17, 0)).is_empty(),
@@ -797,11 +817,11 @@ fn interacting_keeps_a_long_session_from_being_flagged() {
 }
 
 #[test]
-fn trimming_a_running_session_restarts_it_now() {
+fn trimming_a_running_session_continues_it_from_the_return() {
     let (mut day, _) = locked_today(1);
     let sid = day.open_session().unwrap().id.clone();
     let c = ctx(3, 14, 0);
-    day.trim_session(&sid, at(3, 9, 5), &c).unwrap();
+    day.trim_idle(&sid, at(3, 9, 5), at(3, 14, 0), &c).unwrap();
     assert_eq!(day.sessions.len(), 2);
     assert_eq!(day.sessions[0].ended_at, Some(at(3, 9, 5)));
     let fresh = day.open_session().unwrap();
@@ -810,6 +830,144 @@ fn trimming_a_running_session_restarts_it_now() {
     assert_eq!(
         day.focus_seconds(&id(&day, 1), at(3, 14, 10)),
         5 * 60 + 10 * 60
+    );
+    ok(&day);
+}
+
+#[test]
+fn coming_back_after_a_long_silence_keeps_the_silence_for_the_review() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    // Nothing from 09:00 until 12:30: the first touch back records the silence instead
+    // of erasing it, and the stamp still moves.
+    assert!(day.touch(&ctx(3, 12, 30)));
+    day.touch(&ctx(3, 12, 31));
+    let s = &day.sessions[0];
+    assert_eq!(s.idle_gap(), Some((at(3, 9, 0), at(3, 12, 30))));
+    assert_eq!(s.last_interaction_at, Some(at(3, 12, 31)));
+
+    let flags = day.idle_flags(at(3, 13, 0));
+    assert_eq!(flags.len(), 1);
+    assert_eq!(
+        (flags[0].gap_start, flags[0].gap_end),
+        (at(3, 9, 0), at(3, 12, 30))
+    );
+    assert_eq!(flags[0].gap_seconds, 3 * 3600 + 30 * 60);
+    assert_eq!(flags[0].suggested_seconds, 30 * 60);
+
+    // Trimming takes exactly that stretch out; the work since 12:30 goes on, still running.
+    let sid = flags[0].session_id.clone();
+    day.trim_idle(&sid, at(3, 9, 0), at(3, 12, 30), &ctx(3, 13, 0))
+        .unwrap();
+    assert_eq!(day.sessions.len(), 2);
+    assert_eq!(day.sessions[0].ended_at, Some(at(3, 9, 0)));
+    assert_eq!(day.sessions[0].ended_reason, Some(EndedReason::Trimmed));
+    assert!(day.sessions[0].idle_gap().is_none());
+    let rest = day.open_session().unwrap();
+    assert_eq!(rest.started_at, at(3, 12, 30));
+    assert_eq!(rest.last_interaction_at, Some(at(3, 12, 31)));
+    assert_eq!(day.focus_seconds(&t1, at(3, 13, 0)), 30 * 60);
+    assert!(day.idle_flags(at(3, 13, 0)).is_empty());
+    ok(&day);
+}
+
+#[test]
+fn the_longest_silence_is_the_one_kept() {
+    let (mut day, _) = locked_today(1);
+    day.touch(&ctx(3, 12, 10)); // 3h10 since the start: recorded
+    day.touch(&ctx(3, 12, 20));
+    day.touch(&ctx(3, 16, 30)); // 4h10: longer, replaces it
+    assert_eq!(
+        day.sessions[0].idle_gap(),
+        Some((at(3, 12, 20), at(3, 16, 30)))
+    );
+    day.touch(&ctx(3, 19, 40)); // 3h10 again: shorter, ignored
+    assert_eq!(
+        day.sessions[0].idle_gap(),
+        Some((at(3, 12, 20), at(3, 16, 30)))
+    );
+    // The silence since the last touch competes with the recorded one; the longer wins.
+    let flags = day.idle_flags(at(3, 22, 0));
+    assert_eq!(
+        (flags[0].gap_start, flags[0].gap_end),
+        (at(3, 12, 20), at(3, 16, 30))
+    );
+    let flags = day.idle_flags(at(4, 0, 0));
+    assert_eq!(
+        (flags[0].gap_start, flags[0].gap_end),
+        (at(3, 19, 40), at(4, 0, 0))
+    );
+    ok(&day);
+}
+
+#[test]
+fn work_after_the_silence_survives_the_trim_of_a_closed_session() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.touch(&ctx(3, 12, 0));
+    day.touch(&ctx(3, 15, 30)); // 3h30 away over lunch
+    day.pause(&t1, PauseReason::Paused, &ctx(3, 18, 0)).unwrap();
+    let flags = day.idle_flags(at(3, 18, 5));
+    assert_eq!(
+        (flags[0].gap_start, flags[0].gap_end),
+        (at(3, 12, 0), at(3, 15, 30))
+    );
+    let sid = flags[0].session_id.clone();
+    day.trim_idle(&sid, at(3, 12, 0), at(3, 15, 30), &ctx(3, 18, 5))
+        .unwrap();
+    assert_eq!(day.sessions.len(), 2);
+    assert_eq!(day.sessions[0].ended_at, Some(at(3, 12, 0)));
+    let after = &day.sessions[1];
+    assert_eq!(
+        (after.started_at, after.ended_at),
+        (at(3, 15, 30), Some(at(3, 18, 0)))
+    );
+    assert_eq!(
+        after.ended_reason,
+        Some(EndedReason::Paused),
+        "the original reason stays with the end"
+    );
+    assert!(day.open_session().is_none());
+    assert_eq!(
+        day.focus_seconds(&t1, at(3, 18, 5)),
+        3 * 3600 + 2 * 3600 + 30 * 60
+    );
+    assert!(day.idle_flags(at(3, 18, 5)).is_empty());
+    ok(&day);
+}
+
+#[test]
+fn a_pomodoro_counted_during_the_silence_is_interrupted_by_the_trim() {
+    // The ring settled while nobody was there: reads settle before the review ever runs.
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.start_pomodoro(&t1, 1500, &ctx(3, 9, 0)).unwrap();
+    assert!(day.settle_pomodoros(&ctx(3, 14, 0)));
+    assert_eq!(day.pomodoros_completed(None), 1);
+    let sid = day.open_session().unwrap().id.clone();
+    day.trim_idle(&sid, at(3, 9, 5), at(3, 14, 0), &ctx(3, 14, 0))
+        .unwrap();
+    assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::Interrupted));
+    assert_eq!(pom(&day, 0).ended_at, Some(at(3, 9, 5)));
+    assert_eq!(day.pomodoros_completed(None), 0);
+    assert_eq!(day.focus_seconds(&t1, at(3, 14, 0)), 5 * 60);
+    ok(&day);
+}
+
+#[test]
+fn a_pomodoro_after_the_silence_moves_to_the_session_that_continues() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.touch(&ctx(3, 13, 0)); // 4h of silence, recorded
+    day.start_pomodoro(&t1, 1500, &ctx(3, 13, 5)).unwrap();
+    let sid = day.open_session().unwrap().id.clone();
+    day.trim_idle(&sid, at(3, 9, 0), at(3, 13, 0), &ctx(3, 13, 10))
+        .unwrap();
+    let rest = day.open_session().unwrap();
+    assert_eq!(pom(&day, 0).session_id.as_deref(), Some(rest.id.as_str()));
+    assert!(
+        pom(&day, 0).is_open(),
+        "a pomodoro that started after the silence is untouched"
     );
     ok(&day);
 }
@@ -1165,7 +1323,7 @@ fn trimming_an_idle_session_ends_the_pomodoro_at_the_trim_point() {
     let t1 = id(&day, 1);
     day.start_pomodoro(&t1, POM, &ctx(3, 9, 0)).unwrap();
     let session = day.sessions[0].id.clone();
-    day.trim_session(&session, at(3, 9, 5), &ctx(3, 14, 0))
+    day.trim_idle(&session, at(3, 9, 5), at(3, 14, 0), &ctx(3, 14, 0))
         .unwrap();
     assert_eq!(pom(&day, 0).outcome, Some(PomodoroOutcome::Interrupted));
     assert_eq!(pom(&day, 0).ended_at, Some(at(3, 9, 5)));

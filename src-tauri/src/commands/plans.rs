@@ -8,17 +8,7 @@ use crate::domain::{Day, TaskInput};
 /// The full day snapshot (also what `state_changed` carries).
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_snapshot(app: AppHandle) -> CmdResult<DaySnapshot> {
-    crate::scheduler::deliver_now(&app).await;
-    let snap = {
-        let state = app.state::<AppState>();
-        snapshot::build(&state).await?
-    };
-    #[cfg(target_os = "macos")]
-    crate::tray::sync(&app, &snap);
-    // A read can move state (the rollover, a ring, the first task taking the slot), so
-    // the nudges are re-planned here as well as after writes.
-    crate::scheduler::reconcile(&app).await;
-    Ok(snap)
+    super::read_snapshot(&app).await
 }
 
 /// One day's list, if any.
@@ -62,6 +52,7 @@ pub async fn draft_plan(
 ) -> CmdResult<DaySnapshot> {
     let state = app.state::<AppState>();
     let date = parse_date(&date)?;
+    let _gate = state.gate.lock().await;
     let (settings, clock) = read_clock(&state).await?;
     if date != clock.today && date != clock.tomorrow() {
         return Err(AppError::new(

@@ -48,6 +48,12 @@ pub fn migrations() -> Vec<tauri_plugin_sql::Migration> {
             sql: include_str!("../../migrations/0003_public.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
+        tauri_plugin_sql::Migration {
+            version: 4,
+            description: "idle_gap",
+            sql: include_str!("../../migrations/0004_idle_gap.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
     ]
 }
 

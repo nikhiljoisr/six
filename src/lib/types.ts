@@ -81,6 +81,8 @@ export interface Settings {
 export type Phase = "before_evening" | "after_evening";
 
 export interface DaySnapshot {
+  /** Counts up with every snapshot Rust builds; an older one arriving late is ignored. */
+  revision: number;
   today: string;
   tomorrow: string;
   now: string;
@@ -99,7 +101,11 @@ export interface IdleFlag {
   started_at: string;
   ended_at: string;
   seconds: number;
-  suggested_end: string;
+  /** The silence: nothing touched between these two instants. */
+  gap_start: string;
+  gap_end: string;
+  gap_seconds: number;
+  /** What the session would measure with the silence taken out. */
   suggested_seconds: number;
 }
 

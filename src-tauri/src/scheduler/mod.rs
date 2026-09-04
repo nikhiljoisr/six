@@ -1,8 +1,8 @@
-//! Nudges. Rust plans them from state (`domain::nudges`), the OS delivers them while the
-//! window is away, and while the window is focused they arrive as in-app banners instead.
-//! One pending notification per kind; re-scheduling replaces. Also the timed checks:
-//! when the day rolls over or the evening hour passes, the state is republished so the
-//! tray, the window and the nudges all move together.
+//! Nudges. Rust plans them from state (`domain::nudges`); while the main window is
+//! focused they arrive as in-app banners, otherwise as Six's own banner under the menu
+//! bar (or, by choice, through the OS). One pending per kind; re-planning replaces. Also
+//! the timed checks: when the day rolls over or the evening hour passes, the state is
+//! republished so the tray, the window and the nudges all move together.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,7 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{self, AppState};
 use crate::db;
-use crate::domain::nudges::{self, Nudge, NudgeInput, NudgeKind};
+use crate::domain::nudges::{self, Nudge, NudgeInput, NudgeKind, Snooze};
 use crate::domain::Settings;
 
 pub const NUDGE_EVENT: &str = "nudge";
@@ -27,15 +27,19 @@ pub struct Scheduler {
     focused: AtomicBool,
     /// The OS notification plugin is usable (macOS needs a .app bundle).
     available: AtomicBool,
-    snoozes: Mutex<HashMap<NudgeKind, DateTime<Utc>>>,
+    /// "Not before" times from Later / Keep going / 5 more, with the session they belong to.
+    snoozes: Mutex<HashMap<NudgeKind, Snooze>>,
     planned: Mutex<Vec<Nudge>>,
     os_scheduled: Mutex<HashMap<NudgeKind, Fingerprint>>,
     delivered: Mutex<HashSet<(NudgeKind, DateTime<Utc>)>>,
 }
 
 impl Scheduler {
-    pub fn snooze(&self, kind: NudgeKind, until: DateTime<Utc>) {
-        self.snoozes.lock().unwrap().insert(kind, until);
+    pub fn snooze(&self, kind: NudgeKind, until: DateTime<Utc>, scope: Option<String>) {
+        self.snoozes
+            .lock()
+            .unwrap()
+            .insert(kind, Snooze { until, scope });
     }
 
     pub fn is_focused(&self) -> bool {
@@ -60,9 +64,11 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
         let mut last: Option<(NaiveDate, bool)> = None;
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
+            // Whatever is due from the current plan is shown before anything settles it.
             deliver_now(&app).await;
             let tick = {
                 let state = app.state::<AppState>();
+                let _gate = state.gate.lock().await;
                 match commands::read_clock(&state).await {
                     Ok((settings, clock)) => {
                         // Rings and rollovers are settled here too, so a pomodoro that
@@ -70,24 +76,20 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
                         let changed = commands::housekeeping(&state, &settings, &clock)
                             .await
                             .unwrap_or(false);
-                        Some((
-                            clock.today,
-                            clock.after_evening(&settings),
-                            clock.now,
-                            changed,
-                        ))
+                        let key = (clock.today, clock.after_evening(&settings));
+                        if changed || last.is_some_and(|k| k != key) {
+                            // Something moved (a ring, a rollover, the evening hour): republish.
+                            let _ = commands::publish(&app).await;
+                        }
+                        Some((key, clock.now))
                     }
                     Err(_) => None,
                 }
             };
-            let Some((today, evening, now, changed)) = tick else {
+            let Some((key, now)) = tick else {
                 continue;
             };
-            if changed || last.is_some_and(|k| k != (today, evening)) {
-                // Something moved (a ring, a rollover, the evening hour): republish.
-                let _ = commands::publish(&app).await;
-            }
-            last = Some((today, evening));
+            last = Some(key);
             let system = {
                 let state = app.state::<AppState>();
                 db::load_settings(&state.pool)
@@ -112,6 +114,7 @@ pub fn set_focused(app: &AppHandle, focused: bool) {
 }
 
 /// Recompute the plan from the current state and bring the OS (or the banners) in line.
+/// Reads only; safe with or without the gate.
 pub async fn reconcile(app: &AppHandle) {
     let Some(sched) = app.try_state::<Scheduler>() else {
         return;
@@ -126,7 +129,7 @@ pub async fn reconcile(app: &AppHandle) {
         .ok()
         .flatten()
         .is_some_and(|d| d.plan.is_locked());
-    let snoozes = sched.snoozes.lock().unwrap().clone();
+    let snoozes = nudges::scope_snoozes(&sched.snoozes.lock().unwrap(), today.as_ref());
     let input = NudgeInput {
         now: clock.now,
         today_start: clock.today_start(&settings),
@@ -152,10 +155,13 @@ pub async fn reconcile(app: &AppHandle) {
             .collect::<Vec<_>>()
             .join(" ")
     );
-    *sched.planned.lock().unwrap() = planned.clone();
 
     let focused = sched.is_focused();
     let system = settings.nudge_style == "system";
+    // A nudge whose time passed since the last plan is not in the new one (a ring that
+    // has just rung is "done", not "due"), so it is delivered from the old plan first.
+    deliver_due(app, clock.now, system);
+    *sched.planned.lock().unwrap() = planned.clone();
     deliver_due(app, clock.now, system);
     #[cfg(any(target_os = "macos", mobile))]
     if sched.notifications_available() {

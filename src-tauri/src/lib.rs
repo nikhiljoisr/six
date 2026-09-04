@@ -48,7 +48,7 @@ pub fn run() {
         .setup(move |app| {
             let pool = db::pool_from_plugin(app.handle())?;
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
-            app.manage(commands::AppState { pool, device_id });
+            app.manage(commands::AppState::new(pool, device_id));
             scheduler::setup(app.handle(), notifications);
             if !notifications {
                 eprintln!("[nudges] OS notifications off: not running from a .app bundle; in-app banners only");
@@ -122,6 +122,7 @@ pub fn run() {
             commands::settings::set_setting,
             commands::window::show_main,
             commands::window::hide_popover,
+            commands::window::show_banner,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Six")

@@ -186,3 +186,47 @@ signed builds. The first-launch guide no longer asks for a permission.
   away before it can be shown. `scheduler::deliver_now` now runs at the start of the ticker,
   of `publish`, of `get_snapshot`, and of the elapsed poll, so whatever is due from the
   last plan is delivered first. Found by watching a ring vanish in the log.
+
+## 2026-09-04 — Hardening after an external review
+
+A second model reviewed v1.1.0 from the source bundle and reported fourteen code-traced
+defects (its report and reproductions live outside the repo). Each was checked against
+the code here; all fourteen held. What changed, and the shape it was given:
+
+- **One operation at a time.** Commands, the ticker, interaction stamps and the
+  housekeeping inside every snapshot now run under one async gate (`AppState::gate`), so
+  a slow command can no longer save a copy of the day that another one has moved on from
+  (two open sessions, a completed task back to active, every later save refused).
+  Snapshots carry a revision; the frontend ignores an older one that arrives late.
+- **A nudge acts only on the task it was about.** Banner buttons send the nudge's task;
+  Rust refuses (`stale_nudge`, silent) when another task holds the slot, and the window
+  drops a queued nudge as soon as a snapshot shows it no longer applies. Snoozes from
+  Keep going and 5 more belong to the session or break they were given on.
+- **The planner edits the list for exactly its date**, never "today's" or "tomorrow's"
+  slot, and refuses to save once its date is neither.
+- **Due before re-planned.** A ring that passed since the last plan is delivered from the
+  old plan before the new one replaces it, on every reconcile (a focus change at the ring
+  used to lose it).
+- **A silence is kept, not erased.** The first interaction after more than three hours
+  records the stretch on the session (migration 0004: `idle_from`, `idle_until`; the
+  longest one wins) instead of overwriting the only evidence. The review offers to take
+  exactly that stretch out; the work after it continues as a session of its own, still
+  running if the original was. A pomodoro that ran into the silence ends there,
+  interrupted, even if it had been counted as complete. `trim_session` now takes the two
+  bounds of the silence.
+- **Keyboard.** The last step of skipping ahead can be held with Space or Enter for the
+  same 1.5 s; Escape leaves the sheet, Tab stays inside it, and the Space shortcut no
+  longer fires on a focused button or inside a dialog.
+- **Six's banner under the menu bar** shows one nudge at a time, each with its own spell
+  on screen (the evening ritual and the end of day are due at the same minute), waits
+  while the popover has focus, shows a failed action instead of hiding it, and its clicks
+  count as interactions.
+- Smaller: an evening hour before the day-start hour counts only the small hours as
+  "after evening"; the streak no longer stops at 400 days; exports are written to a
+  sibling and renamed into place; the app version is 1.2.0 everywhere and the release
+  workflow refuses a tag that disagrees, runs the tests and the type-check first, and
+  checks both architectures and the signature in the built app.
+
+Declined from the same review: a gate around the OS notification sync (the OS path is
+opt-in and idempotent), a broader consolidation of the command layer (the gate helper is
+the whole of it), and a load-error state for History (deferred).

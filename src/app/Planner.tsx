@@ -39,12 +39,18 @@ export function Planner({
   const dispatch = useStore((s) => s.dispatch);
   const finish = () => (onDone ? onDone() : navigate({ name: "day" }));
   const isToday = date === snapshot.today;
-  const existing: PlanView | null = isToday ? snapshot.today_plan : snapshot.tomorrow_plan;
+  // The list for exactly this date. If the Mac's date moved while the planner was open
+  // (a clock set back, a changed day-start hour), `date` may be neither today nor
+  // tomorrow any more; then nothing is saved, and no other day's list is touched.
+  const dateIsPlannable = isToday || date === snapshot.tomorrow;
+  const existing: PlanView | null =
+    [snapshot.today_plan, snapshot.tomorrow_plan].find((p) => p?.date === date) ?? null;
   const editing = !!existing?.locked_at;
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [carriedFromLabel, setCarriedFromLabel] = useState("yesterday");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const dragIndex = useRef<number | null>(null);
@@ -121,6 +127,8 @@ export function Planner({
   const label = isToday ? "Today's six" : "Tomorrow's six";
 
   const save = async () => {
+    setSaveError(null);
+    if (!dateIsPlannable) return;
     const tasks: TaskInput[] = rows
       .filter((r) => r.title.trim().length > 0)
       .map((r) => ({ id: r.id, title: r.title.trim(), note: r.note.trim() || null, carried_from: r.carriedFrom }));
@@ -133,8 +141,11 @@ export function Planner({
         const err = await dispatch(() => api.draftPlan(date, tasks));
         if (err) return;
         const fresh = useStore.getState().snapshot;
-        const plan = isToday ? fresh?.today_plan : fresh?.tomorrow_plan;
-        if (!plan) return;
+        const plan = [fresh?.today_plan, fresh?.tomorrow_plan].find((p) => p?.date === date);
+        if (!plan) {
+          setSaveError("The date changed before the list could be locked. The draft is saved.");
+          return;
+        }
         const lockErr = await dispatch(() => api.lockPlan(plan.id));
         if (lockErr) return;
       }
@@ -209,6 +220,7 @@ export function Planner({
               <div className="min-w-0 flex-1">
                 <input
                   value={row.title}
+                  aria-label={`Task ${i + 1}`}
                   placeholder={i === 0 ? "The most important thing" : ""}
                   onChange={(e) => update(i, { title: e.target.value })}
                   className="w-full bg-transparent py-1 text-[15px] text-stone-900 placeholder:text-stone-300 focus:outline-none"
@@ -234,6 +246,7 @@ export function Planner({
             {(row.showNote || row.note) && (
               <input
                 value={row.note}
+                aria-label={`Note for task ${i + 1}`}
                 placeholder="A one-line note"
                 onChange={(e) => update(i, { note: e.target.value })}
                 className="mt-1 ml-10 w-[calc(100%-2.5rem)] bg-transparent text-sm text-stone-500 placeholder:text-stone-300 focus:outline-none"
@@ -254,7 +267,12 @@ export function Planner({
       </div>
 
       <div className="sticky bottom-0 mt-auto -mx-6 border-t border-stone-200 bg-stone-50/95 px-6 pb-8 pt-4 backdrop-blur">
-        <Button full disabled={filled === 0 || saving} onClick={() => void save()}>
+        {(!dateIsPlannable || saveError) && (
+          <p role="alert" className="mb-3 text-sm text-stone-500">
+            {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}
+          </p>
+        )}
+        <Button full disabled={!dateIsPlannable || filled === 0 || saving} onClick={() => void save()}>
           {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
         </Button>
         <p className="mt-2 text-center text-xs text-stone-500">{filled} of 6 filled</p>

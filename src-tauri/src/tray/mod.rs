@@ -117,10 +117,8 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
 pub fn refresh(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let state = app.state::<AppState>();
-        if let Ok(snapshot) = commands::snapshot::build(&state).await {
-            sync(&app, &snapshot);
-        }
+        // Built under the gate; brings the tray in line itself.
+        let _ = commands::read_snapshot(&app).await;
     });
 }
 
@@ -209,8 +207,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         "pause_resume" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                let state = app.state::<AppState>();
-                let Ok(snapshot) = commands::snapshot::build(&state).await else {
+                let Ok(snapshot) = commands::read_snapshot(&app).await else {
                     return;
                 };
                 let Some(task) = current_task(&snapshot) else {
@@ -233,8 +230,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         "review" => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                let state = app.state::<AppState>();
-                let Ok(snapshot) = commands::snapshot::build(&state).await else {
+                let Ok(snapshot) = commands::read_snapshot(&app).await else {
                     return;
                 };
                 if let Some(plan) = snapshot
@@ -300,6 +296,18 @@ const BANNER_SECS: u64 = 25;
 /// Show a nudge as Six's own banner: the popover, under the tray, without taking focus,
 /// gone again after a while unless the user is on it.
 pub fn show_nudge(app: &AppHandle, nudge: &crate::domain::nudges::Nudge) {
+    present_banner(app);
+    let _ = app.emit_to(POPOVER, "popover_nudge", nudge);
+}
+
+/// The popover moved on to the next queued nudge: another spell on screen for it.
+pub fn show_banner(app: &AppHandle) {
+    present_banner(app);
+}
+
+/// Put the popover under the tray without taking focus and let it slip away after a
+/// while unless the user is on it. Every call restarts that clock.
+fn present_banner(app: &AppHandle) {
     let Some(tray) = app.try_state::<Tray>() else {
         return;
     };
@@ -316,7 +324,6 @@ pub fn show_nudge(app: &AppHandle, nudge: &crate::domain::nudges::Nudge) {
         *g
     };
     let _ = popover.show();
-    let _ = app.emit_to(POPOVER, "popover_nudge", nudge);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(BANNER_SECS)).await;

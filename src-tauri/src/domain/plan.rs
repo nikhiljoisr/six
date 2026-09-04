@@ -15,13 +15,14 @@
 //! paused; at most one session is open and it belongs to the active task; sessions of a
 //! task never overlap; `completed_at` is set iff status is `done`.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::model::*;
 use super::pomodoro::{Pomodoro, PomodoroOutcome, PomodoroPhase};
 use super::timing::{self, IdleFlag};
+use super::timing::idle_threshold;
 
 /// Everything a transition needs from the outside world.
 #[derive(Debug, Clone, Copy)]
@@ -269,6 +270,14 @@ impl Day {
         self.sessions.iter().find(|s| s.is_open())
     }
 
+    /// The task's most recently ended session (the break it is on, when paused).
+    pub fn last_closed_session(&self, task_id: &str) -> Option<&Session> {
+        self.sessions
+            .iter()
+            .filter(|s| s.task_id == task_id && s.ended_at.is_some())
+            .max_by_key(|s| s.ended_at)
+    }
+
     pub fn done_count(&self) -> usize {
         self.tasks
             .iter()
@@ -471,12 +480,15 @@ impl Day {
         Ok(())
     }
 
-    /// Cut a session short (the "likely idle" fix). A running session is closed at the
-    /// cut and a fresh one starts now, since the user is clearly here.
-    pub fn trim_session(
+    /// Take a silence out of a session (the "likely idle" fix). The session ends where
+    /// the silence began; whatever the user did after it continues as a session of its
+    /// own, still running if the original was. A pomodoro that ran into the silence ends
+    /// there, interrupted, even if it had already been counted as complete.
+    pub fn trim_idle(
         &mut self,
         session_id: &str,
-        new_end: DateTime<Utc>,
+        gap_start: DateTime<Utc>,
+        gap_end: DateTime<Utc>,
         ctx: &Ctx,
     ) -> Result<(), DomainError> {
         let idx = self
@@ -484,27 +496,56 @@ impl Day {
             .iter()
             .position(|s| s.id == session_id)
             .ok_or(DomainError::SessionNotFound)?;
-        let (started_at, current_end, task_id, was_open) = {
-            let s = &self.sessions[idx];
-            (
-                s.started_at,
-                s.ended_at.unwrap_or(ctx.now),
-                s.task_id.clone(),
-                s.is_open(),
-            )
-        };
-        if new_end < started_at || new_end >= current_end {
+        let original = self.sessions[idx].clone();
+        let current_end = original.ended_at.unwrap_or(ctx.now);
+        if gap_start < original.started_at || gap_end > current_end || gap_start >= gap_end {
             return Err(DomainError::InvalidTrim);
         }
         {
             let s = &mut self.sessions[idx];
-            s.ended_at = Some(new_end);
+            s.ended_at = Some(gap_start);
             s.ended_reason = Some(EndedReason::Trimmed);
+            s.last_interaction_at = s.last_interaction_at.map(|t| t.min(gap_start));
+            s.idle_from = None;
+            s.idle_until = None;
             s.updated_at = ctx.now;
         }
-        if was_open {
-            self.end_pomodoros_for(&task_id, new_end, PomodoroOutcome::Interrupted, ctx);
-            self.start_session(&task_id, ctx);
+        for p in self.pomodoros.iter_mut().filter(|p| {
+            p.task_id == original.task_id
+                && p.started_at < gap_end
+                && p.ended_at.is_none_or(|e| e > gap_start)
+        }) {
+            p.ended_at = Some(gap_start.max(p.started_at));
+            p.outcome = Some(PomodoroOutcome::Interrupted);
+            p.updated_at = ctx.now;
+        }
+        // What came after the silence is work of its own.
+        if original.is_open() || gap_end < current_end {
+            let remainder = Session {
+                id: new_id(),
+                task_id: original.task_id.clone(),
+                started_at: gap_end,
+                ended_at: original.ended_at,
+                ended_reason: original.ended_reason,
+                last_interaction_at: Some(
+                    original
+                        .last_interaction_at
+                        .filter(|t| *t >= gap_end)
+                        .unwrap_or(gap_end),
+                ),
+                idle_from: None,
+                idle_until: None,
+                device_id: ctx.device_id.to_string(),
+                updated_at: ctx.now,
+            };
+            for p in self.pomodoros.iter_mut().filter(|p| {
+                p.task_id == original.task_id
+                    && p.started_at >= gap_end
+                    && p.session_id.as_deref() == Some(session_id)
+            }) {
+                p.session_id = Some(remainder.id.clone());
+            }
+            self.sessions.push(remainder);
         }
         Ok(())
     }
@@ -679,15 +720,27 @@ impl Day {
     }
 
     /// The user did something: remember it on the running session for idle detection.
+    /// Coming back after more than three hours of nothing records that silence on the
+    /// session (the longest one is kept) rather than erasing the only evidence of it.
     pub fn touch(&mut self, ctx: &Ctx) -> bool {
-        match self.sessions.iter_mut().find(|s| s.is_open()) {
-            Some(s) => {
-                s.last_interaction_at = Some(ctx.now);
-                s.updated_at = ctx.now;
-                true
+        let Some(s) = self.sessions.iter_mut().find(|s| s.is_open()) else {
+            return false;
+        };
+        let previous = s.last_interaction_at.unwrap_or(s.started_at);
+        let silence = ctx.now - previous;
+        if silence > idle_threshold() {
+            let kept = s
+                .idle_gap()
+                .map(|(a, b)| b - a)
+                .unwrap_or_else(Duration::zero);
+            if silence > kept {
+                s.idle_from = Some(previous);
+                s.idle_until = Some(ctx.now);
             }
-            None => false,
         }
+        s.last_interaction_at = Some(ctx.now);
+        s.updated_at = ctx.now;
+        true
     }
 
     // ----- internals ---------------------------------------------------------------
@@ -871,6 +924,8 @@ impl Day {
             ended_at: None,
             ended_reason: None,
             last_interaction_at: Some(ctx.now),
+            idle_from: None,
+            idle_until: None,
             device_id: ctx.device_id.to_string(),
             updated_at: ctx.now,
         });

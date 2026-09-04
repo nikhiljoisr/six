@@ -197,6 +197,10 @@ pub struct Session {
     pub ended_at: Option<DateTime<Utc>>,
     pub ended_reason: Option<EndedReason>,
     pub last_interaction_at: Option<DateTime<Utc>>,
+    /// The longest silence seen on this session (over three hours with no interaction),
+    /// kept as evidence for the review even after the user comes back.
+    pub idle_from: Option<DateTime<Utc>>,
+    pub idle_until: Option<DateTime<Utc>>,
     pub device_id: String,
     pub updated_at: DateTime<Utc>,
 }
@@ -204,6 +208,11 @@ pub struct Session {
 impl Session {
     pub fn is_open(&self) -> bool {
         self.ended_at.is_none()
+    }
+
+    /// The recorded silence, if any.
+    pub fn idle_gap(&self) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+        self.idle_from.zip(self.idle_until)
     }
 }
 

@@ -31,6 +31,11 @@ export function hourLabel(hour: number): string {
   return `${h12} ${hour < 12 ? "AM" : "PM"}`;
 }
 
+/** An RFC 3339 instant as a local clock time, "2:30 PM". */
+export function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 /** A countdown as m:ss, for the pomodoro line. */
 export function countdown(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

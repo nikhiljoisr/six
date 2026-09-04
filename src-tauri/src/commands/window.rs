@@ -30,6 +30,16 @@ pub async fn show_main(app: AppHandle, target: Option<serde_json::Value>) -> Cmd
     Ok(())
 }
 
+/// The popover moved on to the next queued nudge: keep Six's banner on screen for it.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn show_banner(app: AppHandle) -> CmdResult<()> {
+    #[cfg(target_os = "macos")]
+    crate::tray::show_banner(&app);
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+    Ok(())
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub async fn hide_popover(app: AppHandle) -> CmdResult<()> {
     #[cfg(target_os = "macos")]
