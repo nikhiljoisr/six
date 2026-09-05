@@ -11,7 +11,7 @@ use super::{
 };
 use crate::db;
 use crate::domain::nudges::NudgeKind;
-use crate::domain::{DomainError, PauseReason, TaskStatus};
+use crate::domain::{DomainError, PauseReason, PomodoroPhase, TaskStatus};
 use crate::scheduler::{self, Scheduler, LATER};
 
 /// One action from a nudge: the same ids the OS buttons and the in-app banner use.
@@ -32,11 +32,28 @@ pub async fn nudge_action(
     let (settings, clock) = read_clock(&state).await?;
     let today = db::load_day(&state.pool, clock.today).await?;
     let current = today.as_ref().and_then(|d| d.current_task().cloned());
+    // A banner names its task. It is stale when another task holds the slot, and also
+    // when the same task has moved on: a ring that was answered, a check-in overtaken
+    // by a pomodoro, a break that ended.
     if let Some(wanted) = task_id.as_deref() {
-        if current.as_ref().map(|t| t.id.as_str()) != Some(wanted) {
+        let stale = match (current.as_ref(), today.as_ref()) {
+            (Some(t), Some(day)) if t.id == wanted => {
+                let (phase, _) = day.pomodoro_state(clock.now);
+                match kind {
+                    NudgeKind::PomodoroDone => phase != PomodoroPhase::Done,
+                    NudgeKind::CheckIn => {
+                        t.status != TaskStatus::Active || phase == PomodoroPhase::Running
+                    }
+                    NudgeKind::BreakOver => t.status != TaskStatus::Paused,
+                    _ => false,
+                }
+            }
+            _ => true,
+        };
+        if stale {
             return Err(AppError::new(
                 "stale_nudge",
-                "that nudge was about an earlier task",
+                "that nudge was about an earlier moment",
             ));
         }
     }

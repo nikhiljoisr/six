@@ -510,12 +510,17 @@ impl Day {
             s.idle_until = None;
             s.updated_at = ctx.now;
         }
+        // A pomodoro that ran into the silence ends where it began. One that only started
+        // inside it never happened: the user says they were not there.
+        self.pomodoros.retain(|p| {
+            !(p.task_id == original.task_id && p.started_at >= gap_start && p.started_at < gap_end)
+        });
         for p in self.pomodoros.iter_mut().filter(|p| {
             p.task_id == original.task_id
-                && p.started_at < gap_end
+                && p.started_at < gap_start
                 && p.ended_at.is_none_or(|e| e > gap_start)
         }) {
-            p.ended_at = Some(gap_start.max(p.started_at));
+            p.ended_at = Some(gap_start);
             p.outcome = Some(PomodoroOutcome::Interrupted);
             p.updated_at = ctx.now;
         }
@@ -821,6 +826,31 @@ impl Day {
             p.updated_at = ctx.now;
         }
         Ok(())
+    }
+
+    /// The next break should be the long one: the last completed pomodoro finished a set
+    /// of `set`, and no break has been taken since it ended (`except` names the break
+    /// being planned, which does not count against itself).
+    pub fn long_break_due(&self, set: usize, except: Option<&str>) -> bool {
+        let set = set.max(1);
+        let completed = self.pomodoros_completed(None);
+        if completed == 0 || completed % set != 0 {
+            return false;
+        }
+        let Some(last_end) = self
+            .pomodoros
+            .iter()
+            .filter(|p| p.outcome == Some(PomodoroOutcome::Completed))
+            .filter_map(|p| p.ended_at)
+            .max()
+        else {
+            return false;
+        };
+        !self.sessions.iter().any(|s| {
+            except != Some(s.id.as_str())
+                && s.ended_reason == Some(EndedReason::Break)
+                && s.ended_at.is_some_and(|e| e >= last_end)
+        })
     }
 
     /// Completed pomodoros, for one task or the whole day.

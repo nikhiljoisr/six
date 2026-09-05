@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useState, type ReactElement } from "react";
 import { Button, Label } from "../components/ui";
 import { api } from "../lib/api";
 import { hourLabel } from "../lib/format";
@@ -9,8 +9,11 @@ import { useStore } from "../store";
 
 export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
+  const previous = useStore((s) => s.previous);
   const dispatch = useStore((s) => s.dispatch);
   const s = snapshot.settings;
+  // Back returns to wherever Settings was opened from.
+  const back = previous && previous.name !== "settings" ? previous : { name: "history" as const };
   const [notif, setNotif] = useState<NotificationStatus | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [exported, setExported] = useState<string | null>(null);
@@ -50,8 +53,8 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   return (
     <div className="pb-16">
       <header className="relative flex items-center justify-center py-1">
-        <button type="button" className="absolute left-0 text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
-          History
+        <button type="button" className="absolute left-0 text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate(back)}>
+          Back
         </button>
         <Label>Settings</Label>
       </header>
@@ -150,21 +153,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** A labelled row: the control is named by the visible label, for assistive tech too. */
 function Row({ label, hint, children }: { label: string; hint?: string; children?: React.ReactNode }) {
+  const id = useId();
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<{ "aria-labelledby"?: string }>, { "aria-labelledby": id })
+    : children;
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0">
-        <div className="text-[15px] text-stone-900">{label}</div>
+        <div id={id} className="text-[15px] text-stone-900">
+          {label}
+        </div>
         {hint && <div className="text-xs text-stone-500">{hint}</div>}
       </div>
-      {children && <div className="shrink-0">{children}</div>}
+      {control && <div className="shrink-0">{control}</div>}
     </div>
   );
 }
 
-function HourSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+type Named = { "aria-labelledby"?: string };
+
+function HourSelect({ value, onChange, ...named }: { value: number; onChange: (v: number) => void } & Named) {
   return (
     <select
+      {...named}
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
       className="rounded-control border border-stone-200 bg-white px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
@@ -178,7 +191,7 @@ function HourSelect({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-function NumberField({ value, min, max, onChange, suffix }: { value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string }) {
+function NumberField({ value, min, max, onChange, suffix, ...named }: { value: number; min: number; max: number; onChange: (v: number) => void; suffix?: string } & Named) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
   const commit = () => {
@@ -189,6 +202,7 @@ function NumberField({ value, min, max, onChange, suffix }: { value: number; min
   return (
     <span className="flex items-center gap-1.5">
       <input
+        {...named}
         value={draft}
         inputMode="numeric"
         onChange={(e) => setDraft(e.target.value)}
@@ -201,9 +215,10 @@ function NumberField({ value, min, max, onChange, suffix }: { value: number; min
   );
 }
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ value, onChange, ...named }: { value: boolean; onChange: (v: boolean) => void } & Named) {
   return (
     <button
+      {...named}
       type="button"
       role="switch"
       aria-checked={value}

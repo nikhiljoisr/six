@@ -70,9 +70,16 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
               </li>
             ))}
           </ol>
-          {plan.edited_after_lock && (
-            <p className="mt-3 text-center text-[11px] text-stone-400">edited after locking</p>
-          )}
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-[11px] text-stone-400">{plan.edited_after_lock ? "edited after locking" : ""}</span>
+            <button
+              type="button"
+              className="text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
+              onClick={() => navigate({ name: "planner", date: snapshot.today })}
+            >
+              edit
+            </button>
+          </div>
           <Rule className="my-8" />
           <TomorrowArea snapshot={snapshot} />
           {plan.all_done && !plan.reviewed_at && (

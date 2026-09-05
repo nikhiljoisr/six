@@ -111,7 +111,7 @@ function CurrentCard({
       <div className="mt-2 flex items-center justify-center gap-8">
         {!paused && (
           <Button variant="link" onClick={() => onTakeFive?.(task)}>
-            {pomodoro.enabled && live.pomodoro === "done" ? breakLabel(pomodoro) : "Take 5"}
+            {pomodoro.enabled ? breakLabel(pomodoro) : "Take 5"}
           </Button>
         )}
         <Button variant="link" onClick={() => onDefer?.(task)}>

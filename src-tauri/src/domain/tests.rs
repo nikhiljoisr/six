@@ -955,6 +955,55 @@ fn a_pomodoro_counted_during_the_silence_is_interrupted_by_the_trim() {
 }
 
 #[test]
+fn a_pomodoro_that_only_started_inside_the_silence_goes_with_it() {
+    // The interaction stamp is throttled to once a minute, so a pomodoro can start a
+    // few seconds after the last stamp; the user then says they were not there.
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.touch(&ctx(3, 9, 5));
+    let started = Utc.with_ymd_and_hms(2026, 9, 3, 9, 5, 30).unwrap();
+    day.start_pomodoro(&t1, 1500, &Ctx::new(started, date(3), DEV)).unwrap();
+    assert!(day.settle_pomodoros(&ctx(3, 13, 0)));
+    let sid = day.open_session().unwrap().id.clone();
+    day.trim_idle(&sid, at(3, 9, 5), at(3, 13, 5), &ctx(3, 13, 5))
+        .unwrap();
+    assert!(day.pomodoros.is_empty(), "nothing of it remains");
+    assert_eq!(day.sessions[0].ended_at, Some(at(3, 9, 5)));
+    assert_eq!(day.open_session().unwrap().started_at, at(3, 13, 5));
+    ok(&day);
+}
+
+#[test]
+fn the_long_break_is_offered_once_per_set() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    // Set of one: every completed pomodoro earns a long break, until it is taken.
+    assert!(!day.long_break_due(1, None), "nothing completed yet");
+    day.start_pomodoro(&t1, 60, &ctx(3, 9, 0)).unwrap();
+    day.settle_pomodoros(&ctx(3, 9, 1));
+    assert!(day.long_break_due(1, None));
+    day.pause(&t1, PauseReason::Break, &ctx(3, 9, 2)).unwrap();
+    let brk = day.last_closed_session(&t1).unwrap().id.clone();
+    assert!(
+        day.long_break_due(1, Some(&brk)),
+        "the break being taken is the long one"
+    );
+    day.resume(&t1, &ctx(3, 9, 4)).unwrap();
+    assert!(!day.long_break_due(1, None), "taken; the next one is ordinary");
+    day.pause(&t1, PauseReason::Break, &ctx(3, 9, 10)).unwrap();
+    let next = day.last_closed_session(&t1).unwrap().id.clone();
+    assert!(!day.long_break_due(1, Some(&next)));
+    // Another completed pomodoro earns it again.
+    day.resume(&t1, &ctx(3, 9, 12)).unwrap();
+    day.start_pomodoro(&t1, 60, &ctx(3, 9, 12)).unwrap();
+    day.settle_pomodoros(&ctx(3, 9, 13));
+    assert!(day.long_break_due(1, None));
+    // With a set of four, two completed pomodoros earn nothing.
+    assert!(!day.long_break_due(4, None));
+    ok(&day);
+}
+
+#[test]
 fn a_pomodoro_after_the_silence_moves_to_the_session_that_continues() {
     let (mut day, _) = locked_today(1);
     let t1 = id(&day, 1);

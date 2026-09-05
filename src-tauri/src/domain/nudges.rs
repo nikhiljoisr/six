@@ -197,10 +197,9 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
         if let Some(task) = current.filter(|t| t.status == super::model::TaskStatus::Paused) {
             let last = day.last_closed_session(&task.id);
             if let Some(s) = last.filter(|s| s.ended_reason == Some(EndedReason::Break)) {
-                let completed = day.pomodoros_completed(None);
                 let set =
                     usize::try_from(input.settings.pomodoros_before_long_break.max(1)).unwrap_or(4);
-                let long = input.settings.pomodoro_enabled && completed > 0 && completed % set == 0;
+                let long = input.settings.pomodoro_enabled && day.long_break_due(set, Some(&s.id));
                 let minutes = if long {
                     input.settings.long_break_minutes
                 } else {

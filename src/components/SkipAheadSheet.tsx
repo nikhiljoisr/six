@@ -36,6 +36,16 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
 
   useEffect(() => () => stopHold(), []);
 
+  // Focus goes back to whatever opened the sheet, if it is still there. Captured during
+  // the first render, before the sheet's own autofocus has moved it.
+  const opener = useRef<HTMLElement | null>(document.activeElement as HTMLElement | null);
+  useEffect(() => {
+    const el = opener.current;
+    return () => {
+      if (el && document.contains(el)) el.focus();
+    };
+  }, []);
+
   const startHold = () => {
     if (done.current || holdStart.current !== null) return;
     holdStart.current = performance.now();

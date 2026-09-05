@@ -64,7 +64,8 @@ the banner is the default.
   pre-filled so nothing is lost. Lock the list.
 - **Morning:** task 1 is active. The timer runs from timestamps, so a sleeping laptop still
   records the truth. Mark it complete and task 2 takes over. Skipping ahead is possible, but
-  Six asks twice and the last answer is a press-and-hold.
+  Six asks twice and the last answer is a press-and-hold. Something urgent? "edit" under
+  the list swaps it in; the edit is noted on the day.
 - **Focus:** start a pomodoro on the active task if you like. When it rings, take five, one
   more, or keep going. Leaving a task early is recorded as a fact, never a penalty.
 - **Breaks:** Take 5 pauses the clock; a quiet banner asks you back.
@@ -125,7 +126,8 @@ rustup target add x86_64-apple-darwin && pnpm build:mac:universal
 the packaged app). `cargo test` in `src-tauri` runs the Rust tests, which cover the whole
 state machine.
 
-Releases are built by GitHub Actions on a macOS runner: push a tag like `v1.2.0` (it must
+Only one Six runs per data folder: opening a second copy hands over to the one already
+running. Releases are built by GitHub Actions on a macOS runner: push a tag like `v1.2.1` (it must
 match the version in `src-tauri/tauri.conf.json`) and, once the tests and the type-check
 pass, a release with the zip appears.
 

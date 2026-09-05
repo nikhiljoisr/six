@@ -230,3 +230,42 @@ the code here; all fourteen held. What changed, and the shape it was given:
 Declined from the same review: a gate around the OS notification sync (the OS path is
 opt-in and idempotent), a broader consolidation of the command layer (the gate helper is
 the whole of it), and a load-error state for History (deferred).
+
+## 2026-09-05 — Second review: the installed app on a real Mac
+
+A second model reviewed v1.2.0 by using the installed app with computer use, reading a
+copy of the owner's database, and re-reading the code. Nine findings, all confirmed:
+
+- **One Six per data folder.** The app takes an exclusive lock on `six.lock` in its data
+  folder at startup. A second copy on the same folder (an old build still running while a
+  new one is opened from Downloads) hands over to the running one (`open -b`) and exits,
+  instead of writing its own view of the day over the first one's. Separate homes still
+  run independently.
+- **Window-addressed events are listened to per window.** Tauri hands an event
+  addressed to one window to every listener that named no target, so the popover heard
+  the main window's nudges and popped itself up on every foreground ring. The main
+  window and the popover now listen through their own window handle.
+- **A nudge acts only on its own moment.** Beyond the task check from the first review,
+  a ring's buttons are refused once that ring has been answered (a new pomodoro is
+  running), a check-in's once a pomodoro is running, a break's once the task resumed.
+  The window prunes them on the same rules.
+- **The long break is offered once per set.** It is due when the last completed pomodoro
+  finished a set and no break has been taken since it ended; taking it clears it. The
+  card and popover show "Take 15" whenever that is the break that would come.
+- **Today's list can be edited from the day view**, as the guide promised. Removing a
+  task that tomorrow's list carries keeps tomorrow's copy and only clears its lineage
+  pointer.
+- **Every command counts as an interaction.** The stamp used for idle detection is set
+  by every mutation, not only by the once-a-minute pointer stamp, so a silence can no
+  longer begin thirty seconds before the pomodoro the user started.
+- **A pomodoro that only started inside a removed silence is removed with it**, and its
+  row leaves the store. One that ran into the silence still ends where the silence began.
+- **The review says what carry and drop can do** when tomorrow is already set: how many
+  empty rows are free, that a full tomorrow takes nothing more, and that a task whose
+  copy is already there is carried whatever is chosen.
+- **The popover is 320×280** (was 220), so the nudge strip no longer pushes Done · Take 5
+  · Defer below the fold. Settings controls are named by their visible labels for
+  assistive technology. Settings' Back returns to the screen it was opened from. The
+  skip-ahead sheet gives focus back to what opened it. History can retry a failed load.
+
+Version 1.2.1.

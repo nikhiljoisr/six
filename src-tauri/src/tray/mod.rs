@@ -22,7 +22,7 @@ use crate::domain::{PauseReason, TaskStatus};
 pub const MAIN: &str = "main";
 pub const POPOVER: &str = "popover";
 const POPOVER_WIDTH: f64 = 320.0;
-const POPOVER_HEIGHT: f64 = 220.0;
+const POPOVER_HEIGHT: f64 = 280.0;
 /// A tray click that arrives this soon after the popover lost focus is the click that
 /// closed it, not a request to reopen it.
 const REOPEN_GUARD: Duration = Duration::from_millis(400);

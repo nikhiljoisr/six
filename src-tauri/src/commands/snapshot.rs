@@ -97,7 +97,7 @@ impl PomodoroView {
             remaining_seconds: pomodoro.map(|p| p.remaining_seconds(now)).unwrap_or(0),
             completed_today,
             completed_for_task,
-            long_break_next: completed_today > 0 && completed_today % set == 0,
+            long_break_next: settings.pomodoro_enabled && day.long_break_due(set, None),
             ..base
         }
     }

@@ -149,6 +149,11 @@ pub async fn save_day(pool: &Pool, day: &mut Day) -> DbResult<()> {
         .iter()
         .filter(|id| !day.tasks.iter().any(|t| &t.id == *id))
     {
+        // A later day's copy keeps its row and only loses the pointer back to this one.
+        sqlx::query("UPDATE tasks SET carried_from = NULL WHERE carried_from = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         sqlx::query("DELETE FROM tasks WHERE id = ?")
             .bind(id)
             .execute(&mut *tx)
@@ -162,6 +167,22 @@ pub async fn save_day(pool: &Pool, day: &mut Day) -> DbResult<()> {
     }
     for pomodoro in &day.pomodoros {
         upsert_pomodoro(&mut tx, pomodoro).await?;
+    }
+    // A trim can take a pomodoro out of the day; its row goes with it.
+    let stored: Vec<String> = sqlx::query_scalar(
+        "SELECT p.id FROM pomodoros p JOIN tasks t ON t.id = p.task_id WHERE t.plan_id = ?",
+    )
+    .bind(&day.plan.id)
+    .fetch_all(&mut *tx)
+    .await?;
+    for id in stored
+        .iter()
+        .filter(|id| !day.pomodoros.iter().any(|p| &p.id == *id))
+    {
+        sqlx::query("DELETE FROM pomodoros WHERE id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
     }
     for event in &day.pending_events {
         insert_event(&mut tx, event).await?;
@@ -539,6 +560,59 @@ mod tests {
         assert_eq!(loaded.tasks.len(), 1);
         assert_eq!(loaded.tasks[0].id, t2);
         assert_eq!(loaded.tasks[0].status, TaskStatus::Active);
+        assert_eq!(loaded, day);
+    }
+
+    #[tokio::test]
+    async fn editing_out_a_task_that_tomorrow_carries_keeps_tomorrows_copy() {
+        let pool = open_in_memory().await.unwrap();
+        let c = ctx(3, 9, 0);
+        let mut today = Day::draft(date(3), inputs(&["One", "Two"]), &c).unwrap();
+        today.lock(&c).unwrap();
+        save_day(&pool, &mut today).await.unwrap();
+        let mut tomorrow = Day::draft(date(4), today.carryover_inputs(), &c).unwrap();
+        save_day(&pool, &mut tomorrow).await.unwrap();
+        assert_eq!(
+            tomorrow.tasks[0].carried_from.as_deref(),
+            Some(today.tasks[0].id.as_str())
+        );
+        // Today's first task is edited away: tomorrow's copy stays, without the pointer.
+        let keep = TaskInput {
+            id: Some(today.tasks[1].id.clone()),
+            title: "Two".into(),
+            ..Default::default()
+        };
+        today.edit(vec![keep], &ctx(3, 10, 0)).unwrap();
+        save_day(&pool, &mut today).await.unwrap();
+        let loaded = load_day(&pool, date(4)).await.unwrap().unwrap();
+        assert_eq!(loaded.tasks.len(), 2);
+        assert_eq!(loaded.tasks[0].title, "One");
+        assert_eq!(loaded.tasks[0].carried_from, None);
+        assert_eq!(loaded.tasks[1].carried_from.as_deref(), Some(today.tasks[0].id.as_str()));
+    }
+
+    #[tokio::test]
+    async fn a_pomodoro_taken_out_by_a_trim_leaves_the_store() {
+        let pool = open_in_memory().await.unwrap();
+        let c = ctx(3, 9, 0);
+        let mut day = Day::draft(date(3), inputs(&["One"]), &c).unwrap();
+        day.lock(&c).unwrap();
+        let t1 = day.tasks[0].id.clone();
+        day.touch(&ctx(3, 9, 5));
+        day.start_pomodoro(&t1, 1500, &ctx(3, 9, 6)).unwrap();
+        save_day(&pool, &mut day).await.unwrap();
+        let sid = day.open_session().unwrap().id.clone();
+        day.trim_idle(
+            &sid,
+            Utc.with_ymd_and_hms(2026, 9, 3, 9, 5, 0).unwrap(),
+            Utc.with_ymd_and_hms(2026, 9, 3, 13, 0, 0).unwrap(),
+            &ctx(3, 13, 0),
+        )
+        .unwrap();
+        assert!(day.pomodoros.is_empty());
+        save_day(&pool, &mut day).await.unwrap();
+        let loaded = load_day(&pool, date(3)).await.unwrap().unwrap();
+        assert!(loaded.pomodoros.is_empty(), "the row went with it");
         assert_eq!(loaded, day);
     }
 

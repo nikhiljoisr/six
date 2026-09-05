@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { api } from "../lib/api";
 import { isAppError, type AppError, type DaySnapshot, type Nudge } from "../lib/types";
 
@@ -19,6 +20,8 @@ export type View =
 interface AppStore {
   snapshot: DaySnapshot | null;
   view: View;
+  /** Where the current view was opened from, for screens with a "Back". */
+  previous: View | null;
   error: string | null;
   /** In-app banners waiting to be answered, oldest first. */
   nudges: Nudge[];
@@ -49,7 +52,17 @@ function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
   if (n.task_id) {
     const task = plan?.tasks.find((t) => t.id === n.task_id);
     if (!task) return false;
-    return n.kind === "break_over" ? task.status === "paused" : task.status === "active";
+    switch (n.kind) {
+      case "break_over":
+        return task.status === "paused";
+      case "pomodoro_done":
+        // Answered (one more, keep going, a break) the moment the phase is no longer "done".
+        return task.status === "active" && snap.pomodoro.phase === "done" && snap.pomodoro.task_id === task.id;
+      case "check_in":
+        return task.status === "active" && snap.pomodoro.phase !== "running";
+      default:
+        return task.status === "active";
+    }
   }
   switch (n.kind) {
     case "evening_ritual":
@@ -66,6 +79,7 @@ function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
 export const useStore = create<AppStore>((set, get) => ({
   snapshot: null,
   view: { name: "day" },
+  previous: null,
   error: null,
   nudges: [],
   pushNudge: (n) =>
@@ -90,7 +104,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
   navigate: (view) => {
     window.scrollTo(0, 0);
-    set({ view, error: null });
+    set((s) => ({ view, previous: s.view, error: null }));
   },
   clearError: () => set({ error: null }),
   dispatch: async (run) => {
@@ -114,12 +128,15 @@ export async function bootstrap(): Promise<void> {
   if (started) return;
   started = true;
   await listen<DaySnapshot>("state_changed", (event) => useStore.getState().apply(event.payload));
+  // These two are addressed to one window. A plain listen() would hear the other
+  // window's too: Tauri hands an addressed event to every listener that named no target.
+  const here = getCurrentWebviewWindow();
   // The tray menu and popover ask the main window to open a view.
-  await listen<View>("navigate", (event) => {
+  await here.listen<View>("navigate", (event) => {
     const v = event.payload;
     if (v && typeof v === "object" && "name" in v) useStore.getState().navigate(v);
   });
-  await listen<Nudge>("nudge", (event) => useStore.getState().pushNudge(event.payload));
+  await here.listen<Nudge>("nudge", (event) => useStore.getState().pushNudge(event.payload));
   await useStore.getState().refresh();
   window.addEventListener("focus", () => void useStore.getState().refresh());
 }

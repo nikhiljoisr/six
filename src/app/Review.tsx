@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Label, Numeral } from "../components/ui";
 import { api } from "../lib/api";
 import { clockTime, duration } from "../lib/format";
-import type { DaySnapshot, Decision, IdleFlag, ReviewView, TaskStatus } from "../lib/types";
+import type { DaySnapshot, Decision, IdleFlag, PlanView, ReviewView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
 import { Planner } from "./Planner";
 
@@ -116,6 +116,7 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
       {review && panel === 1 && (
         <Unfinished
           review={review}
+          tomorrow={snapshot.tomorrow_plan}
           decisions={decisions}
           busy={busy}
           onDecide={(id, d) => setDecisions({ ...decisions, [id]: d })}
@@ -197,6 +198,7 @@ function WhatHappened({
       <Label className="mt-8">One thought about today</Label>
       <input
         value={reflection}
+        aria-label="One thought about today"
         onChange={(e) => onReflection(e.target.value)}
         placeholder="Optional"
         maxLength={200}
@@ -212,6 +214,7 @@ function WhatHappened({
 
 function Unfinished({
   review,
+  tomorrow,
   decisions,
   busy,
   onDecide,
@@ -219,6 +222,7 @@ function Unfinished({
   onNext,
 }: {
   review: ReviewView;
+  tomorrow: PlanView | null;
   decisions: Record<string, Decision>;
   busy: boolean;
   onDecide: (id: string, d: Decision) => void;
@@ -226,29 +230,45 @@ function Unfinished({
   onNext: () => void;
 }) {
   const tasks = review.plan.tasks.filter((t) => review.unfinished.includes(t.id));
+  // Tomorrow may already be set. Then a carried task can only take an empty row, and a
+  // task that already has its copy there is carried whatever is chosen here.
+  const locked = !!tomorrow?.locked_at;
+  const onTomorrow = new Set((tomorrow?.tasks ?? []).map((t) => t.carried_from).filter(Boolean));
+  const free = locked && tomorrow ? Math.max(0, 6 - tomorrow.task_count) : 6;
+  const intro =
+    tasks.length === 0
+      ? "Everything on the list is finished."
+      : !locked
+        ? "Carry them to tomorrow, or drop them for good."
+        : free > 0
+          ? `Tomorrow's six are already set; ${free} empty ${free === 1 ? "row" : "rows"} can take what carries. Or drop them for good.`
+          : "Tomorrow's six are already set and full, so nothing more can join them. Carry keeps a task in history; drop lets it go.";
   return (
     <section>
       <h1 className="mt-6 font-serif text-3xl font-normal text-stone-900">Unfinished tasks</h1>
-      <p className="mt-3 text-[15px] text-stone-500">
-        {tasks.length > 0 ? "Carry them to tomorrow, or drop them for good." : "Everything on the list is finished."}
-      </p>
+      <p className="mt-3 text-[15px] text-stone-500">{intro}</p>
       <ol className="mt-6 space-y-2">
         {tasks.map((t) => {
           const d = decisions[t.id] ?? "carry";
+          const already = onTomorrow.has(t.id);
           return (
             <li key={t.id} className="rounded-card border border-stone-200 bg-white px-4 py-3">
               <div className="flex items-center gap-3">
                 <Numeral n={t.position} size="sm" tone="muted" className="w-4 text-center" />
                 <span className="min-w-0 flex-1 truncate text-[15px] text-stone-900">{t.title}</span>
               </div>
-              <div className="mt-3 ml-7 flex gap-2">
-                <Toggle selected={d === "carry"} onClick={() => onDecide(t.id, "carry")}>
-                  Carry to tomorrow
-                </Toggle>
-                <Toggle selected={d === "drop"} onClick={() => onDecide(t.id, "drop")}>
-                  Drop
-                </Toggle>
-              </div>
+              {already ? (
+                <p className="mt-2 ml-7 text-xs text-stone-500">Already on tomorrow's list.</p>
+              ) : (
+                <div className="mt-3 ml-7 flex gap-2">
+                  <Toggle selected={d === "carry"} onClick={() => onDecide(t.id, "carry")}>
+                    Carry to tomorrow
+                  </Toggle>
+                  <Toggle selected={d === "drop"} onClick={() => onDecide(t.id, "drop")}>
+                    Drop
+                  </Toggle>
+                </div>
+              )}
             </li>
           );
         })}

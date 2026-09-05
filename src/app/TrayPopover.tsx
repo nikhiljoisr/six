@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
 import { duration } from "../lib/format";
@@ -27,7 +27,7 @@ export function TrayPopover() {
   // A nudge shown as Six's own banner: Rust opens the popover under the tray and sends
   // the nudge here; the strip at the top shows them one at a time.
   useEffect(() => {
-    const unlisten = listen<Nudge>("popover_nudge", (event) => {
+    const unlisten = getCurrentWebviewWindow().listen<Nudge>("popover_nudge", (event) => {
       pushNudge(event.payload);
       void refresh();
     });
@@ -37,7 +37,7 @@ export function TrayPopover() {
   }, [pushNudge, refresh]);
 
   useEffect(() => {
-    const unlisten = listen("popover_shown", () => void refresh());
+    const unlisten = getCurrentWebviewWindow().listen("popover_shown", () => void refresh());
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") void api.hidePopover();
     };
@@ -116,7 +116,7 @@ function Current({ task, pomodoro }: { task: TaskView; pomodoro: PomodoroView })
           </Button>
         ) : (
           <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
-            {pomodoro.enabled && live.pomodoro === "done" ? breakLabel(pomodoro) : "Take 5"}
+            {pomodoro.enabled ? breakLabel(pomodoro) : "Take 5"}
           </Button>
         )}
         <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.defer(task.id))}>
@@ -194,7 +194,7 @@ function NudgeStrip({ nudge, sound }: { nudge: Nudge; sound: boolean }) {
     if (useStore.getState().nudges.length === 0) void api.hidePopover();
   };
   return (
-    <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-3" role="status">
+    <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-2.5" role="status">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-[15px] font-medium text-stone-900">{nudge.title}</div>

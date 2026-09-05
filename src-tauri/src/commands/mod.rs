@@ -273,6 +273,8 @@ where
         .ok_or_else(|| AppError::new("plan_not_found", "list not found"))?;
     let ctx = clock.ctx(&state.device_id);
     f(&mut day, &ctx)?;
+    // Whatever the command was, the user was here for it.
+    day.touch(&ctx);
     db::save_day(&state.pool, &mut day).await?;
     Ok(())
 }

@@ -10,15 +10,21 @@ import { useStore } from "../store";
 export function History({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
   const [days, setDays] = useState<PlanView[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
+    setFailed(false);
     const from = shiftDays(snapshot.today, -29);
     api
       .getRange(from, snapshot.today)
       .then(setDays)
-      .catch(() => setDays([]));
-  }, [snapshot.today]);
+      .catch(() => {
+        setDays([]);
+        setFailed(true);
+      });
+  };
+  useEffect(load, [snapshot.today]);
 
   return (
     <div className="pb-16">
@@ -43,7 +49,12 @@ export function History({ snapshot }: { snapshot: DaySnapshot }) {
       <h1 className="mt-8 font-serif text-3xl font-normal text-stone-900">Last 30 days</h1>
 
       {days === null && <p className="mt-8 text-sm text-stone-400">Loading…</p>}
-      {days && days.length === 0 && <p className="mt-8 text-sm text-stone-500">No lists yet.</p>}
+      {failed && (
+        <button type="button" className="mt-8 text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900" onClick={load}>
+          The last 30 days could not be loaded. Try again
+        </button>
+      )}
+      {days && days.length === 0 && !failed && <p className="mt-8 text-sm text-stone-500">No lists yet.</p>}
 
       <ol className="mt-8 space-y-6">
         {days?.filter((d) => d.locked_at).map((day) => {

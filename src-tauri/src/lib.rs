@@ -6,7 +6,14 @@ mod domain;
 mod scheduler;
 mod tray;
 
+use std::fs::{self, File, TryLockError};
+
 use tauri::Manager;
+
+/// Held for the life of the process: one Six per data folder. A second copy launched on
+/// the same folder (an old build still running while a new one is opened) would write
+/// its own view of the day over the first one's.
+struct InstanceLock(#[allow(dead_code)] File);
 
 /// The native macOS notification path needs a .app bundle; `pnpm tauri dev` runs the
 /// bare binary, where the plugin would refuse to initialise. Mobile always qualifies.
@@ -46,6 +53,25 @@ pub fn run() {
     }
     builder
         .setup(move |app| {
+            let data_dir = app.path().app_config_dir()?;
+            fs::create_dir_all(&data_dir)?;
+            let lock = File::create(data_dir.join("six.lock"))?;
+            match lock.try_lock() {
+                Ok(()) => {
+                    app.manage(InstanceLock(lock));
+                }
+                Err(TryLockError::WouldBlock) => {
+                    eprintln!(
+                        "[six] another Six is already running on {}; handing over to it",
+                        data_dir.display()
+                    );
+                    let _ = std::process::Command::new("open")
+                        .args(["-b", "com.nikhiljois.six"])
+                        .status();
+                    std::process::exit(0);
+                }
+                Err(TryLockError::Error(e)) => return Err(e.into()),
+            }
             let pool = db::pool_from_plugin(app.handle())?;
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
             app.manage(commands::AppState::new(pool, device_id));
