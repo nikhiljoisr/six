@@ -269,3 +269,13 @@ copy of the owner's database, and re-reading the code. Nine findings, all confir
   skip-ahead sheet gives focus back to what opened it. History can retry a failed load.
 
 Version 1.2.1.
+
+## 2026-09-05 — 1.2.2: a ring's banner survives the instant before it settles
+
+Seen on the owner's Mac right after 1.2.1 shipped: the pomodoro rang, the card showed
+"Pomodoro done.", but no banner appeared. A ring is delivered on purpose before it is
+settled, so at that instant the window's snapshot still shows the same pomodoro counting
+down, and the new "answered ring" rule threw the nudge away. The rule now recognises the
+ring's own pomodoro by its end time: still counting down to that same instant means the
+ring is fresh; a different end time means "one more" was chosen; idle means it was
+answered. Checked on the real binary and in the harness under the real ordering.

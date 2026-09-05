@@ -46,6 +46,10 @@ function describe(e: unknown): AppError {
   return { code: "unknown", message: typeof e === "string" ? e : JSON.stringify(e) };
 }
 
+function sameInstant(a: string | null, b: string): boolean {
+  return a !== null && Date.parse(a) === Date.parse(b);
+}
+
 /** A queued nudge is kept only while what it says is still true. */
 function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
   const plan = snap.today_plan?.locked_at ? snap.today_plan : null;
@@ -55,9 +59,14 @@ function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
     switch (n.kind) {
       case "break_over":
         return task.status === "paused";
-      case "pomodoro_done":
-        // Answered (one more, keep going, a break) the moment the phase is no longer "done".
-        return task.status === "active" && snap.pomodoro.phase === "done" && snap.pomodoro.task_id === task.id;
+      case "pomodoro_done": {
+        if (task.status !== "active" || snap.pomodoro.task_id !== task.id) return false;
+        if (snap.pomodoro.phase === "done") return true;
+        // A ring is delivered just before it is settled, so the snapshot in hand may still
+        // show that same pomodoro counting down. A different pomodoro counting down means
+        // the ring was answered with "one more"; "idle" means "keep going" or a break.
+        return snap.pomodoro.phase === "running" && sameInstant(snap.pomodoro.ends_at, n.due);
+      }
       case "check_in":
         return task.status === "active" && snap.pomodoro.phase !== "running";
       default:
