@@ -186,88 +186,81 @@ export function Planner({
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="relative flex items-center justify-center py-1">
-        <button
-          type="button"
-          className="absolute left-0 text-sm text-stone-500 hover:text-stone-900"
-          onClick={finish}
-        >
-          Cancel
-        </button>
-        <Label>{label}</Label>
+    <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2">
+      <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
+        <h1 className="font-serif text-[15px] font-normal text-stone-600">{longDate(date)}</h1>
+        <div className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+          <Label>{label}</Label>
+          <button type="button" className="hover:text-stone-900" onClick={finish}>
+            Cancel
+          </button>
+        </div>
       </header>
-      <h1 className="mt-8 font-serif text-3xl font-normal text-stone-900">{longDate(date)}</h1>
-      <p className="mt-1 text-[15px] text-stone-500">Most important at the top.</p>
+      <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500">Most important at the top.</p>
 
-      <div ref={listRef} className="mt-8 space-y-2">
+      {/* Six rows in the day view's own shape: a hanging numeral (the drag handle), the
+          title, and the row's controls at the margin, shown while the pointer is over it. */}
+      <div ref={listRef} className="mt-8">
         {rows.map((row, i) => (
           <div
             key={i}
-            className={`rounded-card border bg-white px-3 py-2.5 transition-opacity duration-150 ${dragging === i ? "border-stone-400 opacity-80" : "border-stone-200"}`}
+            className={`group -ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline py-1 transition-opacity duration-150 ${dragging === i ? "opacity-60" : ""}`}
           >
-            <div className="flex items-center gap-3">
-              <span
-                className="w-7 shrink-0 cursor-grab text-center select-none active:cursor-grabbing"
-                style={{ touchAction: "none" }}
-                onPointerDown={(e) => onHandleDown(i, e)}
-                onPointerMove={onHandleMove}
-                onPointerUp={onHandleUp}
-                onPointerCancel={onHandleUp}
-                aria-label={`Row ${i + 1}, drag to reorder`}
-              >
-                <Numeral n={i + 1} size="lg" tone={row.title.trim() ? "ink" : "dim"} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <input
-                  value={row.title}
-                  aria-label={`Task ${i + 1}`}
-                  placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
-                  onChange={(e) => update(i, { title: e.target.value })}
-                  className="w-full bg-transparent py-1 text-[15px] text-stone-900 placeholder:text-stone-300 focus:outline-none"
-                  maxLength={140}
-                  autoFocus={i === 0 && !row.title}
-                />
-                {row.carriedFrom && (
-                  <div className="text-[11px] text-amber-700">↑ from {carriedFromLabel}</div>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center text-stone-400">
-                <button type="button" className="p-1 hover:text-stone-900 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, i - 1)} aria-label="Move up">
-                  <Chevron direction="up" />
-                </button>
-                <button type="button" className="p-1 hover:text-stone-900 disabled:opacity-30" disabled={i === rows.length - 1} onClick={() => move(i, i + 1)} aria-label="Move down">
-                  <Chevron direction="down" />
-                </button>
-                <button type="button" className="ml-1 p-1 hover:text-stone-900 disabled:opacity-30" disabled={!row.title && !row.note} onClick={() => clear(i)} aria-label="Clear row">
-                  <Cross />
-                </button>
-              </div>
-            </div>
-            {(row.showNote || row.note) && (
+            <span
+              className="cursor-grab pr-3 text-right leading-8 select-none active:cursor-grabbing"
+              style={{ touchAction: "none" }}
+              onPointerDown={(e) => onHandleDown(i, e)}
+              onPointerMove={onHandleMove}
+              onPointerUp={onHandleUp}
+              onPointerCancel={onHandleUp}
+              aria-label={`Row ${i + 1}, drag to reorder`}
+            >
+              <Numeral n={i + 1} size="xs" tone={row.title.trim() ? "ink" : "dim"} className="leading-8" />
+            </span>
+            <div className="min-w-0">
               <input
-                value={row.note}
-                aria-label={`Note for task ${i + 1}`}
-                placeholder="A one-line note"
-                onChange={(e) => update(i, { note: e.target.value })}
-                className="mt-1 ml-10 w-[calc(100%-2.5rem)] bg-transparent text-sm text-stone-500 placeholder:text-stone-300 focus:outline-none"
-                maxLength={200}
+                value={row.title}
+                aria-label={`Task ${i + 1}`}
+                placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
+                onChange={(e) => update(i, { title: e.target.value })}
+                className="w-full bg-transparent py-0 text-[15px] leading-8 text-stone-900 placeholder:text-stone-300 focus:outline-none"
+                maxLength={140}
+                autoFocus={i === 0 && !row.title}
               />
-            )}
-            {!row.showNote && !row.note && row.title.trim() && (
-              <button
-                type="button"
-                className="ml-10 mt-0.5 text-[11px] text-stone-500 hover:text-stone-900"
-                onClick={() => update(i, { showNote: true })}
-              >
-                note
+              {row.carriedFrom && <div className="font-serif text-[12px] leading-5 text-amber-700">from {carriedFromLabel}</div>}
+              {(row.showNote || row.note) && (
+                <input
+                  value={row.note}
+                  aria-label={`Note for task ${i + 1}`}
+                  placeholder="A one-line note"
+                  onChange={(e) => update(i, { note: e.target.value })}
+                  className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-300 focus:outline-none"
+                  maxLength={200}
+                  autoFocus={row.showNote && !row.note}
+                />
+              )}
+            </div>
+            <div className="flex items-baseline gap-x-3 pl-4 text-[12px] leading-8 text-stone-400 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
+              {!row.showNote && !row.note && row.title.trim() && (
+                <button type="button" className="hover:text-stone-900" onClick={() => update(i, { showNote: true })}>
+                  note
+                </button>
+              )}
+              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, i - 1)} aria-label="Move up">
+                <Chevron direction="up" />
               </button>
-            )}
+              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === rows.length - 1} onClick={() => move(i, i + 1)} aria-label="Move down">
+                <Chevron direction="down" />
+              </button>
+              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={!row.title && !row.note} onClick={() => clear(i)} aria-label="Clear row">
+                <Cross />
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="sticky bottom-0 mt-auto -mx-6 border-t border-stone-200 bg-paper/95 px-6 pb-8 pt-4 backdrop-blur">
+      <div className="sticky bottom-0 mt-auto -ml-14 -mr-6 bg-paper pl-14 pr-6 pb-10 pt-6">
         {(!dateIsPlannable || saveError) && (
           <p role="alert" className="mb-3 text-sm text-stone-500">
             {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}

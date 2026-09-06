@@ -372,3 +372,16 @@ Verified: `cargo test` 127 passing; `pnpm typecheck` clean; harness renders of e
 seeded state checked at 480×560. Open: the critic never went above 7/10 (the brief asked
 for 9); the planner is cramped at 560 and scrolls under its save bar; the real-app atlas
 in `Six atlas 1.3.0/` predates this pass. Released only on Nikhil's "go".
+
+## 2026-09-06 — Step 12: the planner in the same shape, 1.4.0
+
+Nikhil chose to accept the day view at the critic's 7/10 and release. The planner was
+the one screen the 560-high window broke, so it now shares the day view's shape: the
+date as a serif running head with the screen's label and "Cancel" on its baseline, six
+rows with a hanging numeral as the drag handle, no cards, the note field only when a row
+has a note or asked for one, and the row's controls (note, up, down, clear) shown while
+the pointer is over the row or a field in it has focus. The save bar is solid paper, no
+blur. Six rows with one note fit at 480×560 with the bar in view. Version 1.4.0. The
+atlas in `Six atlas 1.4.0/` is rendered from the harness (see its README), not captured
+from the installed app. Still open: the review and settings screens keep their large
+serif headings and cards; they scroll at 560 and were left alone.
