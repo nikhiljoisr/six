@@ -329,3 +329,46 @@ glance, without expanding the product. What changed, and where it touches a deci
 Not done, by design: no seventh task, no set counters or six-dot rails, no mascots or
 animation, no new permissions, no changes to routing, silence, the skip ladder or the
 tomorrow-list policy.
+
+## 2026-09-06 — Design critic loop (step 11): the day view as a set page
+
+Seventeen iterations of the day view, each rendered offline (WKWebView harness, 480 wide)
+and scored by a fresh Fable 5.1 critic that saw only the screenshot. Scores ran 4 → 5 → 6
+(×6) → 5 → 6 → 7 → 7 → 6 → 6 → 7 → 7 → 7 → 6. From iteration 10 on the critiques
+contradicted one another on the remaining points (centre the list vs. top-anchor it; timer
+in the serif vs. the sans; the track above vs. below the timer; History in the serif vs.
+the sans; check vs. fade vs. strike for done), so the design settled on what every critic
+agreed on. What changed, and where it departs from SPEC §3 / CLAUDE.md:
+
+- **Ground.** `--color-paper` (#f6f3ee) replaces stone-50 on the page, the popover, the
+  sheets and the notice bars. The stone greys read as ink on it.
+- **The window is the page.** Main window 480×560 (was 760). The day view sits at the
+  page's optical centre: free space splits one part above the list, two below. Masthead
+  is the date alone (serif 15, stone-600). "History" and the hover-revealed "Edit" moved
+  to the footer line, right, in the serif at 12 (stone-400); the footer's own sentence is
+  serif 12, stone-500. Margins are symmetric around the whole block, numerals included.
+- **The list.** Hanging serif lining numerals in a 40pt gutter, right-aligned 12pt from
+  the text edge, tabular. 32pt row pitch. Pending rows stone-600 with stone-500 numerals;
+  done rows stone-500 with a stone-400 numeral and the completion time in serif figures at
+  the right edge, no strike-through; deferred and skipped rows stone-400 with their tag.
+- **The active block.** Title 20px regular ink; the note on its own 12px line (stone-500;
+  today's recorded time stands in when there is no note); one utility line at 12px with
+  the clock in tabular figures at the text edge ("12:07 left": ink digits, faint word)
+  and the verbs right-aligned at 24pt gaps (Complete in ink, the rest stone-500), wrapping
+  under the clock when they do not fit; while a countdown runs, a 1px full-measure
+  hairline tight above that line, elapsed in stone-400 on stone-200. No box, no borders.
+- **Verbs.** "Pause" (a break; the tooltip and aria label carry its length) and "Resume";
+  "Defer". Shortcut hints left the page; ⌘↩ and Space live in tooltips and aria labels.
+- **Tokens.** Radii 6 (card) / 4 (control), from 12 / 8. `text` and `link` button
+  variants at 12px regular; `primary` 30px high at radius 6. Durations read "42 min" and
+  "1 h 15 min" in Rust (`timing::describe`) and TS (`duration`). Nudge answers say
+  "Break N min". The countdown line defaults on.
+- **Rules bent, on purpose.** The day view uses weight 400 only (500 stays on `primary`
+  and `secondary`). "Serif for numerals and headings" becomes: the serif is the app's own
+  voice (date, numerals, footer, navigation); the sans is the user's words and the
+  controls. CLAUDE.md's design lines are updated to match.
+
+Verified: `cargo test` 127 passing; `pnpm typecheck` clean; harness renders of every
+seeded state checked at 480×560. Open: the critic never went above 7/10 (the brief asked
+for 9); the planner is cramped at 560 and scrolls under its save bar; the real-app atlas
+in `Six atlas 1.3.0/` predates this pass. Released only on Nikhil's "go".

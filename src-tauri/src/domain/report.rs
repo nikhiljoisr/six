@@ -138,8 +138,8 @@ mod tests {
         assert!(text.contains("Tasks done: 1 of 2\n"));
         assert!(text.contains("Top 3 done: 1 of 2 (50%)\n"));
         assert!(text.contains("\nThu 3 Sep — 1/2 done, "));
-        assert!(text.contains("  1. Ship it — done, 1h 0m\n"));
-        assert!(text.contains("  2. Call mum — carried, 8h 0m\n"), "{text}");
+        assert!(text.contains("  1. Ship it — done, 1 h\n"));
+        assert!(text.contains("  2. Call mum — carried, 8 h\n"), "{text}");
         assert!(text.contains("  Thought: Good day.\n"));
     }
 }

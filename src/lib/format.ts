@@ -17,12 +17,25 @@ export function longDate(isoDate: string): string {
   return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
-/** Seconds → "1h 12m", "12m", "0m". */
+/** Seconds → "1 h 12 min", "2 h", "12 min", "0 min". One format everywhere. */
 export function duration(seconds: number): string {
   const mins = Math.max(0, Math.floor(seconds / 60));
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/** "2026-09-06" → "Sunday". */
+export function weekday(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return DAYS[new Date(y, m - 1, d).getDay()];
+}
+
+/** "2026-09-06" → "6 September". */
+export function dayMonth(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "long" });
 }
 
 /** 18 → "6 PM", 5 → "5 AM". */

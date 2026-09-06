@@ -192,7 +192,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         actions: vec![
                             act("done", "Mark complete"),
                             act("keep_going", "Continue"),
-                            act("take_break", format!("Take {break_minutes}")),
+                            act("take_break", format!("Break {break_minutes} min")),
                         ],
                         task_id: Some(task.id.clone()),
                     });
@@ -256,12 +256,12 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                 let (title, label) = if long {
                     (
                         "Pomodoro finished. That completes a set.".to_string(),
-                        format!("Take {}", input.settings.long_break_minutes),
+                        format!("Break {} min", input.settings.long_break_minutes),
                     )
                 } else {
                     (
                         "Pomodoro finished.".to_string(),
-                        format!("Take {}", input.settings.break_minutes),
+                        format!("Break {} min", input.settings.break_minutes),
                     )
                 };
                 out.push(Nudge {
@@ -416,8 +416,8 @@ mod tests {
         let c = find(&n, NudgeKind::CheckIn).unwrap();
         assert_eq!(c.due, at(3, 10, 15));
         assert_eq!(c.title, "Still on Task 1?");
-        assert_eq!(c.body, "1h 15m recorded so far.");
-        assert_eq!(c.actions[2].label, "Take 5");
+        assert_eq!(c.body, "1 h 15 min recorded so far.");
+        assert_eq!(c.actions[2].label, "Break 5 min");
         assert_eq!(
             c.actions.iter().map(|a| a.id).collect::<Vec<_>>(),
             ["done", "keep_going", "take_break"]
@@ -437,7 +437,7 @@ mod tests {
         day.resume(&t1, &ctx(11, 10)).unwrap();
         let n = plan(&f.input(at(3, 11, 11), Some(&day), true));
         assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().due, at(3, 12, 25));
-        assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().body, "3h 15m recorded so far.");
+        assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().body, "3 h 15 min recorded so far.");
     }
 
     #[test]
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(
             p.actions.iter().map(|a| (a.id, a.label.as_str())).collect::<Vec<_>>(),
             [
-                ("take_break", "Take 5"),
+                ("take_break", "Break 5 min"),
                 ("one_more", "Another 25 min"),
                 ("keep_going", "Continue without timer")
             ]
@@ -476,7 +476,7 @@ mod tests {
         let n = plan(&f.input(at(3, 9, 10), Some(&day), true));
         let p = find(&n, NudgeKind::PomodoroDone).unwrap();
         assert_eq!(p.title, "Pomodoro finished. That completes a set.");
-        assert_eq!(p.actions[0].label, "Take 15");
+        assert_eq!(p.actions[0].label, "Break 15 min");
     }
 
     #[test]
@@ -521,7 +521,7 @@ mod tests {
         let n = plan(&f.input(at(3, 10, 30), Some(&day), true));
         let e = find(&n, NudgeKind::EndOfDay).unwrap();
         assert_eq!(e.due, at(3, 18, 0));
-        assert_eq!(e.title, "1 of 3 done, 9h 0m focused.");
+        assert_eq!(e.title, "1 of 3 done, 9 h focused.");
         assert_eq!(e.body, "Review today?");
         day.complete_review(None, vec![], &ctx(18, 30)).unwrap();
         let n = plan(&f.input(at(3, 18, 31), Some(&day), true));

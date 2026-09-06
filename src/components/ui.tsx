@@ -1,13 +1,14 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "link" | "quiet";
+type Variant = "primary" | "secondary" | "link" | "quiet" | "text";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-stone-900 text-stone-50 px-4 py-3 text-[15px] font-medium hover:opacity-90 active:opacity-80",
-  secondary:
-    "border border-stone-300 bg-transparent text-stone-900 px-4 py-3 text-[15px] font-medium hover:bg-stone-100",
-  link: "text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 px-1 py-1",
-  quiet: "text-xs text-stone-500 hover:text-stone-900 px-1 py-1",
+  primary: "inline-flex h-[30px] items-baseline rounded-[6px] bg-stone-900 text-stone-50 px-3 text-[13px] font-medium leading-[30px] hover:bg-stone-800 active:opacity-90",
+  secondary: "text-[13px] font-medium text-stone-900 px-0 py-2 hover:text-stone-600",
+  link: "text-[12px] leading-5 text-stone-500 hover:text-stone-900 px-0 py-0",
+  quiet: "text-xs text-stone-500 hover:text-stone-900 px-0 py-1",
+  /** The one primary action on a page of text: same size and weight, ink instead of gray. */
+  text: "text-[12px] leading-5 text-stone-900 hover:text-stone-500 px-0 py-0",
 };
 
 export function Button({
@@ -35,16 +36,20 @@ export function Numeral({
   size = "md",
   tone = "ink",
   className = "",
+  folio = false,
 }: {
   n: number;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   tone?: "ink" | "muted" | "dim";
   className?: string;
+  /** Old-style figures, for the list's hanging numerals. */
+  folio?: boolean;
 }) {
-  const sizes = { sm: "text-lg", md: "text-xl", lg: "text-3xl", xl: "text-4xl" }[size];
-  const tones = { ink: "text-stone-900", muted: "text-stone-500", dim: "text-stone-300" }[tone];
+  const sizes = { xs: "text-[17px]", sm: "text-lg", md: "text-[22px]", lg: "text-3xl", xl: "text-4xl" }[size];
+  const tones = { ink: "text-stone-900", muted: "text-stone-500", dim: "text-stone-400" }[tone];
+
   return (
-    <span className={`font-serif leading-none tabular-nums ${sizes} ${tones} ${className}`} aria-hidden>
+    <span className={`${folio ? "folio" : "clock"} leading-none ${sizes} ${tones} ${className}`} aria-hidden>
       {n}
     </span>
   );

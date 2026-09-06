@@ -267,7 +267,7 @@ export function Planner({
         ))}
       </div>
 
-      <div className="sticky bottom-0 mt-auto -mx-6 border-t border-stone-200 bg-stone-50/95 px-6 pb-8 pt-4 backdrop-blur">
+      <div className="sticky bottom-0 mt-auto -mx-6 border-t border-stone-200 bg-paper/95 px-6 pb-8 pt-4 backdrop-blur">
         {(!dateIsPlannable || saveError) && (
           <p role="alert" className="mb-3 text-sm text-stone-500">
             {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}

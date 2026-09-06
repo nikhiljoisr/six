@@ -38,6 +38,18 @@ export function installShortcuts(): () => void {
       store.navigate({ name: "settings" });
       return;
     }
+    if (meta && e.key.toLowerCase() === "e" && store.view.name === "day" && snap.today_plan?.locked_at) {
+      e.preventDefault();
+      store.navigate({ name: "planner", date: snap.today });
+      return;
+    }
+    if (meta && e.key === "Enter" && store.view.name === "day") {
+      const active = snap.today_plan?.tasks.find((t) => t.status === "active");
+      if (!active) return;
+      e.preventDefault();
+      void store.dispatch(() => api.complete(active.id));
+      return;
+    }
     const dialogOpen = !!document.querySelector("[role='dialog']");
     if (e.key === " " && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {
       const current = snap.today_plan?.tasks.find((t) => t.status === "active" || t.status === "paused");

@@ -82,13 +82,13 @@ export function TrayPopover() {
   const open = (target?: View) => void api.showMain(target);
 
   return (
-    <div ref={root} className="flex flex-col border border-stone-200 bg-stone-50 px-5 pb-4 pt-5 select-none">
+    <div ref={root} className="flex flex-col border border-stone-200 bg-paper px-5 pb-4 pt-5 select-none">
       {nudge && <NudgeStrip nudge={nudge} sound={snapshot?.settings.sound_enabled ?? false} />}
       {snapshot && plan && current ? (
         nudge ? (
           <CurrentLine task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} />
         ) : (
-          <Current task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} line={snapshot.settings.countdown_line} />
+          <Current task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} />
         )
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
@@ -118,7 +118,7 @@ export function TrayPopover() {
   );
 }
 
-function Current({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean }) {
+function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
   const dispatch = useStore((s) => s.dispatch);
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
@@ -130,7 +130,7 @@ function Current({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro:
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-[15px] font-medium leading-snug text-stone-900">{task.title}</div>
           <div className="mt-1 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
-          <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} compact line={line} />
+          <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
         </div>
       </div>
       <div className="mt-3 flex gap-2">
@@ -166,7 +166,7 @@ function CurrentLine({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: P
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-medium text-stone-900">{task.title}</div>
         <div className="mt-0.5 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
-        {live.pomodoro !== "done" && <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} compact />}
+        {live.pomodoro !== "done" && <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />}
       </div>
     </div>
   );

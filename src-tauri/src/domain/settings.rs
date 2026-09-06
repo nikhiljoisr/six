@@ -49,7 +49,7 @@ impl Default for Settings {
             sound_enabled: false,
             onboarded: false,
             nudge_style: "banner".to_string(),
-            countdown_line: false,
+            countdown_line: true,
         }
     }
 }

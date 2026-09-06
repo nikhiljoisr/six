@@ -49,14 +49,14 @@ export default function App() {
       {snapshot && view.name === "settings" && <Settings key="settings" snapshot={snapshot} />}
       {nudge && <Banner nudge={nudge} />}
       {notice && !error && (
-        <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-stone-50 px-6 py-3 text-sm text-stone-500">
+        <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-3 text-sm text-stone-500">
           {notice}
         </p>
       )}
       {error && (
         <button
           type="button"
-          className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-stone-50 px-6 py-3 text-left text-sm text-stone-500"
+          className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-3 text-left text-sm text-stone-500"
           onClick={clearError}
         >
           {error}

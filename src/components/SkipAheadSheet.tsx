@@ -120,7 +120,7 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
         role="dialog"
         aria-modal
         aria-labelledby="skip-ahead-title"
-        className="w-full max-w-md rounded-t-[16px] border-t border-stone-200 bg-stone-50 px-6 pb-8 pt-6"
+        className="w-full max-w-md rounded-t-[16px] border-t border-stone-200 bg-paper px-6 pb-8 pt-6"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >

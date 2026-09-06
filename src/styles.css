@@ -5,13 +5,15 @@
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Roboto,
     system-ui, sans-serif;
-  --font-serif: "New York", "Iowan Old Style", Charter, Georgia, "Times New Roman", serif;
-  --radius-card: 12px;
-  --radius-control: 8px;
+  --font-serif: -apple-system-ui-serif, ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
+  --radius-card: 6px;
+  --radius-control: 4px;
+  /* The page ground: paper, one step warmer than stone-50, so the stone greys read as ink. */
+  --color-paper: #f6f3ee;
 }
 
 html {
-  background: var(--color-stone-50);
+  background: var(--color-paper);
   color: var(--color-stone-900);
 }
 
@@ -31,6 +33,21 @@ textarea {
   user-select: text;
 }
 
+/* The clock: lining, tabular figures so nothing jitters as it counts. */
+@utility clock {
+  font-family: var(--font-serif);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum", "tnum";
+  letter-spacing: -0.01em;
+}
+
+/* The list's hanging numerals: the serif's old-style figures, tabular, so they belong to the page's chrome. */
+@utility folio {
+  font-family: var(--font-serif);
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  font-feature-settings: "onum", "tnum";
+}
+
 /* Keyboard focus is always visible; pointer focus stays quiet. */
 :focus-visible {
   outline: 2px solid var(--color-stone-900);
@@ -42,7 +59,7 @@ textarea {
 @utility label {
   font-size: 11px;
   line-height: 1;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-stone-500);
 }

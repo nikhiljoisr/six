@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { SkipAheadSheet } from "../components/SkipAheadSheet";
 import { TaskCard } from "../components/TaskCard";
-import { Button, CalendarIcon, FlameIcon, Label, Numeral, Rule } from "../components/ui";
+import { Button, Label, Numeral } from "../components/ui";
 import { api } from "../lib/api";
-import { dayLabel, hourLabel } from "../lib/format";
+import { dayLabel, dayMonth, hourLabel, weekday } from "../lib/format";
 import type { DaySnapshot, PlanView, TaskView } from "../lib/types";
 import { useStore } from "../store";
 
@@ -23,39 +23,23 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
   const blocking = plan && skipTarget ? earliestOpenBefore(plan, skipTarget) : null;
 
   return (
-    <div className="pb-16">
-      <header className="flex items-start justify-between">
-        <div>
-          <Label>{dayLabel(snapshot.today)}</Label>
-          <h1 className="mt-2 font-serif text-4xl font-normal text-stone-900">Six</h1>
-        </div>
-        <div className="mt-1 flex items-center gap-4">
-          {snapshot.streak > 0 && (
-            <span className="flex items-center gap-1 text-sm tabular-nums text-amber-700" title="Consecutive planned days">
-              <FlameIcon />
-              {snapshot.streak}
-            </span>
-          )}
-          <button
-            type="button"
-            className="text-stone-500 transition-opacity hover:text-stone-900"
-            aria-label="History"
-            onClick={() => navigate({ name: "history" })}
-          >
-            <CalendarIcon />
-          </button>
-        </div>
+    <div className="group/page flex min-h-[calc(100vh-2.5rem)] flex-col pl-8 pr-0 pt-2 pb-12">
+      <header className="h-5 leading-5">
+        <h1 className="font-serif text-[15px] font-normal text-stone-600">
+          {weekday(snapshot.today)}, {dayMonth(snapshot.today)}
+        </h1>
       </header>
 
       {!locked && !evening && <NoListYet snapshot={snapshot} />}
       {!locked && evening && <EveningRitual snapshot={snapshot} />}
       {locked && plan && (
         <>
-          {plan.all_done ? <SixDone /> : <Counter plan={plan} />}
+          {plan.all_done && <SixDone />}
           {firstMinutes(plan, snapshot) && (
-            <p className="mt-2 text-sm text-stone-500">Task 1 started recording time when the list was locked. A pomodoro is optional.</p>
+            <p className="mt-6 text-sm text-stone-500">Task 1 started recording time when the list was locked. A pomodoro is optional.</p>
           )}
-          <ol className="mt-4 space-y-2">
+          <div className="min-h-8 flex-1" aria-hidden />
+          <ol>
             {plan.tasks.map((task) => (
               <li key={task.id}>
                 <TaskCard
@@ -76,18 +60,26 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
               </li>
             ))}
           </ol>
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-[11px] text-stone-400">{plan.edited_after_lock ? "edited after locking" : ""}</span>
-            <button
-              type="button"
-              className="text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
-              onClick={() => navigate({ name: "planner", date: snapshot.today })}
-            >
-              edit
-            </button>
+          {plan.edited_after_lock && <p className="mt-3 text-right text-xs text-stone-500">edited after locking</p>}
+          <div className="min-h-10 flex-[2]" aria-hidden />
+          <div className="flex items-baseline justify-between gap-6 font-serif text-[12px] leading-5 text-stone-400">
+            <TomorrowArea snapshot={snapshot} />
+            <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap">
+              {locked && (
+                <button
+                  type="button"
+                  className="opacity-0 transition-opacity duration-150 hover:text-stone-900 focus-visible:opacity-100 group-hover/page:opacity-100"
+                  aria-label="Edit today's list (⌘E)"
+                  onClick={() => navigate({ name: "planner", date: snapshot.today })}
+                >
+                  Edit
+                </button>
+              )}
+              <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
+                History
+              </button>
+            </nav>
           </div>
-          <Rule className="my-8" />
-          <TomorrowArea snapshot={snapshot} />
           {plan.all_done && !plan.reviewed_at && (
             <Button className="mt-8 px-6" onClick={() => navigate({ name: "review", planId: plan.id })}>
               Review today
@@ -131,14 +123,6 @@ function isOpen(t: TaskView) {
 
 function earliestOpenBefore(plan: PlanView, target: TaskView): TaskView | null {
   return plan.tasks.find((t) => t.position < target.position && isOpen(t)) ?? null;
-}
-
-function Counter({ plan }: { plan: PlanView }) {
-  return (
-    <p className="mt-10 text-sm text-stone-500">
-      {plan.done_count} of {plan.task_count} done
-    </p>
-  );
 }
 
 function SixDone() {
@@ -204,7 +188,7 @@ function PlanTodayInstead({ date, className = "" }: { date: string; className?: 
   return (
     <button
       type="button"
-      className={`text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 ${className}`}
+      className={`text-sm text-stone-500 hover:text-stone-900 ${className}`}
       onClick={() => navigate({ name: "planner", date })}
     >
       Plan today instead
@@ -226,12 +210,12 @@ function TomorrowArea({ snapshot }: { snapshot: DaySnapshot }) {
   const reviewToday = () => today && navigate({ name: "review", planId: today.id });
   return (
     <section>
-      <div className="flex items-baseline justify-between">
-        <Label>Tomorrow</Label>
-        {reviewed && <span className="text-[11px] text-stone-400">Reviewed</span>}
-      </div>
       {tomorrow?.locked_at ? (
         <>
+          <div className="flex items-baseline justify-between">
+            <Label>Tomorrow</Label>
+            {reviewed && <span className="text-xs text-stone-400">Reviewed</span>}
+          </div>
           <PlanPreview plan={tomorrow} onEdit={planTomorrow} />
           {offerReview && (
             <Button className="mt-5" onClick={reviewToday}>
@@ -239,24 +223,21 @@ function TomorrowArea({ snapshot }: { snapshot: DaySnapshot }) {
             </Button>
           )}
         </>
-      ) : (
-        <div className="mt-3">
-          <p className="text-sm text-stone-500">
-            {evening ? "Time to plan tomorrow's six." : `After ${hourLabel(snapshot.settings.evening_hour)}, plan tomorrow's six.`}
-          </p>
-          {offerReview ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button onClick={reviewToday}>Review today</Button>
-              <Button variant="secondary" onClick={planTomorrow}>
-                Plan tomorrow
-              </Button>
-            </div>
-          ) : (
-            <Button variant={evening ? "primary" : "secondary"} className="mt-3" onClick={planTomorrow}>
-              Plan tomorrow
-            </Button>
-          )}
+      ) : offerReview ? (
+        <div className="flex items-center gap-5">
+          <Button onClick={reviewToday}>Review today</Button>
+          <Button variant="link" onClick={planTomorrow}>
+            Plan tomorrow
+          </Button>
         </div>
+      ) : evening ? (
+        <button type="button" className="text-[12px] leading-5 text-stone-900 hover:text-stone-500" onClick={planTomorrow}>
+          Plan tomorrow's six
+        </button>
+      ) : (
+        <button type="button" className="text-stone-500 hover:text-stone-900" onClick={planTomorrow}>
+          Tomorrow's six opens at {hourLabel(snapshot.settings.evening_hour)}
+        </button>
       )}
     </section>
   );
@@ -273,8 +254,8 @@ function PlanPreview({ plan, onEdit }: { plan: PlanView; onEdit: () => void }) {
           </li>
         ))}
       </ol>
-      <button type="button" className="mt-3 text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900" onClick={onEdit}>
-        edit
+      <button type="button" className="mt-3 text-sm text-stone-500 hover:text-stone-900" onClick={onEdit}>
+        Edit
       </button>
     </div>
   );

@@ -18,13 +18,13 @@ pub fn session_seconds(session: &Session, now: DateTime<Utc>) -> i64 {
     (end - session.started_at).num_seconds().max(0)
 }
 
-/// "1h 15m" / "12m" / "0m": the app's one way of writing a duration.
+/// "1 h 15 min" / "2 h" / "42 min" / "0 min": the app's one way of writing a duration.
 pub fn describe(seconds: i64) -> String {
     let minutes = seconds.max(0) / 60;
-    if minutes >= 60 {
-        format!("{}h {}m", minutes / 60, minutes % 60)
-    } else {
-        format!("{minutes}m")
+    match (minutes / 60, minutes % 60) {
+        (0, m) => format!("{m} min"),
+        (h, 0) => format!("{h} h"),
+        (h, m) => format!("{h} h {m} min"),
     }
 }
 
