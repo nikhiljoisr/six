@@ -7,7 +7,7 @@ import { chime } from "../lib/sound";
 import { installInteractionStamps } from "../lib/touch";
 import { useElapsed } from "../lib/useElapsed";
 import type { BreakView, DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
-import { breakLabel, breakMinutes, initialLive, TimerLine } from "../components/Pomodoro";
+import { breakMinutes, initialLive, TimerLine } from "../components/Pomodoro";
 import { useStore, type View } from "../store";
 
 // The menu bar popover (SPEC §4.11): 320 points wide, anchored to the tray, as tall as
@@ -133,22 +133,27 @@ function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: Pomod
           <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
         </div>
       </div>
-      <div className="mt-3 flex gap-2">
-        <Button className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.complete(task.id))}>
+      <div className="mt-3 flex items-center gap-5">
+        <Button className="px-4" onClick={() => void dispatch(() => api.complete(task.id))}>
           Done
         </Button>
         {paused ? (
-          <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
+          <Button variant="secondary" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
             Resume
           </Button>
         ) : (
           !ringing && (
-            <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" aria-label={`Take a ${breakMinutes(pomodoro)}-minute break; task time pauses`} onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
-              {breakLabel(pomodoro)}
+            <Button
+              variant="secondary"
+              title={`${breakMinutes(pomodoro)}-minute break; task time pauses`}
+              aria-label={`Pause for a ${breakMinutes(pomodoro)}-minute break; task time pauses`}
+              onClick={() => void dispatch(() => api.pause(task.id, "break"))}
+            >
+              Pause
             </Button>
           )
         )}
-        <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.defer(task.id))}>
+        <Button variant="secondary" onClick={() => void dispatch(() => api.defer(task.id))}>
           Defer
         </Button>
       </div>

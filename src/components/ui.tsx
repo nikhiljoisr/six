@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 type Variant = "primary" | "secondary" | "link" | "quiet" | "text";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "inline-flex h-[30px] items-baseline rounded-[6px] bg-stone-900 text-stone-50 px-3 text-[13px] font-medium leading-[30px] hover:bg-stone-800 active:opacity-90",
+  primary: "inline-flex h-[30px] items-center justify-center rounded-[6px] bg-stone-900 text-stone-50 px-3 text-[13px] font-medium leading-none hover:bg-stone-800 active:opacity-90",
   secondary: "text-[13px] font-medium text-stone-900 px-0 py-2 hover:text-stone-600",
   link: "text-[12px] leading-5 text-stone-500 hover:text-stone-900 px-0 py-0",
   quiet: "text-xs text-stone-500 hover:text-stone-900 px-0 py-1",
