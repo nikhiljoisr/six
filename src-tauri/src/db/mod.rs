@@ -16,7 +16,7 @@ pub enum DbError {
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
     Migrate(#[from] sqlx::migrate::MigrateError),
-    #[error("corrupt row: {0}")]
+    #[error("{0}")]
     Corrupt(String),
 }
 

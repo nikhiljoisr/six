@@ -135,7 +135,7 @@ pub async fn save_day(pool: &Pool, day: &mut Day) -> DbResult<()> {
     // persist anything that breaks one rather than let a bug reach the database.
     if let Err(problem) = day.check_invariants() {
         return Err(DbError::Corrupt(format!(
-            "invariant violated, not saved: {problem}"
+            "Six could not save this change ({problem}); nothing was changed"
         )));
     }
     let mut tx = pool.begin().await?;
