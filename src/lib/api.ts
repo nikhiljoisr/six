@@ -51,6 +51,8 @@ export const api = {
   /** Show the main window, optionally navigating it (used by the popover and tray menu). */
   showMain: (target?: unknown) => invoke<void>("show_main", { target: target ?? null }),
   hidePopover: () => invoke<void>("hide_popover"),
+  /** Fit the popover window to its content height. */
+  sizePopover: (height: number) => invoke<void>("size_popover", { height }),
   /** Keep Six's banner under the menu bar on screen for the nudge now showing. */
   showBanner: () => invoke<void>("show_banner"),
   nudgeAction: (kind: string, action: string, task_id: string | null = null) =>

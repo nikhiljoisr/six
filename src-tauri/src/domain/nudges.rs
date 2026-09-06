@@ -165,6 +165,13 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
 
     if let Some(day) = input.today.filter(|d| d.plan.is_locked()) {
         let current = day.current_task();
+        let set = usize::try_from(input.settings.pomodoros_before_long_break.max(1)).unwrap_or(4);
+        // The break a "Take …" button would start right now.
+        let break_minutes = if input.settings.pomodoro_enabled && day.long_break_due(set, None) {
+            input.settings.long_break_minutes
+        } else {
+            input.settings.break_minutes
+        };
 
         // Check-in: some time after a session starts, unless a pomodoro carries the rhythm.
         if let (Some(task), Some(session)) = (current, day.open_session()) {
@@ -181,11 +188,11 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         kind: NudgeKind::CheckIn,
                         due,
                         title: format!("Still on {}?", task.title),
-                        body: format!("{} so far.", timing::describe(elapsed)),
+                        body: format!("{} recorded so far.", timing::describe(elapsed)),
                         actions: vec![
-                            act("done", "Done"),
-                            act("keep_going", "Keep going"),
-                            act("take_break", "Take 5"),
+                            act("done", "Mark complete"),
+                            act("keep_going", "Continue"),
+                            act("take_break", format!("Take {break_minutes}")),
                         ],
                         task_id: Some(task.id.clone()),
                     });
@@ -197,8 +204,6 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
         if let Some(task) = current.filter(|t| t.status == super::model::TaskStatus::Paused) {
             let last = day.last_closed_session(&task.id);
             if let Some(s) = last.filter(|s| s.ended_reason == Some(EndedReason::Break)) {
-                let set =
-                    usize::try_from(input.settings.pomodoros_before_long_break.max(1)).unwrap_or(4);
                 let long = input.settings.pomodoro_enabled && day.long_break_due(set, Some(&s.id));
                 let minutes = if long {
                     input.settings.long_break_minutes
@@ -213,8 +218,8 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         kind: NudgeKind::BreakOver,
                         due,
                         title: format!("Back to {}?", task.title),
-                        body: String::new(),
-                        actions: vec![act("resume", "Resume"), act("five_more", "5 more")],
+                        body: "Task time is paused until you resume.".into(),
+                        actions: vec![act("resume", "Resume"), act("five_more", "5 more minutes")],
                         task_id: Some(task.id.clone()),
                     });
                 }
@@ -247,23 +252,31 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
             let (phase, pomodoro) = day.pomodoro_state(input.now);
             if let (PomodoroPhase::Running, Some(p), Some(task)) = (phase, pomodoro, current) {
                 let completed = day.pomodoros_completed(None) + 1;
-                let set =
-                    usize::try_from(input.settings.pomodoros_before_long_break.max(1)).unwrap_or(4);
                 let long = completed % set == 0;
-                let (body, label) = if long {
+                let (title, label) = if long {
                     (
-                        format!("Long break, {} minutes?", input.settings.long_break_minutes),
+                        "Pomodoro finished. That completes a set.".to_string(),
                         format!("Take {}", input.settings.long_break_minutes),
                     )
                 } else {
-                    ("Take 5?".to_string(), "Take 5".to_string())
+                    (
+                        "Pomodoro finished.".to_string(),
+                        format!("Take {}", input.settings.break_minutes),
+                    )
                 };
                 out.push(Nudge {
                     kind: NudgeKind::PomodoroDone,
                     due: p.planned_end(),
-                    title: "Pomodoro done.".into(),
-                    body,
-                    actions: vec![act("take_break", label), act("one_more", "One more")],
+                    title,
+                    body: "Task time is still recording.".into(),
+                    actions: vec![
+                        act("take_break", label),
+                        act(
+                            "one_more",
+                            format!("Another {} min", input.settings.pomodoro_minutes),
+                        ),
+                        act("keep_going", "Continue without timer"),
+                    ],
                     task_id: Some(task.id.clone()),
                 });
             }
@@ -403,7 +416,8 @@ mod tests {
         let c = find(&n, NudgeKind::CheckIn).unwrap();
         assert_eq!(c.due, at(3, 10, 15));
         assert_eq!(c.title, "Still on Task 1?");
-        assert_eq!(c.body, "1h 15m so far.");
+        assert_eq!(c.body, "1h 15m recorded so far.");
+        assert_eq!(c.actions[2].label, "Take 5");
         assert_eq!(
             c.actions.iter().map(|a| a.id).collect::<Vec<_>>(),
             ["done", "keep_going", "take_break"]
@@ -423,7 +437,7 @@ mod tests {
         day.resume(&t1, &ctx(11, 10)).unwrap();
         let n = plan(&f.input(at(3, 11, 11), Some(&day), true));
         assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().due, at(3, 12, 25));
-        assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().body, "3h 15m so far.");
+        assert_eq!(find(&n, NudgeKind::CheckIn).unwrap().body, "3h 15m recorded so far.");
     }
 
     #[test]
@@ -436,9 +450,16 @@ mod tests {
         assert!(find(&n, NudgeKind::CheckIn).is_none());
         let p = find(&n, NudgeKind::PomodoroDone).unwrap();
         assert_eq!(p.due, at(3, 9, 25));
-        assert_eq!(p.body, "Take 5?");
-        assert_eq!(p.actions[0].label, "Take 5");
-        assert_eq!(p.actions[1].id, "one_more");
+        assert_eq!(p.title, "Pomodoro finished.");
+        assert_eq!(p.body, "Task time is still recording.");
+        assert_eq!(
+            p.actions.iter().map(|a| (a.id, a.label.as_str())).collect::<Vec<_>>(),
+            [
+                ("take_break", "Take 5"),
+                ("one_more", "Another 25 min"),
+                ("keep_going", "Continue without timer")
+            ]
+        );
     }
 
     #[test]
@@ -454,7 +475,7 @@ mod tests {
         day.start_pomodoro(&t1, 60, &ctx(9, 10)).unwrap();
         let n = plan(&f.input(at(3, 9, 10), Some(&day), true));
         let p = find(&n, NudgeKind::PomodoroDone).unwrap();
-        assert_eq!(p.body, "Long break, 15 minutes?");
+        assert_eq!(p.title, "Pomodoro finished. That completes a set.");
         assert_eq!(p.actions[0].label, "Take 15");
     }
 
@@ -468,6 +489,7 @@ mod tests {
         let b = find(&n, NudgeKind::BreakOver).unwrap();
         assert_eq!(b.due, at(3, 10, 5));
         assert_eq!(b.title, "Back to Task 1?");
+        assert_eq!(b.actions[1].label, "5 more minutes");
         assert_eq!(
             b.actions.iter().map(|a| a.id).collect::<Vec<_>>(),
             ["resume", "five_more"]

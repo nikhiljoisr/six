@@ -3,15 +3,18 @@ import { api } from "./api";
 import type { PomodoroPhase } from "./types";
 import { useStore } from "../store";
 
-// The active card's clock. Nothing is counted here: once a second, while the window is
-// focused and visible, Rust is asked for the task's focus time and pomodoro state
-// (derived from timestamps) and the answer is displayed. Unfocused or hidden, nothing
-// ticks. A ring is Rust's to notice; it broadcasts a new snapshot when one happens.
+// The active card's clocks. Nothing is counted here: once a second, while the window is
+// focused and visible, Rust is asked for the task's recorded time, its pomodoro state and
+// the break it may be on (all derived from timestamps) and the answer is displayed.
+// Unfocused or hidden, nothing ticks. A ring is Rust's to notice; it broadcasts a new
+// snapshot when one happens.
 
 export interface Live {
   seconds: number;
   pomodoro: PomodoroPhase;
   remaining: number;
+  onBreak: boolean;
+  breakRemaining: number;
 }
 
 export function useElapsed(taskId: string, initial: Live, ticking: boolean): Live {
@@ -21,7 +24,7 @@ export function useElapsed(taskId: string, initial: Live, ticking: boolean): Liv
   useEffect(() => {
     setLive(initial);
     mismatched.current = false;
-  }, [initial.seconds, initial.pomodoro, initial.remaining, taskId]);
+  }, [initial.seconds, initial.pomodoro, initial.remaining, initial.onBreak, initial.breakRemaining, taskId]);
 
   useEffect(() => {
     if (!ticking) return;
@@ -32,7 +35,13 @@ export function useElapsed(taskId: string, initial: Live, ticking: boolean): Liv
         const e = await api.getElapsed();
         if (stopped) return;
         if (e && e.task_id === taskId) {
-          setLive({ seconds: e.focus_seconds, pomodoro: e.pomodoro, remaining: e.pomodoro_remaining });
+          setLive({
+            seconds: e.focus_seconds,
+            pomodoro: e.pomodoro,
+            remaining: e.pomodoro_remaining,
+            onBreak: e.on_break,
+            breakRemaining: e.break_remaining,
+          });
         } else {
           // The day moved on without us (rollover, or a change from the menu bar).
           mismatched.current = true;

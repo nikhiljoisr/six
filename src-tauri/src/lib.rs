@@ -149,6 +149,7 @@ pub fn run() {
             commands::window::show_main,
             commands::window::hide_popover,
             commands::window::show_banner,
+            commands::window::size_popover,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Six")

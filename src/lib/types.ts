@@ -39,6 +39,7 @@ export type PomodoroPhase = "idle" | "running" | "done";
 export interface PomodoroView {
   enabled: boolean;
   minutes: number;
+  break_minutes: number;
   long_break_minutes: number;
   set_size: number;
   phase: PomodoroPhase;
@@ -76,6 +77,16 @@ export interface Settings {
   sound_enabled: boolean;
   onboarded: boolean;
   nudge_style: "banner" | "system";
+  /** A thin line under a running countdown. A prototype; off by default. */
+  countdown_line: boolean;
+}
+
+/** The break the paused task is on. */
+export interface BreakView {
+  started_at: string;
+  ends_at: string;
+  minutes: number;
+  long: boolean;
 }
 
 export type Phase = "before_evening" | "after_evening";
@@ -93,6 +104,7 @@ export interface DaySnapshot {
   tomorrow_plan: PlanView | null;
   carryover_preview: CarryoverPreview | null;
   pomodoro: PomodoroView;
+  break: BreakView | null;
 }
 
 export interface IdleFlag {
@@ -124,6 +136,8 @@ export interface Elapsed {
   focus_seconds: number;
   pomodoro: PomodoroPhase;
   pomodoro_remaining: number;
+  on_break: boolean;
+  break_remaining: number;
 }
 
 export type Decision = "carry" | "drop";

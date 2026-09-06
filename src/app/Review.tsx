@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Label, Numeral } from "../components/ui";
 import { api } from "../lib/api";
-import { clockTime, duration } from "../lib/format";
+import { clockTime, duration, longDate } from "../lib/format";
 import type { DaySnapshot, Decision, IdleFlag, PlanView, ReviewView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
 import { Planner } from "./Planner";
@@ -53,7 +53,10 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
   const trim = async (flag: IdleFlag) => {
     setBusy(true);
     const err = await dispatch(() => api.trimSession(flag.session_id, flag.gap_start, flag.gap_end));
-    if (!err) await load();
+    if (!err) {
+      useStore.getState().notify(`Trimmed. ${duration(flag.suggested_seconds)} kept.`);
+      await load();
+    }
     setBusy(false);
   };
 
@@ -63,7 +66,10 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
     const list = review.unfinished.map((task_id) => ({ task_id, decision: decisions[task_id] ?? "carry" }));
     const err = await dispatch(() => api.completeReview(planId, reflection.trim() || null, list));
     setBusy(false);
-    if (!err) setPanel(2);
+    if (!err) {
+      useStore.getState().notify("Review saved.");
+      setPanel(2);
+    }
   };
 
   // Swipe between the first two panels on touch; the step into panel 3 commits, so it
@@ -98,6 +104,11 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
         ))}
       </div>
 
+      {review && (
+        <p className="mt-4 text-xs text-stone-500">
+          {longDate(review.plan.date)}. What carries goes to {longDate(snapshot.tomorrow)}.
+        </p>
+      )}
       {problem && <p className="mt-8 text-sm text-stone-500">{problem}</p>}
       {!review && !problem && <p className="mt-8 text-sm text-stone-400">Loading…</p>}
 
@@ -179,14 +190,18 @@ function WhatHappened({
 
       {flags.map((f) => (
         <div key={f.session_id} className="mt-6 rounded-card border border-stone-200 bg-white px-4 py-3">
-          <Label>Likely idle</Label>
+          <Label>Possible gap</Label>
           <p className="mt-2 text-sm text-stone-900">
-            {titleOf(f.task_id)}: {duration(f.seconds)} recorded, nothing touched for {duration(f.gap_seconds)} ({clockTime(f.gap_start)} to {clockTime(f.gap_end)}).
+            No interaction was recorded in Six from {when(f.gap_start, f.started_at)} to {when(f.gap_end, f.started_at)}. You may have been working
+            elsewhere.
           </p>
-          <p className="mt-1 text-sm text-stone-500">Take that stretch out and keep {duration(f.suggested_seconds)}?</p>
+          <p className="mt-1 text-sm text-stone-500">
+            {titleOf(f.task_id)}: {duration(f.seconds)} recorded. Trimming keeps {duration(f.suggested_seconds)}.
+          </p>
+          <GapPreview flag={f} />
           <div className="mt-3 flex items-center gap-4">
             <Button variant="secondary" className="px-4 py-2 text-sm" disabled={busy} onClick={() => onTrim(f)}>
-              Trim
+              Trim to {duration(f.suggested_seconds)}
             </Button>
             <Button variant="link" onClick={() => onKeep(f.session_id)}>
               Keep as recorded
@@ -243,10 +258,16 @@ function Unfinished({
         : free > 0
           ? `Tomorrow's six are already set; ${free} empty ${free === 1 ? "row" : "rows"} can take what carries. Or drop them for good.`
           : "Tomorrow's six are already set and full, so nothing more can join them. Carry keeps a task in history; drop lets it go.";
+  const existing = locked && tomorrow ? tomorrow.tasks.map((t) => t.title) : [];
   return (
     <section>
       <h1 className="mt-6 font-serif text-3xl font-normal text-stone-900">Unfinished tasks</h1>
       <p className="mt-3 text-[15px] text-stone-500">{intro}</p>
+      {existing.length > 0 && (
+        <p className="mt-2 text-xs text-stone-500">
+          Tomorrow already has {existing.length} of 6: {existing.join(" · ")}
+        </p>
+      )}
       <ol className="mt-6 space-y-2">
         {tasks.map((t) => {
           const d = decisions[t.id] ?? "carry";
@@ -274,14 +295,53 @@ function Unfinished({
         })}
       </ol>
       <Button full className="mt-8" disabled={busy} onClick={onNext}>
-        Next
+        Save review &amp; plan tomorrow
       </Button>
+      <p className="mt-2 text-center text-xs text-stone-500">The review is saved first. Cancelling the planner keeps it.</p>
       <div className="mt-3 text-center">
         <Button variant="link" onClick={onBack}>
           Back
         </Button>
       </div>
     </section>
+  );
+}
+
+/** A clock time, with its date when it falls on a different day from `ref`. */
+function when(iso: string, ref: string): string {
+  const a = new Date(iso);
+  const b = new Date(ref);
+  const sameDay = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return sameDay ? clockTime(iso) : `${a.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${clockTime(iso)}`;
+}
+
+/**
+ * The exact consequence of a trim: what stays, what goes, what stays. Proportions are
+ * Rust's timestamps; the gap is a lack of interaction with Six, not proof of absence.
+ */
+function GapPreview({ flag }: { flag: IdleFlag }) {
+  const s = Date.parse(flag.started_at);
+  const gs = Date.parse(flag.gap_start);
+  const ge = Date.parse(flag.gap_end);
+  const e = Date.parse(flag.ended_at);
+  const before = Math.max(0, (gs - s) / 1000);
+  const gap = Math.max(0, (ge - gs) / 1000);
+  const after = Math.max(0, (e - ge) / 1000);
+  const total = before + gap + after || 1;
+  const width = (n: number) => `${n > 0 ? Math.max(3, (n / total) * 100) : 0}%`;
+  return (
+    <div className="mt-3" aria-hidden>
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
+        {before > 0 && <div className="h-full bg-stone-900" style={{ width: width(before) }} />}
+        <div className="h-full bg-stone-300" style={{ width: width(gap) }} />
+        {after > 0 && <div className="h-full bg-stone-900" style={{ width: width(after) }} />}
+      </div>
+      <div className="mt-1 flex justify-between gap-2 text-[11px] text-stone-500">
+        <span>{before > 0 ? `kept ${duration(before)}` : ""}</span>
+        <span>gap {duration(gap)}</span>
+        <span>{after > 0 ? `kept ${duration(after)}` : ""}</span>
+      </div>
+    </div>
   );
 }
 

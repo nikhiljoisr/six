@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
@@ -6,13 +6,14 @@ import { duration } from "../lib/format";
 import { chime } from "../lib/sound";
 import { installInteractionStamps } from "../lib/touch";
 import { useElapsed } from "../lib/useElapsed";
-import type { DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
-import { breakLabel, initialLive, PomodoroLine } from "../components/Pomodoro";
+import type { BreakView, DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
+import { breakLabel, breakMinutes, initialLive, TimerLine } from "../components/Pomodoro";
 import { useStore, type View } from "../store";
 
-// The menu bar popover (SPEC §4.11): about 320×220, anchored to the tray. The active
-// task's numeral and title, its clock (ticking while the popover is open), and three
-// actions. Everything else lives in the main window.
+// The menu bar popover (SPEC §4.11): 320 points wide, anchored to the tray, as tall as
+// its content. One composition at a time: the task, its two clocks, one group of
+// actions, and Open Six. A nudge takes the action group's place rather than stacking a
+// second one under it.
 
 const BANNER_MS = 25_000;
 
@@ -23,6 +24,7 @@ export function TrayPopover() {
   const pushNudge = useStore((s) => s.pushNudge);
   const error = useStore((s) => s.error);
   const clearError = useStore((s) => s.clearError);
+  const root = useRef<HTMLDivElement>(null);
 
   // A nudge shown as Six's own banner: Rust opens the popover under the tray and sends
   // the nudge here; the strip at the top shows them one at a time.
@@ -53,17 +55,45 @@ export function TrayPopover() {
 
   const plan = snapshot?.today_plan?.locked_at ? snapshot.today_plan : null;
   const current = plan?.tasks.find((t) => t.status === "active" || t.status === "paused") ?? null;
+
+  // The window follows its content: long titles, notes and a nudge all fit, within
+  // bounds Rust keeps. Measured after every change of what is shown, and whenever the
+  // layout moves for any other reason.
+  const lastHeight = useRef(0);
+  const fit = () => {
+    const el = root.current;
+    if (!el) return;
+    const h = Math.ceil(el.getBoundingClientRect().height);
+    if (h > 0 && h !== lastHeight.current) {
+      lastHeight.current = h;
+      void api.sizePopover(h);
+    }
+  };
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(fit, [nudge?.kind, nudge?.due, current?.id, current?.status, snapshot?.revision, error]);
   const open = (target?: View) => void api.showMain(target);
 
   return (
-    <div className="flex h-screen flex-col border border-stone-200 bg-stone-50 px-5 pb-4 pt-5 select-none">
+    <div ref={root} className="flex flex-col border border-stone-200 bg-stone-50 px-5 pb-4 pt-5 select-none">
       {nudge && <NudgeStrip nudge={nudge} sound={snapshot?.settings.sound_enabled ?? false} />}
       {snapshot && plan && current ? (
-        <Current task={current} pomodoro={snapshot.pomodoro} />
+        nudge ? (
+          <CurrentLine task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} />
+        ) : (
+          <Current task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} line={snapshot.settings.countdown_line} />
+        )
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
       )}
-      <div className="mt-auto pt-3">
+      <div className="mt-4 pt-3">
         {error && (
           <button type="button" className="mb-2 block w-full truncate text-left text-xs text-stone-500" onClick={clearError}>
             {error}
@@ -78,7 +108,7 @@ export function TrayPopover() {
             Open Six
           </button>
           {plan && (
-            <span className="text-[11px] tabular-nums text-stone-400">
+            <span className="text-[11px] tabular-nums text-stone-500">
               {plan.done_count} of {plan.task_count} done
             </span>
           )}
@@ -88,22 +118,19 @@ export function TrayPopover() {
   );
 }
 
-function Current({ task, pomodoro }: { task: TaskView; pomodoro: PomodoroView }) {
+function Current({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean }) {
   const dispatch = useStore((s) => s.dispatch);
   const paused = task.status === "paused";
-  const live = useElapsed(task.id, initialLive(task, pomodoro), !paused);
-  const seconds = live.seconds;
+  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
+  const ringing = !paused && live.pomodoro === "done";
   return (
     <div>
       <div className="flex items-start gap-3">
         <Numeral n={task.position} size="xl" className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-[15px] font-medium leading-snug text-stone-900">{task.title}</div>
-          <div className="mt-1 text-sm tabular-nums text-stone-500">
-            {duration(seconds)}
-            {paused && <span className="text-stone-400"> · paused</span>}
-          </div>
-          <PomodoroLine task={task} pomodoro={pomodoro} phase={live.pomodoro} remaining={live.remaining} paused={paused} compact />
+          <div className="mt-1 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
+          <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} compact line={line} />
         </div>
       </div>
       <div className="mt-3 flex gap-2">
@@ -111,17 +138,35 @@ function Current({ task, pomodoro }: { task: TaskView; pomodoro: PomodoroView })
           Done
         </Button>
         {paused ? (
-          <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.resume(task.id))}>
+          <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
             Resume
           </Button>
         ) : (
-          <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
-            {pomodoro.enabled ? breakLabel(pomodoro) : "Take 5"}
-          </Button>
+          !ringing && (
+            <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" aria-label={`Take a ${breakMinutes(pomodoro)}-minute break; task time pauses`} onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
+              {breakLabel(pomodoro)}
+            </Button>
+          )
         )}
         <Button variant="secondary" className="flex-1 px-3 py-2 text-sm" onClick={() => void dispatch(() => api.defer(task.id))}>
           Defer
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Under a nudge: the task and its clocks in one line each; the nudge holds the actions. */
+function CurrentLine({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+  const paused = task.status === "paused";
+  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
+  return (
+    <div className="flex items-start gap-3">
+      <Numeral n={task.position} size="md" className="mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[15px] font-medium text-stone-900">{task.title}</div>
+        <div className="mt-0.5 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
+        {live.pomodoro !== "done" && <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} compact />}
       </div>
     </div>
   );
@@ -197,10 +242,10 @@ function NudgeStrip({ nudge, sound }: { nudge: Nudge; sound: boolean }) {
     <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-2.5" role="status">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-[15px] font-medium text-stone-900">{nudge.title}</div>
-          {nudge.body && <div className="truncate text-sm text-stone-500">{nudge.body}</div>}
+          <div className="text-[15px] font-medium leading-snug text-stone-900">{nudge.title}</div>
+          {nudge.body && <div className="text-sm text-stone-500">{nudge.body}</div>}
         </div>
-        <button type="button" className="shrink-0 text-xs text-stone-400 hover:text-stone-600" aria-label="Dismiss" onClick={() => dismiss(nudge.kind)}>
+        <button type="button" className="shrink-0 text-xs text-stone-500 hover:text-stone-900" aria-label="Dismiss" onClick={() => dismiss(nudge.kind)}>
           ✕
         </button>
       </div>

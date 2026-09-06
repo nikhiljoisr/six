@@ -149,6 +149,7 @@ export function Planner({
         const lockErr = await dispatch(() => api.lockPlan(plan.id));
         if (lockErr) return;
       }
+      useStore.getState().notify(editing ? "Changes saved." : "List saved.");
       finish();
     } finally {
       setSaving(false);
@@ -221,7 +222,7 @@ export function Planner({
                 <input
                   value={row.title}
                   aria-label={`Task ${i + 1}`}
-                  placeholder={i === 0 ? "The most important thing" : ""}
+                  placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
                   onChange={(e) => update(i, { title: e.target.value })}
                   className="w-full bg-transparent py-1 text-[15px] text-stone-900 placeholder:text-stone-300 focus:outline-none"
                   maxLength={140}
@@ -256,7 +257,7 @@ export function Planner({
             {!row.showNote && !row.note && row.title.trim() && (
               <button
                 type="button"
-                className="ml-10 mt-0.5 text-[11px] text-stone-400 hover:text-stone-600"
+                className="ml-10 mt-0.5 text-[11px] text-stone-500 hover:text-stone-900"
                 onClick={() => update(i, { showNote: true })}
               >
                 note
@@ -275,7 +276,9 @@ export function Planner({
         <Button full disabled={!dateIsPlannable || filled === 0 || saving} onClick={() => void save()}>
           {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
         </Button>
-        <p className="mt-2 text-center text-xs text-stone-500">{filled} of 6 filled</p>
+        <p className="mt-2 text-center text-xs text-stone-500">
+          Choose up to six. Fewer is fine.{filled > 0 && ` ${filled} of 6.`}
+        </p>
       </div>
     </div>
   );

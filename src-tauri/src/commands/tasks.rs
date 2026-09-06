@@ -15,6 +15,9 @@ pub struct Elapsed {
     /// The pomodoro layer for this task right now.
     pub pomodoro: PomodoroPhase,
     pub pomodoro_remaining: i64,
+    /// A paused task on a break: seconds until the break is over (0 once it is).
+    pub on_break: bool,
+    pub break_remaining: i64,
 }
 
 /// Polled by the active card once a second while the window is focused. A cheap read
@@ -24,9 +27,9 @@ pub struct Elapsed {
 pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
     crate::scheduler::deliver_now(&app).await;
     let state = app.state::<AppState>();
-    let (day, clock) = {
+    let (day, clock, settings) = {
         let _gate = state.gate.lock().await;
-        let (_, clock) = read_clock(&state).await?;
+        let (settings, clock) = read_clock(&state).await?;
         let Some(mut day) = db::load_day(&state.pool, clock.today).await? else {
             return Ok(None);
         };
@@ -34,9 +37,10 @@ pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
             db::save_day(&state.pool, &mut day).await?;
             super::publish(&app).await?;
         }
-        (day, clock)
+        (day, clock, settings)
     };
     let (phase, pomodoro) = day.pomodoro_state(clock.now);
+    let brk = super::snapshot::BreakView::from_day(Some(&day), &settings);
     Ok(day.current_task().map(|t| Elapsed {
         task_id: t.id.clone(),
         status: t.status,
@@ -44,6 +48,10 @@ pub async fn get_elapsed(app: AppHandle) -> CmdResult<Option<Elapsed>> {
         pomodoro: phase,
         pomodoro_remaining: pomodoro
             .map(|p| p.remaining_seconds(clock.now))
+            .unwrap_or(0),
+        on_break: brk.is_some(),
+        break_remaining: brk
+            .map(|b| (b.ends_at - clock.now).num_seconds().max(0))
             .unwrap_or(0),
     }))
 }

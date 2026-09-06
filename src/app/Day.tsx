@@ -52,12 +52,18 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
       {locked && plan && (
         <>
           {plan.all_done ? <SixDone /> : <Counter plan={plan} />}
+          {firstMinutes(plan, snapshot) && (
+            <p className="mt-2 text-sm text-stone-500">Task 1 started recording time when the list was locked. A pomodoro is optional.</p>
+          )}
           <ol className="mt-4 space-y-2">
             {plan.tasks.map((task) => (
               <li key={task.id}>
                 <TaskCard
                   task={task}
                   pomodoro={snapshot.pomodoro}
+                  brk={snapshot.break}
+                  now={snapshot.now}
+                  countdownLine={snapshot.settings.countdown_line}
                   isToday={plan.is_today}
                   isAhead={plan.tasks.some((t) => t.position < task.position && isOpen(t))}
                   onStart={start}
@@ -103,6 +109,19 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
         />
       )}
     </div>
+  );
+}
+
+/** The first minutes of a fresh list: nothing done, task 1 just started, no timer yet. */
+function firstMinutes(plan: PlanView, snapshot: DaySnapshot): boolean {
+  const first = plan.tasks[0];
+  return (
+    plan.done_count === 0 &&
+    !!first &&
+    first.status === "active" &&
+    first.focus_seconds < 600 &&
+    first.pomodoros_completed === 0 &&
+    snapshot.pomodoro.phase === "idle"
   );
 }
 

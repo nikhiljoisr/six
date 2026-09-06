@@ -1,21 +1,27 @@
 import { api } from "../lib/api";
 import { countdown } from "../lib/format";
-import type { PomodoroPhase, PomodoroView, TaskView } from "../lib/types";
+import type { BreakView, PomodoroView, TaskView } from "../lib/types";
+import type { Live } from "../lib/useElapsed";
 import { useStore } from "../store";
 import { Button } from "./ui";
 
-// The pomodoro line on the active card and in the popover. Idle: a quiet offer to start.
-// Running: the countdown. Done: the ring, answered by a tap — a break, one more, or keep
-// going. Dots count the pomodoros this task has finished today. Facts, no fanfare.
+// The second clock. Task time is recorded from timestamps whenever the task is active;
+// the pomodoro is an optional countdown laid over it. Every state says, in words, which
+// clock is doing what, and every button says what it will do. Facts, no fanfare.
+
+/** The break a "Take …" button would start now: the long one once a set is complete. */
+export function breakMinutes(p: PomodoroView): number {
+  return p.long_break_next ? p.long_break_minutes : p.break_minutes;
+}
 
 export function breakLabel(p: PomodoroView): string {
-  return p.long_break_next ? `Take ${p.long_break_minutes}` : "Take 5";
+  return `Take ${breakMinutes(p)}`;
 }
 
 export function Dots({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className="ml-2 inline-flex items-center gap-1 align-middle" aria-label={`${count} pomodoros done`}>
+    <span className="ml-2 inline-flex items-center gap-1 align-middle" aria-label={`${count} pomodoros done on this task`}>
       {Array.from({ length: Math.min(count, 12) }).map((_, i) => (
         <span key={i} className="h-1.5 w-1.5 rounded-full bg-stone-900" />
       ))}
@@ -23,88 +29,122 @@ export function Dots({ count }: { count: number }) {
   );
 }
 
-export function PomodoroLine({
+/** Spoken on a change of state only; the ticking numbers stay out of it. */
+function Spoken({ children }: { children: string }) {
+  return (
+    <span className="sr-only" aria-live="polite">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The timer/break line under the recorded time. `line` draws the optional thin line
+ * showing what remains of a running pomodoro (a prototype, off unless switched on).
+ */
+export function TimerLine({
   task,
   pomodoro,
-  phase,
-  remaining,
+  brk,
+  live,
   paused,
   compact = false,
+  line = false,
 }: {
   task: TaskView;
   pomodoro: PomodoroView;
-  phase: PomodoroPhase;
-  remaining: number;
+  brk: BreakView | null;
+  live: Live;
   paused: boolean;
   compact?: boolean;
+  line?: boolean;
 }) {
   const dispatch = useStore((s) => s.dispatch);
-  if (!pomodoro.enabled) return null;
   const done = task.pomodoros_completed;
+  const cls = compact ? "mt-1 text-sm" : "mt-1.5 text-sm";
 
   if (paused) {
-    return done > 0 ? (
-      <div className="mt-1.5 text-xs text-stone-400">
-        {done} {done === 1 ? "pomodoro" : "pomodoros"} done
-        <Dots count={done} />
-      </div>
-    ) : null;
-  }
-
-  if (phase === "running") {
+    const over = !!brk && live.breakRemaining <= 0;
+    const spoken = !brk
+      ? "Paused. Task time paused."
+      : over
+        ? "Break over. Task time is paused until you resume."
+        : "On a break. Task time paused.";
+    const shown = !brk ? spoken : over ? spoken : `On a break · ${countdown(live.breakRemaining)} left. Task time paused.`;
     return (
-      <div className={`mt-1.5 tabular-nums text-stone-900 ${compact ? "text-sm" : "text-sm"}`}>
-        {countdown(remaining)} <span className="text-stone-500">left in this pomodoro</span>
+      <div className={`${cls} tabular-nums text-stone-900`}>
+        <Spoken>{spoken}</Spoken>
+        <span aria-hidden>{shown}</span>
         <Dots count={done} />
       </div>
     );
   }
 
-  if (phase === "done" && compact) {
-    // The popover is 220 points tall and its button row already offers the break.
+  if (!pomodoro.enabled) return null;
+
+  if (live.pomodoro === "running") {
+    const planned =
+      pomodoro.started_at && pomodoro.ends_at ? (Date.parse(pomodoro.ends_at) - Date.parse(pomodoro.started_at)) / 1000 : 0;
+    const fraction = planned > 0 ? Math.max(0, Math.min(1, live.remaining / planned)) : 0;
     return (
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 text-sm">
-        <span className="font-medium text-stone-900">
-          Pomodoro done.
-          <Dots count={done} />
-        </span>
-        <Button variant="link" className="px-0" onClick={() => void dispatch(() => api.startPomodoro(task.id))}>
-          One more
-        </Button>
-        <Button variant="link" className="px-0" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
-          Keep going
-        </Button>
+      <div className={`${cls} tabular-nums text-stone-900`}>
+        <Spoken>Pomodoro running.</Spoken>
+        <span aria-hidden>Pomodoro · {countdown(live.remaining)} left</span>
+        <Dots count={done} />
+        {line && (
+          <div className="mt-1.5 h-0.5 w-full bg-stone-200" aria-hidden>
+            <div className="h-full bg-stone-900" style={{ width: `${fraction * 100}%`, transition: "width 200ms linear" }} />
+          </div>
+        )}
       </div>
     );
   }
 
-  if (phase === "done") {
+  if (live.pomodoro === "done") {
+    const bm = breakMinutes(pomodoro);
+    const actions = (
+      <div className={`mt-1 flex flex-wrap ${compact ? "gap-x-3" : "gap-x-4"}`}>
+        <Button variant="link" className={compact ? "px-0" : ""} aria-label={`Take a ${bm}-minute break; task time pauses`} onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
+          Take {bm}
+        </Button>
+        <Button variant="link" className={compact ? "px-0" : ""} aria-label={`Start another ${pomodoro.minutes}-minute pomodoro`} onClick={() => void dispatch(() => api.startPomodoro(task.id))}>
+          Another {pomodoro.minutes} min
+        </Button>
+        <Button variant="link" className={compact ? "px-0" : ""} aria-label="Continue without a timer; task time keeps recording" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
+          Continue without timer
+        </Button>
+      </div>
+    );
+    if (compact) {
+      return (
+        <div className="mt-1 text-sm">
+          <span aria-live="polite" className="font-medium text-stone-900">
+            Pomodoro finished.
+            <Dots count={done} />
+          </span>
+          {actions}
+        </div>
+      );
+    }
     return (
       <div className="mt-3 rounded-control border border-stone-200 bg-stone-50 px-3 py-2.5">
-        <div className="text-sm font-medium text-stone-900">
-          Pomodoro done.
+        <div aria-live="polite" className="text-sm font-medium text-stone-900">
+          Pomodoro finished. Task time is still recording.
           <Dots count={done} />
         </div>
-        <div className="mt-1 flex flex-wrap gap-x-4">
-          <Button variant="link" onClick={() => void dispatch(() => api.pause(task.id, "break"))}>
-            {breakLabel(pomodoro)}
-          </Button>
-          <Button variant="link" onClick={() => void dispatch(() => api.startPomodoro(task.id))}>
-            One more
-          </Button>
-          <Button variant="link" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
-            Keep going
-          </Button>
-        </div>
+        {actions}
       </div>
     );
   }
 
   return (
-    <div className="mt-1.5 flex items-center text-xs text-stone-400">
+    <div className={`${cls} flex flex-wrap items-center gap-x-2 text-stone-500`}>
+      <Spoken>No timer running.</Spoken>
+      <span aria-hidden>No timer running.</span>
       <button
         type="button"
-        className="underline decoration-stone-300 underline-offset-4 hover:text-stone-600"
+        className="underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
+        aria-label={`Start a ${pomodoro.minutes}-minute pomodoro`}
         onClick={() => void dispatch(() => api.startPomodoro(task.id))}
       >
         Start a {pomodoro.minutes}-minute pomodoro
@@ -115,11 +155,14 @@ export function PomodoroLine({
 }
 
 /** The live values the clock hook starts from, taken from the snapshot. */
-export function initialLive(task: TaskView, pomodoro: PomodoroView) {
+export function initialLive(task: TaskView, pomodoro: PomodoroView, brk: BreakView | null, now: string): Live {
   const mine = pomodoro.task_id === task.id;
+  const breakRemaining = brk ? Math.max(0, Math.round((Date.parse(brk.ends_at) - Date.parse(now)) / 1000)) : 0;
   return {
     seconds: task.focus_seconds,
-    pomodoro: mine ? pomodoro.phase : ("idle" as PomodoroPhase),
+    pomodoro: mine ? pomodoro.phase : "idle",
     remaining: mine ? pomodoro.remaining_seconds : 0,
+    onBreak: !!brk,
+    breakRemaining,
   };
 }

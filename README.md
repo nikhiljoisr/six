@@ -62,16 +62,22 @@ the banner is the default.
 
 - **Evening:** plan tomorrow's six, most important at the top. Unfinished tasks are
   pre-filled so nothing is lost. Lock the list.
-- **Morning:** task 1 is active. The timer runs from timestamps, so a sleeping laptop still
-  records the truth. Mark it complete and task 2 takes over. Skipping ahead is possible, but
-  Six asks twice and the last answer is a press-and-hold. Something urgent? "edit" under
-  the list swaps it in; the edit is noted on the day.
-- **Focus:** start a pomodoro on the active task if you like. When it rings, take five, one
-  more, or keep going. Leaving a task early is recorded as a fact, never a penalty.
-- **Breaks:** Take 5 pauses the clock; a quiet banner asks you back.
+- **Morning:** task 1 is active and records time from the moment the list is locked; the
+  card says so ("42m recorded on this task"). Time runs from timestamps, so a sleeping
+  laptop still records the truth. Mark it complete and task 2 takes over. Skipping ahead is
+  possible, but Six asks twice and the last answer is a press-and-hold. Something urgent?
+  "edit" under the list swaps it in; the edit is noted on the day.
+- **Focus:** a second clock, if you want it. Start a pomodoro on the active task; the card
+  reads "Pomodoro · 12:08 left". When it rings: "Pomodoro finished. Task time is still
+  recording." and three answers that say what they do: Take 5, Another 25 min, Continue
+  without timer. Leaving a task early is recorded as a fact, never a penalty.
+- **Breaks:** Take 5 pauses task time ("On a break · 3:12 left. Task time paused."); a
+  quiet banner asks you back, and Resume starts recording again.
 - **End of day:** the review. What happened (facts only), what carries to tomorrow, and
-  tomorrow's six. A one-line thought if you want one. If a task ran for hours with nothing
-  touched, the review offers to take that stretch out; the work before and after it stays.
+  tomorrow's six. A one-line thought if you want one. If Six recorded no interaction for
+  hours during a task, the review says so ("You may have been working elsewhere") and
+  offers to take that stretch out, showing exactly what stays; the work before and after
+  it is kept, and nothing is trimmed unless you say so.
 - **History and Stats:** the last 30 days, this week's numbers, a seven-day trend, the task
   that has rolled over the most, and a plain-text or JSON export.
 

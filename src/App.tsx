@@ -16,6 +16,7 @@ export default function App() {
   const snapshot = useStore((s) => s.snapshot);
   const view = useStore((s) => s.view);
   const error = useStore((s) => s.error);
+  const notice = useStore((s) => s.notice);
   const clearError = useStore((s) => s.clearError);
   const nudge = useStore((s) => s.nudges[0] ?? null);
 
@@ -47,6 +48,11 @@ export default function App() {
       {snapshot && view.name === "stats" && <Stats key="stats" snapshot={snapshot} />}
       {snapshot && view.name === "settings" && <Settings key="settings" snapshot={snapshot} />}
       {nudge && <Banner nudge={nudge} />}
+      {notice && !error && (
+        <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-stone-50 px-6 py-3 text-sm text-stone-500">
+          {notice}
+        </p>
+      )}
       {error && (
         <button
           type="button"

@@ -30,6 +30,16 @@ pub async fn show_main(app: AppHandle, target: Option<serde_json::Value>) -> Cmd
     Ok(())
 }
 
+/// The popover's content changed height: fit the window to it, within bounds.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn size_popover(app: AppHandle, height: f64) -> CmdResult<()> {
+    #[cfg(target_os = "macos")]
+    crate::tray::resize_popover(&app, height);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, height);
+    Ok(())
+}
+
 /// The popover moved on to the next queued nudge: keep Six's banner on screen for it.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn show_banner(app: AppHandle) -> CmdResult<()> {

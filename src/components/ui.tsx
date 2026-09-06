@@ -7,7 +7,7 @@ const VARIANTS: Record<Variant, string> = {
   secondary:
     "border border-stone-300 bg-transparent text-stone-900 px-4 py-3 text-[15px] font-medium hover:bg-stone-100",
   link: "text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 px-1 py-1",
-  quiet: "text-xs text-stone-400 hover:text-stone-600 px-1 py-1",
+  quiet: "text-xs text-stone-500 hover:text-stone-900 px-1 py-1",
 };
 
 export function Button({

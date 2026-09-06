@@ -11,7 +11,7 @@ use serde_json::json;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    ActivationPolicy, AppHandle, Emitter, LogicalPosition, Manager, WebviewUrl,
+    ActivationPolicy, AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl,
     WebviewWindowBuilder, WindowEvent, Wry,
 };
 
@@ -22,7 +22,10 @@ use crate::domain::{PauseReason, TaskStatus};
 pub const MAIN: &str = "main";
 pub const POPOVER: &str = "popover";
 const POPOVER_WIDTH: f64 = 320.0;
+/// The height the popover opens at; it then fits itself to its content.
 const POPOVER_HEIGHT: f64 = 280.0;
+const POPOVER_MIN_HEIGHT: f64 = 160.0;
+const POPOVER_MAX_HEIGHT: f64 = 440.0;
 /// A tray click that arrives this soon after the popover lost focus is the click that
 /// closed it, not a request to reopen it.
 const REOPEN_GUARD: Duration = Duration::from_millis(400);
@@ -338,6 +341,23 @@ fn present_banner(app: &AppHandle) {
             hide_popover(&app);
         }
     });
+}
+
+/// Fit the popover to its content. It hangs from the menu bar, so growing downwards
+/// stays on screen; the bounds keep a runaway layout from swallowing the desktop.
+pub fn resize_popover(app: &AppHandle, height: f64) {
+    let Some(popover) = app.get_webview_window(POPOVER) else {
+        return;
+    };
+    let height = height.clamp(POPOVER_MIN_HEIGHT, POPOVER_MAX_HEIGHT).round();
+    let current = popover
+        .inner_size()
+        .ok()
+        .map(|s| s.to_logical::<f64>(popover.scale_factor().unwrap_or(1.0)).height);
+    if current.is_some_and(|h| (h - height).abs() < 1.0) {
+        return;
+    }
+    let _ = popover.set_size(LogicalSize::new(POPOVER_WIDTH, height));
 }
 
 pub fn hide_popover(app: &AppHandle) {

@@ -70,6 +70,15 @@ pub async fn nudge_action(
     let sched = app.state::<Scheduler>();
     match action.as_str() {
         "later" => sched.snooze(kind, clock.now + LATER, None),
+        "keep_going" if kind == NudgeKind::PomodoroDone => {
+            // The ring's "Continue without timer": answer it, and nothing else changes.
+            if let Some(t) = current.filter(|t| t.status == TaskStatus::Active) {
+                mutate_locked(&state, today, DomainError::TaskNotFound.into(), |d, c| {
+                    d.acknowledge_pomodoro(&t.id, c)
+                })
+                .await?;
+            }
+        }
         "keep_going" => sched.snooze(
             NudgeKind::CheckIn,
             clock.now + Duration::minutes(i64::from(settings.checkin_minutes)),

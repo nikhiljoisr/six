@@ -91,6 +91,18 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Sound when a pomodoro or break ends" hint="Off by default. Six is otherwise silent.">
           <Toggle value={s.sound_enabled} onChange={(v) => set("sound_enabled", v)} />
         </Row>
+        <Row label="Line under the countdown" hint="A thin line showing what remains of the pomodoro. Off by default.">
+          <Toggle value={s.countdown_line} onChange={(v) => set("countdown_line", v)} />
+        </Row>
+      </Section>
+
+      <Section title="Keyboard">
+        <Row label="Space" hint="Take a break, or resume." />
+        <Row label="Space or Enter, held" hint="The last step of skipping ahead." />
+        <Row label="Cmd+N" hint="Plan the next unplanned day." />
+        <Row label="Cmd+," hint="Settings." />
+        <Row label="Cmd+W" hint="Hide the window to the menu bar." />
+        <Row label="Esc" hint="Close the menu bar panel, or leave the skip-ahead sheet." />
       </Section>
 
       <Section title="Menu bar">

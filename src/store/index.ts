@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { api } from "../lib/api";
+import { chime } from "../lib/sound";
 import { isAppError, type AppError, type DaySnapshot, type Nudge } from "../lib/types";
 
 // The store mirrors the Rust snapshot and holds UI-only navigation state. Every
@@ -23,6 +24,9 @@ interface AppStore {
   /** Where the current view was opened from, for screens with a "Back". */
   previous: View | null;
   error: string | null;
+  /** A quiet confirmation after Rust reported a save; clears itself. */
+  notice: string | null;
+  notify: (text: string) => void;
   /** In-app banners waiting to be answered, oldest first. */
   nudges: Nudge[];
   pushNudge: (n: Nudge) => void;
@@ -85,17 +89,31 @@ function stillApplies(n: Nudge, snap: DaySnapshot): boolean {
   }
 }
 
+let noticeTimer: number | null = null;
+
 export const useStore = create<AppStore>((set, get) => ({
   snapshot: null,
   view: { name: "day" },
   previous: null,
   error: null,
+  notice: null,
+  notify: (text) => {
+    set({ notice: text });
+    if (noticeTimer !== null) window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(() => set({ notice: null }), 2500);
+  },
   nudges: [],
   pushNudge: (n) =>
     set((s) => {
       // A nudge that no longer applies (the task moved on between planning and delivery)
       // never shows, not even for a moment.
       if (s.snapshot && !stillApplies(n, s.snapshot)) return {};
+      // On the day view the active card already holds the ring's three answers; a
+      // banner would be the same group twice. The optional sound still plays.
+      if (n.kind === "pomodoro_done" && s.view.name === "day") {
+        if (s.snapshot?.settings.sound_enabled) chime();
+        return {};
+      }
       return { nudges: [...s.nudges.filter((x) => x.kind !== n.kind), n] };
     }),
   dismissNudge: (kind) => set((s) => ({ nudges: s.nudges.filter((x) => x.kind !== kind) })),
@@ -113,7 +131,13 @@ export const useStore = create<AppStore>((set, get) => ({
   },
   navigate: (view) => {
     window.scrollTo(0, 0);
-    set((s) => ({ view, previous: s.view, error: null }));
+    set((s) => ({
+      view,
+      previous: s.view,
+      error: null,
+      // Back on the day view, the card takes over from a ring's banner.
+      nudges: view.name === "day" ? s.nudges.filter((n) => n.kind !== "pomodoro_done") : s.nudges,
+    }));
   },
   clearError: () => set({ error: null }),
   dispatch: async (run) => {

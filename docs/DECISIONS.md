@@ -279,3 +279,53 @@ down, and the new "answered ring" rule threw the nudge away. The rule now recogn
 ring's own pomodoro by its end time: still counting down to that same instant means the
 ring is fresh; a different end time means "one more" was chosen; idle means it was
 answered. Checked on the real binary and in the harness under the real ordering.
+
+## 2026-09-06 — Clarity pass (1.3.0): say which clock is doing what
+
+A UX brief (a comparison of Things, Session, Flow, Focus and HazeOver against the v1.2.0
+screenshots, plus Apple and W3C guidance) asked for one thing: that the active task, the
+recording state, the pomodoro and the consequence of the next click be readable at a
+glance, without expanding the product. What changed, and where it touches a decision:
+
+- **The two clocks are named.** The active card reads "42m recorded on this task" and,
+  under it, one sentence per state: "No timer running." with the start link; "Pomodoro ·
+  12:08 left"; "Pomodoro finished. Task time is still recording."; "On a break · 3:12
+  left. Task time paused."; "Break over. Task time is paused until you resume."; "Paused.
+  Task time paused." Rust now reports the break the paused task is on (`break` on the
+  snapshot, `on_break`/`break_remaining` on the elapsed poll); the break countdown is
+  Rust's reading, polled like the pomodoro's. A screen reader hears the state sentence on
+  a change and never the ticking numbers.
+- **Buttons say what they will do**, with the configured durations: "Take 5" / "Take 15",
+  "Another 25 min", "Continue without timer", "Mark complete", "5 more minutes". The
+  ring's three answers are one group per surface (the card's box, or the nudge), never
+  duplicated below it; "Continue without timer" on a ring answers it in Rust
+  (`acknowledge_pomodoro`) rather than snoozing a check-in.
+- **The popover is one composition.** With a nudge showing, the nudge holds the actions
+  and the task shrinks to its title and clocks; without one, the task, its clocks and one
+  action row. The window fits its content (`size_popover`, 160–440 points) instead of a
+  fixed 280. SPEC §4.11's "about 320×220" becomes "320 wide, as tall as its content".
+- **The ceiling reads as permission.** "Choose up to six. Fewer is fine." beside the
+  planner's save; a non-persisted example in the first row; at the first lock, the day
+  view says task 1 started recording and a pomodoro is optional; the guide says the same.
+- **Commitment is visible.** The review shows its date and where carries go, lists what
+  tomorrow already holds, and the committing button reads "Save review & plan tomorrow"
+  with a line saying cancelling the planner keeps the review. Saves are confirmed with a
+  quiet line at the bottom only after Rust reports success ("List saved.", "Review
+  saved.", "Trimmed. 1h 50m kept."); a failure keeps the input on screen.
+- **Recorded time is described honestly.** The review's card is "Possible gap": "No
+  interaction was recorded in Six from 10:10 to 13:30. You may have been working
+  elsewhere." with the full date when a gap crosses midnight, "5h 20m recorded. Trimming
+  keeps 1h 50m.", and a labelled kept / gap / kept line drawn from Rust's timestamps.
+  "Trim to 1h 50m" and "Keep as recorded" stay equally weighted; nothing is subtracted
+  on its own.
+- **Readable and reachable.** Anything clickable is stone-500 or darker (stone-400 and
+  stone-300 are for decoration and struck-through text only; CLAUDE.md's palette note
+  says so now). Keyboard focus has a visible ring. Settings lists the shortcuts.
+- **Prototype, off by default:** a thin monochrome line under a running countdown,
+  showing what remains of that pomodoro (Settings → "Line under the countdown"). It is
+  never a share of the day's work. Kept as an option for the friends test; removed if it
+  does not earn its place.
+
+Not done, by design: no seventh task, no set counters or six-dot rails, no mascots or
+animation, no new permissions, no changes to routing, silence, the skip ladder or the
+tomorrow-list policy.

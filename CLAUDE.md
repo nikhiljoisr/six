@@ -20,7 +20,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 ## Palette and type (SPEC §3) — exact, do not add colours
 - Background `stone-50`. Cards white with `stone-200` hairline; done tasks `stone-100` at 50%.
 - Ink `stone-900`: active card border (2px), active numeral, every primary button, headings.
-- Secondary `stone-500`; hints `stone-400`, `stone-300`. Destructive actions are `stone-400` text, never red.
+- Secondary `stone-500`; hints `stone-400`, `stone-300` for decoration and struck-through text only. Anything clickable reads at `stone-500` or darker (a 2.5:1 hint is not a control). Destructive actions are `stone-500` text, never red.
 - `amber-700` only for: streak flame + count, "Six done." headline, "Complete" badge on 6/6 days, "↑ from yesterday" tag. Never on buttons or the active task.
 - No green, red, blue or indigo. Serif for numerals 1–6 and headings; system sans elsewhere. Weights 400/500 only.
 - Single column, max-width 28rem, centred. 12px card radius, 8px controls. 150–200ms fades, no springs.

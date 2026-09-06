@@ -233,9 +233,14 @@ fn deliver_due(app: &AppHandle, now: DateTime<Utc>, system: bool) {
 }
 
 /// Which OS action set a nudge uses; the long pomodoro break carries its own labels.
-fn action_type_for(n: &Nudge) -> &'static str {
+#[cfg(any(target_os = "macos", mobile))]
+fn action_type_for(n: &Nudge, settings: &Settings) -> &'static str {
+    let long = format!("Take {}", settings.long_break_minutes);
     match n.kind {
-        NudgeKind::PomodoroDone if n.actions.first().is_some_and(|a| a.label != "Take 5") => {
+        NudgeKind::PomodoroDone
+            if settings.long_break_minutes != settings.break_minutes
+                && n.actions.first().is_some_and(|a| a.label == long) =>
+        {
             "pomodoro_done_long"
         }
         kind => kind.key(),
@@ -245,29 +250,33 @@ fn action_type_for(n: &Nudge) -> &'static str {
 #[cfg(any(target_os = "macos", mobile))]
 fn action_types(settings: &Settings) -> Vec<tauri_plugin_notifications::ActionType> {
     use serde_json::json;
+    let short = format!("Take {}", settings.break_minutes);
     let long = format!("Take {}", settings.long_break_minutes);
+    let another = format!("Another {} min", settings.pomodoro_minutes);
     let defs = vec![
         json!({"id": "evening_ritual", "actions": [
             {"id": "plan", "title": "Plan", "foreground": true},
             {"id": "later", "title": "Later"}]}),
         json!({"id": "check_in", "actions": [
-            {"id": "done", "title": "Done"},
-            {"id": "keep_going", "title": "Keep going"},
-            {"id": "take_break", "title": "Take 5"}]}),
+            {"id": "done", "title": "Mark complete"},
+            {"id": "keep_going", "title": "Continue"},
+            {"id": "take_break", "title": short}]}),
         json!({"id": "break_over", "actions": [
             {"id": "resume", "title": "Resume"},
-            {"id": "five_more", "title": "5 more"}]}),
+            {"id": "five_more", "title": "5 more minutes"}]}),
         json!({"id": "unplanned_morning", "actions": [
             {"id": "plan", "title": "Plan now", "foreground": true}]}),
         json!({"id": "end_of_day", "actions": [
             {"id": "review", "title": "Review", "foreground": true},
             {"id": "later", "title": "Later"}]}),
         json!({"id": "pomodoro_done", "actions": [
-            {"id": "take_break", "title": "Take 5"},
-            {"id": "one_more", "title": "One more"}]}),
+            {"id": "take_break", "title": short},
+            {"id": "one_more", "title": another},
+            {"id": "keep_going", "title": "Continue without timer"}]}),
         json!({"id": "pomodoro_done_long", "actions": [
             {"id": "take_break", "title": long},
-            {"id": "one_more", "title": "One more"}]}),
+            {"id": "one_more", "title": another},
+            {"id": "keep_going", "title": "Continue without timer"}]}),
     ];
     defs.into_iter()
         .filter_map(|v| serde_json::from_value(v).ok())
@@ -325,7 +334,7 @@ async fn os_sync(
                     .id(kind.id())
                     .title(&n.title)
                     .body(&n.body)
-                    .action_type_id(action_type_for(n))
+                    .action_type_id(action_type_for(n, settings))
                     .schedule(Schedule::At {
                         date: to_offset(n.due),
                         repeating: false,

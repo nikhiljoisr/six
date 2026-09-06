@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::{housekeeping, read_clock, AppState, CmdResult};
 use crate::db;
-use crate::domain::{streak, Day, PomodoroPhase, Settings, TaskInput, TaskStatus};
+use crate::domain::{streak, Day, EndedReason, PomodoroPhase, Settings, TaskInput, TaskStatus};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskView {
@@ -46,6 +46,7 @@ pub struct PlanView {
 pub struct PomodoroView {
     pub enabled: bool,
     pub minutes: u32,
+    pub break_minutes: u32,
     pub long_break_minutes: u32,
     pub set_size: u32,
     pub phase: PomodoroPhase,
@@ -64,6 +65,7 @@ impl PomodoroView {
         let base = Self {
             enabled: settings.pomodoro_enabled,
             minutes: settings.pomodoro_minutes,
+            break_minutes: settings.break_minutes,
             long_break_minutes: settings.long_break_minutes,
             set_size: settings.pomodoros_before_long_break.max(1),
             phase: PomodoroPhase::Idle,
@@ -100,6 +102,41 @@ impl PomodoroView {
             long_break_next: settings.pomodoro_enabled && day.long_break_due(set, None),
             ..base
         }
+    }
+}
+
+/// The break the paused task is on: when it began, when it is over, and which kind.
+#[derive(Debug, Clone, Serialize)]
+pub struct BreakView {
+    pub started_at: DateTime<Utc>,
+    pub ends_at: DateTime<Utc>,
+    pub minutes: u32,
+    pub long: bool,
+}
+
+impl BreakView {
+    pub fn from_day(day: Option<&Day>, settings: &Settings) -> Option<Self> {
+        let day = day?;
+        let task = day
+            .current_task()
+            .filter(|t| t.status == TaskStatus::Paused)?;
+        let session = day
+            .last_closed_session(&task.id)
+            .filter(|s| s.ended_reason == Some(EndedReason::Break))?;
+        let started_at = session.ended_at?;
+        let set = usize::try_from(settings.pomodoros_before_long_break.max(1)).unwrap_or(4);
+        let long = settings.pomodoro_enabled && day.long_break_due(set, Some(&session.id));
+        let minutes = if long {
+            settings.long_break_minutes
+        } else {
+            settings.break_minutes
+        };
+        Some(Self {
+            started_at,
+            ends_at: started_at + chrono::Duration::minutes(i64::from(minutes)),
+            minutes,
+            long,
+        })
     }
 }
 
@@ -171,6 +208,9 @@ pub struct DaySnapshot {
     pub carryover_preview: Option<CarryoverPreview>,
     /// The pomodoro layer for today's active task.
     pub pomodoro: PomodoroView,
+    /// The break the paused task is on, if it is on one.
+    #[serde(rename = "break")]
+    pub break_: Option<BreakView>,
 }
 
 /// Carryover for a list dated `date`: the most recent locked list before it.
@@ -213,6 +253,7 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
     };
 
     let pomodoro = PomodoroView::from_day(today_day.as_ref(), &settings, clock.now);
+    let break_ = BreakView::from_day(today_day.as_ref(), &settings);
     Ok(DaySnapshot {
         revision: state.next_revision(),
         today,
@@ -233,5 +274,68 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
             .map(|d| PlanView::from_day(d, clock.now, today)),
         carryover_preview,
         pomodoro,
+        break_,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{Ctx, PauseReason};
+    use chrono::TimeZone;
+
+    fn at(h: u32, m: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 9, 3, h, m, 0).unwrap()
+    }
+
+    fn ctx(h: u32, m: u32) -> Ctx<'static> {
+        Ctx::new(at(h, m), NaiveDate::from_ymd_opt(2026, 9, 3).unwrap(), "dev")
+    }
+
+    fn locked() -> Day {
+        let mut day = Day::draft(
+            NaiveDate::from_ymd_opt(2026, 9, 3).unwrap(),
+            vec![TaskInput {
+                title: "One".into(),
+                ..Default::default()
+            }],
+            &ctx(9, 0),
+        )
+        .unwrap();
+        day.lock(&ctx(9, 0)).unwrap();
+        day
+    }
+
+    #[test]
+    fn the_break_view_names_the_break_the_paused_task_is_on() {
+        let settings = Settings::default();
+        let mut day = locked();
+        let t1 = day.tasks[0].id.clone();
+        assert!(BreakView::from_day(Some(&day), &settings).is_none(), "working");
+        day.pause(&t1, PauseReason::Paused, &ctx(10, 0)).unwrap();
+        assert!(BreakView::from_day(Some(&day), &settings).is_none(), "a plain pause is not a break");
+        day.resume(&t1, &ctx(10, 1)).unwrap();
+        day.pause(&t1, PauseReason::Break, &ctx(10, 30)).unwrap();
+        let b = BreakView::from_day(Some(&day), &settings).unwrap();
+        assert_eq!((b.started_at, b.ends_at, b.minutes, b.long), (at(10, 30), at(10, 35), 5, false));
+    }
+
+    #[test]
+    fn the_break_view_is_the_long_one_after_a_set() {
+        let mut settings = Settings::default();
+        settings.pomodoros_before_long_break = 1;
+        let mut day = locked();
+        let t1 = day.tasks[0].id.clone();
+        day.start_pomodoro(&t1, 60, &ctx(9, 0)).unwrap();
+        day.settle_pomodoros(&ctx(9, 1));
+        assert!(PomodoroView::from_day(Some(&day), &settings, at(9, 1)).long_break_next);
+        day.pause(&t1, PauseReason::Break, &ctx(9, 2)).unwrap();
+        let b = BreakView::from_day(Some(&day), &settings).unwrap();
+        assert_eq!((b.minutes, b.long, b.ends_at), (15, true, at(9, 17)));
+        // Taken: the next one is ordinary, and the card's label says so.
+        day.resume(&t1, &ctx(9, 17)).unwrap();
+        assert!(!PomodoroView::from_day(Some(&day), &settings, at(9, 17)).long_break_next);
+        day.pause(&t1, PauseReason::Break, &ctx(9, 30)).unwrap();
+        assert_eq!(BreakView::from_day(Some(&day), &settings).unwrap().minutes, 5);
+    }
 }

@@ -29,6 +29,9 @@ pub struct Settings {
     /// How nudges reach you when the window is away: "banner" (Six's own banner under the
     /// menu bar, works everywhere) or "system" (macOS Notification Centre; needs a signed app).
     pub nudge_style: String,
+    /// A thin line under the countdown showing what remains of the pomodoro. Off by
+    /// default; a prototype, kept only while it earns its place.
+    pub countdown_line: bool,
 }
 
 impl Default for Settings {
@@ -46,6 +49,7 @@ impl Default for Settings {
             sound_enabled: false,
             onboarded: false,
             nudge_style: "banner".to_string(),
+            countdown_line: false,
         }
     }
 }
@@ -63,7 +67,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 12] = [
+    pub const KEYS: [&'static str; 13] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -76,6 +80,7 @@ impl Settings {
         "sound_enabled",
         "onboarded",
         "nudge_style",
+        "countdown_line",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
@@ -112,6 +117,7 @@ impl Settings {
             "pomodoro_enabled" => Some((&mut self.pomodoro_enabled, "pomodoro_enabled")),
             "sound_enabled" => Some((&mut self.sound_enabled, "sound_enabled")),
             "onboarded" => Some((&mut self.onboarded, "onboarded")),
+            "countdown_line" => Some((&mut self.countdown_line, "countdown_line")),
             _ => None,
         };
         if let Some((slot, name)) = bool_slot {
