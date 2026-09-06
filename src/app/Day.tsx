@@ -61,32 +61,35 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
             ))}
           </ol>
           {plan.edited_after_lock && <p className="mt-3 text-right text-xs text-stone-500">edited after locking</p>}
-          <div className="min-h-10 flex-[2]" aria-hidden />
-          <div className="flex items-baseline justify-between gap-6 font-serif text-[12px] leading-5 text-stone-400">
-            <TomorrowArea snapshot={snapshot} />
-            <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap">
-              {locked && (
-                <button
-                  type="button"
-                  className="opacity-0 transition-opacity duration-150 hover:text-stone-900 focus-visible:opacity-100 group-hover/page:opacity-100"
-                  aria-label="Edit today's list (⌘E)"
-                  onClick={() => navigate({ name: "planner", date: snapshot.today })}
-                >
-                  Edit
-                </button>
-              )}
-              <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
-                History
-              </button>
-            </nav>
-          </div>
           {plan.all_done && !plan.reviewed_at && (
-            <Button className="mt-8 px-6" onClick={() => navigate({ name: "review", planId: plan.id })}>
+            <Button className="mt-8 self-start px-6" onClick={() => navigate({ name: "review", planId: plan.id })}>
               Review today
             </Button>
           )}
+          <div className="min-h-10 flex-[2]" aria-hidden />
         </>
       )}
+
+      {/* The footer line, in every state: tomorrow on the left once today's list is locked,
+          navigation on the right. History is always here; Edit while the pointer is over a locked page. */}
+      <div className="mt-auto flex items-baseline justify-between gap-6 font-serif text-[12px] leading-5 text-stone-500">
+        {locked && plan ? <TomorrowArea snapshot={snapshot} /> : <span />}
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap">
+          {locked && (
+            <button
+              type="button"
+              className="opacity-0 transition-opacity duration-150 hover:text-stone-900 focus-visible:opacity-100 group-hover/page:opacity-100"
+              aria-label="Edit today's list (⌘E)"
+              onClick={() => navigate({ name: "planner", date: snapshot.today })}
+            >
+              Edit
+            </button>
+          )}
+          <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
+            History
+          </button>
+        </nav>
+      </div>
 
       {skipTarget && blocking && (
         <SkipAheadSheet

@@ -385,3 +385,17 @@ blur. Six rows with one note fit at 480×560 with the bar in view. Version 1.4.0
 atlas in `Six atlas 1.4.0/` is rendered from the harness (see its README), not captured
 from the installed app. Still open: the review and settings screens keep their large
 serif headings and cards; they scroll at 560 and were left alone.
+
+## 2026-09-07 — Step 13 (1.4.1): the window is a card; History in every state
+
+Nikhil maximised the window and found a small column floating in a large field. Six's
+window is a card, not a document, so it no longer maximises: `maximizable: false`, with
+a size range of 360×520 to 560×760. Type never scales with the window; the day view keeps
+its optical centre at any height in that range.
+
+He also found History gone. The footer line that carries it had been placed inside the
+"today's list is locked" branch of the day view, so the morning before planning and the
+evening ritual had no way to History. The footer line now renders in every state:
+tomorrow's line on the left once the list is locked, History (and the hover-revealed
+Edit, when locked) on the right. Footer links are stone-500, per the clarity pass's rule
+that anything clickable is stone-500 or darker; the earlier stone-400 broke it.
