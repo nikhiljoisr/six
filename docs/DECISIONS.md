@@ -506,3 +506,37 @@ the planner control overlay against a 140-character title. Excluded from this pa
 hiding the current task's actions while a banner is up; splitting the check-in's
 duration into a second line (nudge copy lives in Rust); word-boundary truncation.
 Not released; version unchanged.
+
+## 2026-09-07 — Step 14b: tested on the Mac before any release
+
+Nikhil asked for the refresh to be tested for real before shipping. The final commit was
+built as a debug bundle and run as a scratch copy under an isolated home with seeded
+data (its process and database paths confirmed by `lsof`; the installed Six and its
+database were never touched), and driven through the screen with the pointer and the
+keyboard while the installed app kept running beside it.
+
+Verified on the real build, with the database read after each step: hover-revealed row
+controls (start, skip ahead, undo, Edit) and their focus rings by Tab; Pause and Resume by
+click and by Space; a break interrupting the pomodoro; Start a pomodoro; Complete with
+the next task activating; undo; Defer with the slot handed back; the skip-ahead ladder
+by pointer, ending in the 1.5-second hold, and again entirely by keyboard, ending in a
+held Return, each logging one override; Escape leaving the sheet; ⌘E into the planner,
+typing, the note affordance, reordering by chevron and by dragging the numeral, Save
+("edited after locking" and the notice); ⌘N and ⌘,; History, Stats and Settings, a
+number field and the switch saving; the window clamping to 360×520 and 560×760 and the
+layout at both; the finished-pomodoro state with its answers, and "Continue without
+timer"; Six's own banner under the menu bar on break-over, opened while the window was
+hidden, with Resume acting from it; the evening review end to end (trim, reflection,
+carry/drop with a visible focus ring, save, tomorrow's planner, cancel keeping the
+review); the first-run guide into the first planner.
+
+Three things the run surfaced, all fixed here: the first-run guide's second screen no
+longer fits the real viewport once it gained a masthead (its spacing is tightened so both
+screens fit at 532); the "Line under the countdown" switch had had no effect since the
+line became part of the timer on 2026-09-06 (it now controls the track in the window and
+the tray; the default stays on); rows in the review and history showed "0 min" for
+recorded time under a minute (now shown only from a minute up).
+
+Not testable on this Mac: the tray item itself, which the notch hides for the newest
+status item (the popover was exercised through the break-over banner instead, and in
+the harness); and reduced motion, which needs a system setting.

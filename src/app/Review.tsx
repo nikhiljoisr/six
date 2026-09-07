@@ -178,7 +178,7 @@ function WhatHappened({
             <Numeral n={t.position} size="xs" tone={t.status === "done" ? "muted" : "dim"} className="pr-3 text-right leading-8" />
             <span className={`min-w-0 truncate text-[15px] leading-8 ${t.status === "done" ? "text-stone-900" : "text-stone-500"}`}>{t.title}</span>
             <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-8 tabular-nums text-stone-500">
-              {[STATUS_WORD[t.status], t.focus_seconds > 0 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
+              {[STATUS_WORD[t.status], t.focus_seconds >= 60 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
             </span>
           </li>
         ))}

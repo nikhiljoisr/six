@@ -102,14 +102,18 @@ export function Clocks({
   brk,
   live,
   paused,
+  line = true,
 }: {
   task: TaskView;
   pomodoro: PomodoroView;
   brk: BreakView | null;
   live: Live;
   paused: boolean;
+  /** Settings → "Line under the countdown": the track under the clocks, on by default. */
+  line?: boolean;
 }) {
   const f = clockFacts(task, pomodoro, brk, live, paused);
+  if (!line) f.fraction = null;
   return (
     <div className="mt-2 text-[13px] leading-5">
       <Spoken>{f.spoken}</Spoken>

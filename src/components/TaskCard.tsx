@@ -25,7 +25,7 @@ interface Props extends Actions {
   brk: BreakView | null;
   /** The snapshot's clock, so the break countdown starts from Rust's reading. */
   now: string;
-  /** Unused since the line became part of the timer; kept for the call site. */
+  /** Settings → "Line under the countdown". */
   countdownLine?: boolean;
   /** True while an earlier task is still unfinished, so starting this one breaks order. */
   isAhead: boolean;
@@ -40,11 +40,11 @@ interface Props extends Actions {
 const ROW = "-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline";
 const GUTTER = "pr-3 text-right";
 
-export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, ...on }: Props) {
+export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdownLine = true, ...on }: Props) {
   switch (task.status) {
     case "active":
     case "paused":
-      return <CurrentRow task={task} pomodoro={pomodoro} brk={brk} now={now} {...on} />;
+      return <CurrentRow task={task} pomodoro={pomodoro} brk={brk} now={now} line={countdownLine} {...on} />;
     case "done": {
       // A done row keeps its numeral and carries the time it was finished, in the serif's figures.
       const at = task.completed_at ? clockTime(task.completed_at) : undefined;
@@ -131,7 +131,8 @@ function CurrentRow({
   onTakeFive,
   onResume,
   onDefer,
-}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string } & Actions) {
+  line,
+}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean } & Actions) {
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
   const note = task.note ?? "";
@@ -155,7 +156,7 @@ return (
         <div className="min-w-0">
           <div className="text-[20px] leading-7 text-stone-900">{task.title}</div>
           {note && <div className="mt-1 text-[13px] leading-5 text-stone-500">{note}</div>}
-          <Clocks task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
+          <Clocks task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} line={line} />
           {ringing && (
             <div className="mt-1 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
               <RingAnswers task={task} pomodoro={pomodoro} />

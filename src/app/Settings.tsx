@@ -93,7 +93,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Sound when a pomodoro or break ends" hint="Off by default. Six is otherwise silent.">
           <Toggle value={s.sound_enabled} onChange={(v) => set("sound_enabled", v)} />
         </Row>
-        <Row label="Line under the countdown" hint="A thin line showing what remains of the pomodoro. Off by default.">
+        <Row label="Line under the countdown" hint="A thin line showing what remains of the pomodoro, in the window and the menu bar panel.">
           <Toggle value={s.countdown_line} onChange={(v) => set("countdown_line", v)} />
         </Row>
       </Section>

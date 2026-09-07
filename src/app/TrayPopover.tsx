@@ -85,9 +85,9 @@ export function TrayPopover() {
       {nudge && <NudgeStrip nudge={nudge} sound={snapshot?.settings.sound_enabled ?? false} />}
       {snapshot && plan && current ? (
         nudge ? (
-          <CurrentLine task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} />
+          <CurrentLine task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} line={snapshot.settings.countdown_line} />
         ) : (
-          <Current task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} />
+          <Current task={current} pomodoro={snapshot.pomodoro} brk={snapshot.break} now={snapshot.now} line={snapshot.settings.countdown_line} />
         )
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
@@ -114,8 +114,9 @@ export function TrayPopover() {
 }
 
 /** The task and its two clocks, the same in every state of the panel. */
-function TaskFacts({ task, pomodoro, brk, live, paused }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; live: Live; paused: boolean }) {
+function TaskFacts({ task, pomodoro, brk, live, paused, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; live: Live; paused: boolean; line: boolean }) {
   const f = clockFacts(task, pomodoro, brk, live, paused);
+  if (!line) f.fraction = null;
   return (
     <div>
       <div className="flex items-baseline gap-3">
@@ -154,13 +155,13 @@ function TaskFacts({ task, pomodoro, brk, live, paused }: { task: TaskView; pomo
   );
 }
 
-function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+function Current({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean }) {
   const dispatch = useStore((s) => s.dispatch);
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
   return (
     <div>
-      <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
+      <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} line={line} />
       {!paused && live.pomodoro === "done" && (
         <div className="mt-1.5 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
           <RingAnswers task={task} pomodoro={pomodoro} />
@@ -190,10 +191,10 @@ function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: Pomod
 }
 
 /** Under a nudge: the same task row, without its actions; the nudge holds them. */
-function CurrentLine({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+function CurrentLine({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean }) {
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
-  return <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />;
+  return <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} line={line} />;
 }
 
 function Idle({ snapshot, plan, onOpen }: { snapshot: DaySnapshot | null; plan: PlanView | null; onOpen: (target?: View) => void }) {
