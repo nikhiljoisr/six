@@ -18,9 +18,9 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - When in doubt, remove rather than add.
 
 ## Palette and type (SPEC §3) — exact, do not add colours
-- Background `stone-50`. Cards white with `stone-200` hairline; done tasks `stone-100` at 50%.
-- Ink `stone-900`: active card border (2px), active numeral, every primary button, headings.
-- Secondary `stone-500`; hints `stone-400`, `stone-300` for decoration and struck-through text only. Anything clickable reads at `stone-500` or darker (a 2.5:1 hint is not a control). Destructive actions are `stone-500` text, never red.
+- Ground `--color-paper`. No cards on the day, planner, review, history or settings screens: groups are `stone-200` hairline-separated; the current task and the review's gap block are bounded by a `stone-900` rule above and a hairline below. Text fields stay white with a hairline at radius 4.
+- Ink `stone-900`: the current task's top rule, the active numeral, every filled button (one per surface), headings, the live clock value.
+- Secondary `stone-500` (also status words, tags, completion times); decoration only `stone-400`, `stone-300` for decoration and struck-through text only. Anything clickable reads at `stone-500` or darker (a 2.5:1 hint is not a control). Destructive actions are `stone-500` text, never red.
 - `amber-700` only for: streak flame + count, "Six done." headline, "Complete" badge on 6/6 days, "↑ from yesterday" tag. Never on buttons or the active task.
 - No green, red, blue or indigo. The serif is the app's own voice (date, numerals 1–6, footer, navigation, headings); the system sans is the user's words and the controls. Weights 400/500 only; the day view is 400 throughout.
 - Single column, max-width 28rem, centred, on the paper ground (`--color-paper`). 6px card radius, 4px controls. 150–200ms fades, no springs.

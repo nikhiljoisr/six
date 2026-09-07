@@ -120,20 +120,20 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
         role="dialog"
         aria-modal
         aria-labelledby="skip-ahead-title"
-        className="w-full max-w-md rounded-t-[16px] border-t border-stone-200 bg-paper px-6 pb-8 pt-6"
+        className="w-full max-w-md rounded-t-[8px] border-t-2 border-stone-900 bg-paper px-6 pb-8 pt-5"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
-        <div className="mb-4 flex gap-1.5" aria-hidden>
-          {stages.map((_, i) => (
-            <span key={i} className={`h-1 w-4 rounded-full ${i <= stage ? "bg-stone-900" : "bg-stone-200"}`} />
-          ))}
+        <div className="flex items-baseline justify-between gap-6">
+          <h2 id="skip-ahead-title" className="font-serif text-[20px] leading-7 font-normal text-stone-900">
+            {s.title}
+          </h2>
+          <span className="font-serif text-[12px] tabular-nums text-stone-400" aria-hidden>
+            {stage + 1} of {stages.length}
+          </span>
         </div>
-        <h2 id="skip-ahead-title" className="font-serif text-2xl font-normal text-stone-900">
-          {s.title}
-        </h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-stone-500">{s.body}</p>
-        <div className="mt-6 space-y-2">
+        <p className="mt-2 text-[15px] leading-6 text-stone-500">{s.body}</p>
+        <div className="mt-5 space-y-2">
           <Button full onClick={onCancel} autoFocus>
             {s.stay}
           </Button>
@@ -141,7 +141,7 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
             <button
               ref={holdButton}
               type="button"
-              className="relative w-full overflow-hidden rounded-control border border-stone-300 px-4 py-3 text-[15px] font-medium text-stone-900 select-none focus:outline-none focus-visible:border-stone-900"
+              className="relative h-[30px] w-full overflow-hidden rounded-control border border-stone-300 px-4 text-[13px] font-medium text-stone-900 select-none focus:outline-none focus-visible:border-stone-900"
               style={{ touchAction: "none" }}
               aria-label={`${s.go}: hold for one and a half seconds`}
               onPointerDown={(e) => {
@@ -176,7 +176,7 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
               <span className="relative">{progress > 0 && progress < 1 ? "Keep holding…" : s.go}</span>
             </button>
           ) : (
-            <Button full variant="secondary" onClick={() => setStage(stage + 1)}>
+            <Button full variant="secondary" className="h-[30px] text-center" onClick={() => setStage(stage + 1)}>
               {s.go}
             </Button>
           )}

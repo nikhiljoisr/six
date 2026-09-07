@@ -399,3 +399,110 @@ evening ritual had no way to History. The footer line now renders in every state
 tomorrow's line on the left once the list is locked, History (and the hover-revealed
 Edit, when locked) on the right. Footer links are stone-500, per the clarity pass's rule
 that anything clickable is stone-500 or darker; the earlier stone-400 broke it.
+
+## 2026-09-07 — Step 14: the visual refresh (presentation only)
+
+A visual design pass under a brief that fixed the rules: keep the stone/amber palette and
+the amber restrictions, the light appearance, serif numerals and headings, the system sans
+for body text and the single column; change composition, spacing, density, type scale,
+alignment, separators, grouping and component presentation; change no behaviour. Three
+roles: this pass implemented, a fresh Fable 5.1 critic reviewed rendered screenshots
+(three rounds, the third scoped to five named elements), and a separate Fable 5.1 reviewer
+compared the changed code with commit dadc5e5 for altered behaviour. Rust is untouched
+(127 tests), as are the store, the API wrappers, the shortcuts and the types.
+
+Two directions were rendered from the same seeded data for the day screen and the tray
+panel. **A, the editorial ledger** (typographic hierarchy, hairline separators, a strong
+current-task block) was chosen over **B, the compact instrument** (28pt rows, a two-cell
+meter with caps labels and large serif figures). B's only advantage was bigger clock
+figures; it paid with a third type voice and an instrument-panel feel, and its current
+block was less distinct from the rows. A is carried through every screen.
+
+The visual system, and where it amends SPEC §3 / the 2026-09-06 entries:
+
+- **Structure.** Every screen opens with a masthead on one baseline: the screen's own line
+  in the serif at 15 (the date, "Evening review", "Last 30 days", "This week", "Settings",
+  "Six") and, at the right, either a serif 13 fact ("1 of 6 done", "2 of 3") or the sans 12
+  navigation (Cancel, Back, Day · Stats · Settings). A stone-200 hairline closes the
+  masthead; another sits above the footer line. Lists hang their serif numerals in a 40pt
+  rail, right-aligned 12pt from one shared text edge (72pt from the window's left), on
+  every screen that lists tasks: the day, the planner, the review, history, the tomorrow
+  preview.
+- **The current task** is the one bounded block on the day screen: an ink (stone-900)
+  rule above and a hairline below, across the whole column, rail included. Title 20 in the
+  sans, the note at 13, then one 13pt line naming both clocks: "Task time 45 min" at the
+  text edge, "Pomodoro 12:07 left" (or "Break 3:12 left", "Pomodoro finished", "Pomodoro
+  not running", "Break over") at the margin, the live value at weight 500. While a
+  countdown runs, a full-measure stone-300 hairline under that line carries what remains
+  in ink, anchored under the clock it measures; a timer that has ended leaves the empty
+  track. A rung pomodoro's two answers sit on their own line under the clock. One filled
+  28pt button is the primary action (Complete, or Resume while paused); Pause, Defer and
+  "Start a pomodoro" are 13pt text.
+- **Rows** keep the 32pt pitch: pending stone-600, done stone-500 with the completion
+  time in serif figures at the right edge, deferred and dropped stone-500 with their tag.
+  The same "done" language repeats in the review, history and the tomorrow preview.
+- **Surfaces.** No cards remain on the day, planner, review, history or settings screens;
+  groups are hairline-separated (Settings rows, history days, the review's unfinished
+  tasks). The review's "Possible gap" is a block bounded like the current task (ink rule
+  above, hairline below). Text fields keep a white ground and a stone-200 hairline at
+  radius 4; the planner's fields show a resting hairline across the full measure so an
+  empty row reads as a place to type, with the placeholder at stone-400. Carry/drop is a
+  segmented pair (stone-300 border, the chosen half on stone-200) so the committing button
+  is the only filled button on the panel.
+- **Transient messages.** The in-window banner is a full-width paper strip with a hairline
+  below, its first answer in ink text and the rest grey, so the current task keeps the
+  only filled button on screen. The tray's banner strip keeps one small filled answer,
+  because there it holds the only actions. The skip-ahead sheet opens under a 2px ink rule
+  with a serif 20 title and a "1 of 3" count in place of the dot rail.
+- **The tray panel** uses one task row in every state: numeral 22, title 15, then the two
+  clocks as a label/value ledger with the same track, then a rung pomodoro's answers, then
+  Done (filled, 28pt) with Resume, Pause, Defer and the start link as text. Under a nudge
+  the row shows without its actions. Footer: "Open Six" and the count in serif 12 above a
+  hairline.
+- **Type scale:** 22 (empty-state and guide headings) / 20 (current title, panel titles) /
+  15 (rows, body, masthead) / 13 (facts, controls, notes) / 12 (meta, navigation, footer) /
+  11 caps (section labels). Weights 400, with 500 on filled buttons, the live clock value
+  and the banner's first answer. Contrast on the paper ground: stone-900 15.8:1, stone-600
+  6.9:1, stone-500 4.3:1, amber-700 4.5:1; stone-400 (2.3:1) is decoration only, so status
+  words, tags, completion times and sub-facts moved to stone-500.
+- **Motion.** A `prefers-reduced-motion` rule makes the short fades and the track's
+  easing immediate.
+
+Amendments recorded, not silently made: SPEC §3's white cards with hairline borders and
+the active card's 2px border become hairline groups and an ink rule; the 12/8 radii stay
+at the 2026-09-06 values 6/4; SPEC §4.1's centred empty-state headline is now left-aligned
+under the masthead at 22, not 30; the planner's cards became rows on 2026-09-06 and now
+carry resting field hairlines; the tray's "elapsed time" line is the same two-clock ledger
+as the window.
+
+Critic rounds and their outcome: round one asked for the ring's answers on their own line,
+the banner without a filled button, resting hairlines under planner fields, the track
+under the clock it measures and carry/drop without stacked primaries; all done. Round two
+asked for one track rule on both surfaces, a stronger ring mark, the banner built like
+the tray strip, one right-aligned status string per row and one tray task row; done,
+except that round three then reversed the banner's filled button (it returned to text)
+and the track's anchoring (now right). Round three's request for "finished" in amber was
+declined: SPEC §3 reserves amber, and the active task may not carry it. Its
+word-boundary truncation request needs measurement in the view and was left.
+
+Regression review: the reviewer confirmed every action handler, payload, shortcut, the
+skip ladder's hold, hover/focus parity, accessible names and live regions, the popover's
+self-sizing and that no timing moved into the view. It found three slips, all fixed: the
+tray had lost the completed-pomodoro dots and hidden its clocks from assistive
+technology; the window's dots vanished in two states; the carry/drop group clipped the
+focus outline.
+
+Verified: `cargo test` 127 passing; `pnpm typecheck` clean; every seeded state rendered
+in the harness at 480×560 and the tray at 320 (before and after, in the deliverable);
+the refreshed debug bundle run under an isolated home with its database identity
+confirmed by `lsof`, where Space paused and resumed the task in that database, and one
+native capture of the running state taken by window id. That capture showed the window's
+560 points include the title bar, so the true viewport is about 532 and the day view had
+grown a few points too tall with a pomodoro running; the list's two spacers lost 12
+points and the tightest states were re-checked at 480×532 in the harness. Not verified
+natively: the popover and the 532 fit (the scratch window came up at another frame on
+the second run); not verified at all: VoiceOver's reading of the "2 of 3" counters, and
+the planner control overlay against a 140-character title. Excluded from this pass, as behaviour:
+hiding the current task's actions while a banner is up; splitting the check-in's
+duration into a second line (nudge copy lives in Rust); word-boundary truncation.
+Not released; version unchanged.

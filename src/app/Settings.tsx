@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useEffect, useId, useState, type ReactElement } from "react";
-import { Button, Label } from "../components/ui";
+import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { hourLabel } from "../lib/format";
 import type { AppInfo, DaySnapshot, NotificationStatus, Settings as SettingsView } from "../lib/types";
@@ -51,14 +51,16 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   };
 
   return (
-    <div className="pb-16">
-      <header className="relative flex items-center justify-center py-1">
-        <button type="button" className="absolute left-0 text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate(back)}>
-          Back
-        </button>
-        <Label>Settings</Label>
+    <div className="pb-16 pl-8 pr-0 pt-2">
+      <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
+        <h1 className="font-serif text-[15px] font-normal text-stone-900">Settings</h1>
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+          <button type="button" className="hover:text-stone-900" onClick={() => navigate(back)}>
+            Back
+          </button>
+        </nav>
       </header>
-      <h1 className="mt-8 font-serif text-3xl font-normal text-stone-900">Settings</h1>
+      <Rule className="mt-3" />
 
       <Section title="The day">
         <Row label="Evening ritual" hint={`Plan tomorrow after ${hourLabel(s.evening_hour)}.`}>
@@ -110,7 +112,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
           <select
             value={s.tray_style}
             onChange={(e) => set("tray_style", e.target.value)}
-            className="rounded-control border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 focus:border-stone-400 focus:outline-none"
+            className="h-7 rounded-control border border-stone-200 bg-white px-2 text-[13px] text-stone-900 focus:border-stone-400 focus:outline-none"
           >
             <option value="full">Task title</option>
             <option value="compact">Compact</option>
@@ -123,7 +125,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
           <select
             value={s.nudge_style}
             onChange={(e) => set("nudge_style", e.target.value)}
-            className="rounded-control border border-stone-200 bg-white px-2 py-1.5 text-sm text-stone-900 focus:border-stone-400 focus:outline-none"
+            className="h-7 rounded-control border border-stone-200 bg-white px-2 text-[13px] text-stone-900 focus:border-stone-400 focus:outline-none"
           >
             <option value="banner">Six's banner</option>
             <option value="system">macOS notifications</option>
@@ -132,7 +134,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         {s.nudge_style === "system" && (
           <Row label="Permission" hint={notif ? (permissionWord[notif.permission] ?? notif.permission) : "…"}>
             {notif?.available && notif.permission !== "granted" && (
-              <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => void askPermission()}>
+              <Button size="sm" className="px-3" onClick={() => void askPermission()}>
                 Allow
               </Button>
             )}
@@ -142,12 +144,12 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
 
       <Section title="Data">
         <Row label="Export all data" hint={exported ?? (info ? `JSON, to ${info.exports_dir.replace(/^\/Users\/[^/]+/, "~")}.` : "")}>
-          <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={() => void exportAll()}>
+          <Button size="sm" className="px-3" onClick={() => void exportAll()}>
             Export
           </Button>
         </Row>
         {info && (
-          <p className="mt-3 text-xs text-stone-400">
+          <p className="mt-3 font-serif text-[12px] leading-5 text-stone-400">
             Six {info.version} · data in {info.data_dir.replace(/^\/Users\/[^/]+/, "~")}
           </p>
         )}
@@ -158,9 +160,9 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-8">
+    <section className="mt-7">
       <Label>{title}</Label>
-      <div className="mt-2 divide-y divide-stone-200 rounded-card border border-stone-200 bg-white px-4">{children}</div>
+      <div className="mt-1 divide-y divide-stone-200 border-b border-stone-200">{children}</div>
     </section>
   );
 }
@@ -172,12 +174,12 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
     ? cloneElement(children as ReactElement<{ "aria-labelledby"?: string }>, { "aria-labelledby": id })
     : children;
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
+    <div className="flex items-center justify-between gap-4 py-2.5">
       <div className="min-w-0">
-        <div id={id} className="text-[15px] text-stone-900">
+        <div id={id} className="text-[15px] leading-6 text-stone-900">
           {label}
         </div>
-        {hint && <div className="text-xs text-stone-500">{hint}</div>}
+        {hint && <div className="text-[12px] leading-4 text-stone-500">{hint}</div>}
       </div>
       {control && <div className="shrink-0">{control}</div>}
     </div>
@@ -192,7 +194,7 @@ function HourSelect({ value, onChange, ...named }: { value: number; onChange: (v
       {...named}
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="rounded-control border border-stone-200 bg-white px-2 py-1.5 text-sm tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
+      className="h-7 rounded-control border border-stone-200 bg-white px-2 text-[13px] tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
     >
       {Array.from({ length: 24 }, (_, h) => (
         <option key={h} value={h}>
@@ -220,9 +222,9 @@ function NumberField({ value, min, max, onChange, suffix, ...named }: { value: n
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()}
-        className="w-16 rounded-control border border-stone-200 bg-white px-2 py-1.5 text-right text-sm tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
+        className="h-7 w-14 rounded-control border border-stone-200 bg-white px-2 text-right text-[13px] tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
       />
-      {suffix && <span className="text-xs text-stone-400">{suffix}</span>}
+      {suffix && <span className="font-serif text-[12px] text-stone-500">{suffix}</span>}
     </span>
   );
 }

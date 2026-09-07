@@ -1,7 +1,7 @@
 import { clockTime } from "../lib/format";
 import type { BreakView, PomodoroView, TaskView } from "../lib/types";
 import { useElapsed } from "../lib/useElapsed";
-import { Clocks, initialLive, SecondaryActions } from "./Pomodoro";
+import { Clocks, initialLive, RingAnswers, SecondaryActions } from "./Pomodoro";
 import { Button, Numeral } from "./ui";
 
 // The list is a table of contents: one column of serif numerals, one column of titles,
@@ -55,7 +55,7 @@ export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, ...on }: 
               undo
             </RowAction>
           ) : (
-            at && <span className="clock text-[12px] text-stone-400">{at}</span>
+            at && <span className="clock text-[12px] text-stone-500">{at}</span>
           )}
         </Row>
       );
@@ -63,13 +63,13 @@ export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, ...on }: 
     case "deferred":
       return (
         <Row task={task} tone="dim">
-          {isToday && on.onUndo ? <RowAction tag="tomorrow" onClick={() => on.onUndo?.(task)}>undo</RowAction> : <span className="text-xs text-stone-400">tomorrow</span>}
+          {isToday && on.onUndo ? <RowAction tag="tomorrow" onClick={() => on.onUndo?.(task)}>undo</RowAction> : <span className="clock text-[12px] text-stone-500">tomorrow</span>}
         </Row>
       );
     case "skipped":
       return (
         <Row task={task} tone="done">
-          {isToday && on.onUndo ? <RowAction tag="dropped" onClick={() => on.onUndo?.(task)}>undo</RowAction> : <span className="text-xs text-stone-400">dropped</span>}
+          {isToday && on.onUndo ? <RowAction tag="dropped" onClick={() => on.onUndo?.(task)}>undo</RowAction> : <span className="clock text-[12px] text-stone-500">dropped</span>}
         </Row>
       );
     case "planned":
@@ -79,58 +79,6 @@ export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, ...on }: 
         </Row>
       );
   }
-}
-
-/**
- * A row's one action, hung on the right rail: there on hover or keyboard focus, quiet
- * otherwise. `tag` is the word that holds the slot until then ("tomorrow", "dropped").
- */
-function RowAction({ onClick, tag, children }: { onClick: () => void; tag?: string; children: React.ReactNode }) {
-  return (
-    <button type="button" className="group/action text-right text-[12px] text-stone-500 hover:text-stone-900" onClick={onClick}>
-      {tag && <span className="clock text-stone-400 group-hover:hidden group-focus-visible/action:hidden">{tag}</span>}
-      <span className={`${tag ? "hidden group-hover:inline group-focus-visible/action:inline" : "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible/action:opacity-100"}`}>
-        {children}
-      </span>
-    </button>
-  );
-}
-
-function CurrentRow({
-  task,
-  pomodoro,
-  brk,
-  now,
-  onComplete,
-  onTakeFive,
-  onResume,
-  onDefer,
-}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string } & Actions) {
-  const paused = task.status === "paused";
-  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
-  const note = task.note ?? "";
-  return (
-    <div className="pt-4 pb-5">
-      <div className="-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
-        <Numeral n={task.position} size="xs" tone="ink" className={`${GUTTER} leading-8`} />
-        <div className="min-w-0">
-          <div className="text-[20px] leading-8 text-stone-900">{task.title}</div>
-          <Clocks task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} note={note}>
-            {paused ? (
-              <Button variant="text" title="Space" aria-label="Resume (Space); task time records again" onClick={() => onResume?.(task)}>
-                Resume
-              </Button>
-            ) : (
-              <Button variant="text" title="⌘↩" aria-label="Complete (⌘↩)" onClick={() => onComplete?.(task)}>
-                Complete
-              </Button>
-            )}
-            <SecondaryActions task={task} pomodoro={pomodoro} live={live} paused={paused} onTakeFive={() => onTakeFive?.(task)} onDefer={() => onDefer?.(task)} />
-          </Clocks>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function Row({
@@ -144,14 +92,80 @@ function Row({
   tag?: string;
   children?: React.ReactNode;
 }) {
-  const title = tone === "upcoming" ? "text-stone-600" : tone === "done" ? "text-stone-500" : "text-stone-400";
+  const title = tone === "upcoming" ? "text-stone-600" : "text-stone-500";
   return (
     <div className={`group ${ROW} h-8`}>
       <Numeral n={task.position} size="xs" tone={tone === "upcoming" ? "muted" : "dim"} className={`${GUTTER} leading-8`} />
       <div className={`min-w-0 truncate text-[15px] leading-8 ${title}`}>{task.title}</div>
       <div className="flex items-baseline justify-end gap-4 leading-8">
-        {tag && <span className="clock text-[12px] text-stone-400">{tag}</span>}
+        {tag && <span className="clock text-[12px] text-stone-500">{tag}</span>}
         {children}
+      </div>
+    </div>
+  );
+}
+
+/** A row's one action: shown while the pointer is over the row or it has focus; a tag it replaces stays otherwise. */
+function RowAction({ onClick, tag, children }: { onClick: () => void; tag?: string; children: React.ReactNode }) {
+  return (
+    <button type="button" className="group/action text-right text-[12px] text-stone-500 hover:text-stone-900" onClick={onClick}>
+      {tag && <span className="clock text-stone-500 group-hover:hidden group-focus-visible/action:hidden">{tag}</span>}
+      <span className={`${tag ? "hidden group-hover:inline group-focus-visible/action:inline" : "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible/action:opacity-100"}`}>
+        {children}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The current task: the one block the page sets apart, bounded by an ink rule above and a
+ * hairline below across the whole column, numeral included. The title is the largest text
+ * on the page, the two clocks are named, and one filled button is the primary action.
+ */
+function CurrentRow({
+  task,
+  pomodoro,
+  brk,
+  now,
+  onComplete,
+  onTakeFive,
+  onResume,
+  onDefer,
+}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string } & Actions) {
+  const paused = task.status === "paused";
+  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
+  const note = task.note ?? "";
+  const primary = paused ? (
+    <Button size="sm" title="Space" aria-label="Resume (Space); task time records again" onClick={() => onResume?.(task)}>
+      Resume
+    </Button>
+  ) : (
+    <Button size="sm" title="⌘↩" aria-label="Complete (⌘↩)" onClick={() => onComplete?.(task)}>
+      Complete
+    </Button>
+  );
+  const ringing = !paused && live.pomodoro === "done";
+  const secondary = (
+    <SecondaryActions task={task} pomodoro={pomodoro} live={live} paused={paused} withRing={false} onTakeFive={() => onTakeFive?.(task)} onDefer={() => onDefer?.(task)} />
+  );
+return (
+    <div className="-ml-10 my-3 border-t border-b border-t-stone-900 border-b-stone-200 pt-4 pb-4">
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
+        <Numeral n={task.position} size="xs" tone="ink" className="pr-3 text-right leading-7" />
+        <div className="min-w-0">
+          <div className="text-[20px] leading-7 text-stone-900">{task.title}</div>
+          {note && <div className="mt-1 text-[13px] leading-5 text-stone-500">{note}</div>}
+          <Clocks task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
+          {ringing && (
+            <div className="mt-1 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
+              <RingAnswers task={task} pomodoro={pomodoro} />
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+            {primary}
+            {secondary}
+          </div>
+        </div>
       </div>
     </div>
   );

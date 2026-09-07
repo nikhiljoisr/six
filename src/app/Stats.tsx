@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Label } from "../components/ui";
+import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { duration, shiftDays, shortDate, weekOf } from "../lib/format";
 import type { DaySnapshot, Stats as StatsView } from "../lib/types";
@@ -42,50 +42,54 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
   const pct = (done: number, total: number) => (total === 0 ? "–" : `${Math.round((done * 100) / total)}%`);
 
   return (
-    <div className="pb-16">
-      <header className="relative flex items-center justify-center py-1">
-        <button type="button" className="absolute left-0 text-sm text-stone-500 hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
-          History
-        </button>
-        <Label>Stats</Label>
+    <div className="pb-16 pl-8 pr-0 pt-2">
+      <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
+        <h1 className="font-serif text-[15px] font-normal text-stone-900">This week</h1>
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+          <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
+            History
+          </button>
+        </nav>
       </header>
-      <h1 className="mt-8 font-serif text-3xl font-normal text-stone-900">This week</h1>
-      <p className="mt-1 text-sm text-stone-500">
+      <Rule className="mt-3" />
+      <p className="mt-3 font-serif text-[12px] leading-5 text-stone-500">
         {shortDate(week.from)} to {shortDate(week.to)}
       </p>
 
-      {problem && <p className="mt-8 text-sm text-stone-500">{problem}</p>}
-      {!stats && !problem && <p className="mt-8 text-sm text-stone-400">Loading…</p>}
+      {problem && <p className="mt-8 text-[13px] text-stone-500">{problem}</p>}
+      {!stats && !problem && <p className="mt-8 font-serif text-[12px] text-stone-400">Loading…</p>}
 
       {stats && (
         <>
-          <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5">
+          <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5">
             <Fact label="Days planned" value={`${stats.days_planned}/${stats.days_in_range}`} />
             <Fact label="Tasks done" value={`${stats.tasks_done} of ${stats.tasks_total}`} />
             <Fact label="Top 3 done" value={pct(stats.top3_done, stats.top3_total)} sub={`${stats.top3_done} of ${stats.top3_total}`} />
             <Fact label="Tasks 4–6 done" value={pct(stats.rest_done, stats.rest_total)} sub={`${stats.rest_done} of ${stats.rest_total}`} />
             <Fact label="Focus" value={duration(stats.focus_seconds)} />
             <Fact label="Pomodoros" value={String(stats.pomodoros)} />
-            <Fact label="Overrides" value={String(stats.overrides)} />
+            <div className="col-span-2">
+              <Fact label="Overrides" value={String(stats.overrides)} />
+            </div>
           </dl>
 
           {trend && (
-            <section className="mt-10">
+            <section className="mt-8 border-t border-stone-200 pt-5">
               <Label>Last 7 days</Label>
               <div className="mt-3 grid grid-cols-2 gap-6">
                 <Spark label="Tasks done" values={trend.trend.map((d) => d.tasks_done)} format={(v) => String(v)} />
                 <Spark label="Focus hours" values={trend.trend.map((d) => d.focus_seconds / 3600)} format={(v) => v.toFixed(1)} />
               </div>
-              <p className="mt-2 text-[11px] text-stone-400">
+              <p className="mt-2 font-serif text-[12px] text-stone-400">
                 {shortDate(trend.from)} to {shortDate(trend.to)}
               </p>
             </section>
           )}
 
-          <section className="mt-10">
+          <section className="mt-6 border-t border-stone-200 pt-5">
             <Label>Most carried over</Label>
             {stats.most_carried ? (
-              <p className="mt-2 text-[15px] text-stone-900">
+              <p className="mt-2 text-[15px] leading-6 text-stone-900">
                 {stats.most_carried.title}
                 <span className="text-stone-500">
                   {" "}
@@ -93,15 +97,15 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
                 </span>
               </p>
             ) : (
-              <p className="mt-2 text-sm text-stone-500">Nothing has rolled over yet.</p>
+              <p className="mt-2 text-[13px] text-stone-500">Nothing has rolled over yet.</p>
             )}
           </section>
 
-          <section className="mt-10">
-            <Button variant="secondary" onClick={() => void doExport()}>
+          <section className="mt-6 border-t border-stone-200 pt-5">
+            <Button size="sm" className="px-3" onClick={() => void doExport()}>
               Export this week
             </Button>
-            <p className="mt-2 text-xs text-stone-500">{exported ?? "Plain text and JSON, to ~/Six/exports."}</p>
+            <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">{exported ?? "Plain text and JSON, to ~/Six/exports."}</p>
           </section>
         </>
       )}
@@ -113,8 +117,8 @@ function Fact({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div>
       <dt className="label">{label}</dt>
-      <dd className="mt-1 font-serif text-2xl text-stone-900">{value}</dd>
-      {sub && <dd className="text-xs text-stone-400">{sub}</dd>}
+      <dd className="clock mt-1 text-[22px] leading-7 text-stone-900">{value}</dd>
+      {sub && <dd className="font-serif text-[12px] text-stone-500">{sub}</dd>}
     </div>
   );
 }
@@ -130,8 +134,8 @@ function Spark({ label, values, format }: { label: string; values: number[]; for
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <span className="text-xs text-stone-500">{label}</span>
-        <span className="text-sm tabular-nums text-stone-900">{format(last)}</span>
+        <span className="text-[13px] text-stone-500">{label}</span>
+        <span className="clock text-[13px] text-stone-900">{format(last)}</span>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-10 w-full" aria-label={`${label}: ${values.map(format).join(", ")}`}>
         <polyline points={points} fill="none" stroke="#1c1917" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />

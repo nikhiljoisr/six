@@ -3,24 +3,28 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 type Variant = "primary" | "secondary" | "link" | "quiet" | "text";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "inline-flex h-[30px] items-center justify-center rounded-[6px] bg-stone-900 text-stone-50 px-3 text-[13px] font-medium leading-none hover:bg-stone-800 active:opacity-90",
+  primary: "inline-flex items-center justify-center rounded-[6px] bg-stone-900 text-stone-50 px-3 text-[13px] font-medium leading-none hover:bg-stone-800 active:opacity-90",
   secondary: "text-[13px] font-medium text-stone-900 px-0 py-2 hover:text-stone-600",
-  link: "text-[12px] leading-5 text-stone-500 hover:text-stone-900 px-0 py-0",
+  link: "text-[13px] leading-5 text-stone-500 hover:text-stone-900 px-0 py-0",
   quiet: "text-xs text-stone-500 hover:text-stone-900 px-0 py-1",
   /** The one primary action on a page of text: same size and weight, ink instead of gray. */
-  text: "text-[12px] leading-5 text-stone-900 hover:text-stone-500 px-0 py-0",
+  text: "text-[13px] font-medium leading-5 text-stone-900 hover:text-stone-500 px-0 py-0",
 };
+
+/** Filled buttons come in two heights: 30 for a page's committing action, 28 inside a row of text. */
+const HEIGHTS = { md: "h-[30px]", sm: "h-7" } as const;
 
 export function Button({
   variant = "primary",
+  size = "md",
   full = false,
   className = "",
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; full?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: keyof typeof HEIGHTS; full?: boolean }) {
   return (
     <button
       type="button"
-      className={`rounded-control transition-opacity duration-150 disabled:cursor-default disabled:opacity-40 ${VARIANTS[variant]} ${full ? "w-full" : ""} ${className}`}
+      className={`rounded-control transition-opacity duration-150 disabled:cursor-default disabled:opacity-40 ${VARIANTS[variant]} ${variant === "primary" ? HEIGHTS[size] : ""} ${full ? "w-full" : ""} ${className}`}
       {...rest}
     />
   );
@@ -39,13 +43,13 @@ export function Numeral({
   folio = false,
 }: {
   n: number;
-  size?: "xs" | "sm" | "md" | "lg" | "xl";
+  size?: "xxs" | "xs" | "sm" | "md" | "lg" | "xl";
   tone?: "ink" | "muted" | "dim";
   className?: string;
   /** Old-style figures, for the list's hanging numerals. */
   folio?: boolean;
 }) {
-  const sizes = { xs: "text-[17px]", sm: "text-lg", md: "text-[22px]", lg: "text-3xl", xl: "text-4xl" }[size];
+  const sizes = { xxs: "text-[15px]", xs: "text-[17px]", sm: "text-lg", md: "text-[22px]", lg: "text-3xl", xl: "text-4xl" }[size];
   const tones = { ink: "text-stone-900", muted: "text-stone-500", dim: "text-stone-400" }[tone];
 
   return (

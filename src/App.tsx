@@ -40,7 +40,7 @@ export default function App() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-6 pt-10">
-      {!snapshot && !error && <p className="mt-20 text-center text-sm text-stone-400">Loading…</p>}
+      {!snapshot && !error && <p className="mt-20 font-serif text-[12px] text-stone-400">Loading…</p>}
       {snapshot && view.name === "day" && <Day key="day" snapshot={snapshot} />}
       {snapshot && view.name === "planner" && <Planner key={`planner-${view.date}`} snapshot={snapshot} date={view.date} />}
       {snapshot && view.name === "history" && <History key="history" snapshot={snapshot} />}
@@ -49,14 +49,14 @@ export default function App() {
       {snapshot && view.name === "settings" && <Settings key="settings" snapshot={snapshot} />}
       {nudge && <Banner nudge={nudge} />}
       {notice && !error && (
-        <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-3 text-sm text-stone-500">
+        <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-2.5 font-serif text-[13px] leading-5 text-stone-500">
           {notice}
         </p>
       )}
       {error && (
         <button
           type="button"
-          className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-3 text-left text-sm text-stone-500"
+          className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-2.5 text-left text-[13px] leading-5 text-stone-500"
           onClick={clearError}
         >
           {error}

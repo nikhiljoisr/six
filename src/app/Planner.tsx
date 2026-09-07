@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Chevron, Cross, Label, Numeral } from "../components/ui";
+import { Button, Chevron, Cross, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { longDate } from "../lib/format";
 import type { DaySnapshot, PlanView, TaskInput } from "../lib/types";
@@ -197,14 +197,15 @@ export function Planner({
         </div>
       </header>
       <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500">Most important at the top.</p>
+      <Rule className="mt-3" />
 
       {/* Six rows in the day view's own shape: a hanging numeral (the drag handle), the
           title, and the row's controls at the margin, shown while the pointer is over it. */}
-      <div ref={listRef} className="mt-8">
+      <div ref={listRef} className="mt-6">
         {rows.map((row, i) => (
           <div
             key={i}
-            className={`group -ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline py-1 transition-opacity duration-150 ${dragging === i ? "opacity-60" : ""}`}
+            className={`group relative -ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline py-1 transition-opacity duration-150 ${dragging === i ? "opacity-60" : ""}`}
           >
             <span
               className="cursor-grab pr-3 text-right leading-8 select-none active:cursor-grabbing"
@@ -217,13 +218,13 @@ export function Planner({
             >
               <Numeral n={i + 1} size="xs" tone={row.title.trim() ? "ink" : "dim"} className="leading-8" />
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 border-b border-stone-200 pb-0.5 focus-within:border-stone-400">
               <input
                 value={row.title}
                 aria-label={`Task ${i + 1}`}
                 placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
                 onChange={(e) => update(i, { title: e.target.value })}
-                className="w-full bg-transparent py-0 text-[15px] leading-8 text-stone-900 placeholder:text-stone-300 focus:outline-none"
+                className="w-full bg-transparent py-0 pr-28 text-[15px] leading-8 text-stone-900 placeholder:text-stone-400 focus:outline-none"
                 maxLength={140}
                 autoFocus={i === 0 && !row.title}
               />
@@ -234,13 +235,13 @@ export function Planner({
                   aria-label={`Note for task ${i + 1}`}
                   placeholder="A one-line note"
                   onChange={(e) => update(i, { note: e.target.value })}
-                  className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-300 focus:outline-none"
+                  className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-400 focus:outline-none"
                   maxLength={200}
                   autoFocus={row.showNote && !row.note}
                 />
               )}
             </div>
-            <div className="flex items-baseline gap-x-3 pl-4 text-[12px] leading-8 text-stone-400 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
+            <div className="absolute top-1 right-0 flex items-baseline gap-x-3 pl-4 text-[12px] leading-8 text-stone-400 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
               {!row.showNote && !row.note && row.title.trim() && (
                 <button type="button" className="hover:text-stone-900" onClick={() => update(i, { showNote: true })}>
                   note
@@ -260,7 +261,8 @@ export function Planner({
         ))}
       </div>
 
-      <div className="sticky bottom-0 mt-auto -ml-14 -mr-6 bg-paper pl-14 pr-6 pb-10 pt-6">
+      <div className="sticky bottom-0 mt-auto -ml-14 -mr-6 bg-paper pl-14 pr-6 pb-8 pt-3">
+        <Rule className="mb-3" />
         {(!dateIsPlannable || saveError) && (
           <p role="alert" className="mb-3 text-sm text-stone-500">
             {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}
@@ -269,7 +271,7 @@ export function Planner({
         <Button full disabled={!dateIsPlannable || filled === 0 || saving} onClick={() => void save()}>
           {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
         </Button>
-        <p className="mt-2 text-center text-xs text-stone-500">
+        <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
           Choose up to six. Fewer is fine.{filled > 0 && ` ${filled} of 6.`}
         </p>
       </div>

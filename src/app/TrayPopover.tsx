@@ -2,12 +2,11 @@ import { useEffect, useRef } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Button, Numeral } from "../components/ui";
 import { api } from "../lib/api";
-import { duration } from "../lib/format";
 import { chime } from "../lib/sound";
 import { installInteractionStamps } from "../lib/touch";
-import { useElapsed } from "../lib/useElapsed";
+import { useElapsed, type Live } from "../lib/useElapsed";
 import type { BreakView, DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
-import { breakMinutes, initialLive, TimerLine } from "../components/Pomodoro";
+import { clockFacts, Dots, initialLive, RingAnswers, SecondaryActions } from "../components/Pomodoro";
 import { useStore, type View } from "../store";
 
 // The menu bar popover (SPEC §4.11): 320 points wide, anchored to the tray, as tall as
@@ -82,7 +81,7 @@ export function TrayPopover() {
   const open = (target?: View) => void api.showMain(target);
 
   return (
-    <div ref={root} className="flex flex-col border border-stone-200 bg-paper px-5 pb-4 pt-5 select-none">
+    <div ref={root} className="flex flex-col border border-stone-200 bg-paper px-5 pb-3 pt-5 select-none">
       {nudge && <NudgeStrip nudge={nudge} sound={snapshot?.settings.sound_enabled ?? false} />}
       {snapshot && plan && current ? (
         nudge ? (
@@ -93,22 +92,18 @@ export function TrayPopover() {
       ) : (
         <Idle snapshot={snapshot} plan={plan} onOpen={open} />
       )}
-      <div className="mt-4 pt-3">
+      <div className="mt-4 border-t border-stone-200 pt-2.5 font-serif text-[12px] leading-5 text-stone-500">
         {error && (
-          <button type="button" className="mb-2 block w-full truncate text-left text-xs text-stone-500" onClick={clearError}>
+          <button type="button" className="mb-1 block w-full truncate text-left font-sans text-[12px]" onClick={clearError}>
             {error}
           </button>
         )}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            className="text-xs text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-900"
-            onClick={() => open()}
-          >
+        <div className="flex items-baseline justify-between">
+          <button type="button" className="hover:text-stone-900" onClick={() => open()}>
             Open Six
           </button>
           {plan && (
-            <span className="text-[11px] tabular-nums text-stone-500">
+            <span className="tabular-nums">
               {plan.done_count} of {plan.task_count} done
             </span>
           )}
@@ -118,63 +113,87 @@ export function TrayPopover() {
   );
 }
 
-function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
-  const dispatch = useStore((s) => s.dispatch);
-  const paused = task.status === "paused";
-  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
-  const ringing = !paused && live.pomodoro === "done";
+/** The task and its two clocks, the same in every state of the panel. */
+function TaskFacts({ task, pomodoro, brk, live, paused }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; live: Live; paused: boolean }) {
+  const f = clockFacts(task, pomodoro, brk, live, paused);
   return (
     <div>
-      <div className="flex items-start gap-3">
-        <Numeral n={task.position} size="xl" className="mt-0.5" />
-        <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 text-[15px] font-medium leading-snug text-stone-900">{task.title}</div>
-          <div className="mt-1 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
-          <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
-        </div>
+      <div className="flex items-baseline gap-3">
+        <Numeral n={task.position} size="md" />
+        <div className="min-w-0 flex-1 line-clamp-2 text-[15px] leading-5 text-stone-900">{task.title}</div>
       </div>
-      <div className="mt-3 flex items-center gap-5">
-        <Button className="px-4" onClick={() => void dispatch(() => api.complete(task.id))}>
-          Done
-        </Button>
-        {paused ? (
-          <Button variant="secondary" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
-            Resume
-          </Button>
-        ) : (
-          !ringing && (
-            <Button
-              variant="secondary"
-              title={`${breakMinutes(pomodoro)}-minute break; task time pauses`}
-              aria-label={`Pause for a ${breakMinutes(pomodoro)}-minute break; task time pauses`}
-              onClick={() => void dispatch(() => api.pause(task.id, "break"))}
-            >
-              Pause
-            </Button>
-          )
+      <span className="sr-only" aria-live="polite">
+        {f.spoken}
+      </span>
+      <div className="mt-2 text-[13px] leading-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="text-stone-500">Task time</span>
+          <span className="tabular-nums text-stone-900">{f.taskFact}</span>
+        </div>
+        {f.label && (
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-stone-500">{f.label}</span>
+            <span className={`tabular-nums ${f.quiet ? "text-stone-500" : "font-medium text-stone-900"}`}>
+              {f.fact}
+              <Dots count={f.dots} />
+            </span>
+          </div>
         )}
-        <Button variant="secondary" onClick={() => void dispatch(() => api.defer(task.id))}>
-          Defer
-        </Button>
+        {!f.label && f.dots > 0 && (
+          <div className="text-right">
+            <Dots count={f.dots} />
+          </div>
+        )}
+        {f.fraction !== null && (
+          <div className="mt-1.5 h-px w-full bg-stone-300" aria-hidden>
+            <div className="ml-auto h-full bg-stone-900" style={{ width: `${f.fraction * 100}%`, transition: "width 200ms linear" }} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/** Under a nudge: the task and its clocks in one line each; the nudge holds the actions. */
-function CurrentLine({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+function Current({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+  const dispatch = useStore((s) => s.dispatch);
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
   return (
-    <div className="flex items-start gap-3">
-      <Numeral n={task.position} size="md" className="mt-0.5" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-medium text-stone-900">{task.title}</div>
-        <div className="mt-0.5 text-sm tabular-nums text-stone-500">{duration(live.seconds)} recorded</div>
-        {live.pomodoro !== "done" && <TimerLine task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />}
+    <div>
+      <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
+      {!paused && live.pomodoro === "done" && (
+        <div className="mt-1.5 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
+          <RingAnswers task={task} pomodoro={pomodoro} />
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        <Button size="sm" className="px-3" onClick={() => void dispatch(() => api.complete(task.id))}>
+          Done
+        </Button>
+        {paused && (
+          <Button variant="link" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
+            Resume
+          </Button>
+        )}
+        <SecondaryActions
+          task={task}
+          pomodoro={pomodoro}
+          live={live}
+          paused={paused}
+          withRing={false}
+          onTakeFive={() => void dispatch(() => api.pause(task.id, "break"))}
+          onDefer={() => void dispatch(() => api.defer(task.id))}
+        />
       </div>
     </div>
   );
+}
+
+/** Under a nudge: the same task row, without its actions; the nudge holds them. */
+function CurrentLine({ task, pomodoro, brk, now }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string }) {
+  const paused = task.status === "paused";
+  const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
+  return <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} />;
 }
 
 function Idle({ snapshot, plan, onOpen }: { snapshot: DaySnapshot | null; plan: PlanView | null; onOpen: (target?: View) => void }) {
@@ -210,10 +229,10 @@ function Idle({ snapshot, plan, onOpen }: { snapshot: DaySnapshot | null; plan: 
 function Prompt({ title, body, action, onAction, amber = false }: { title: string; body: string; action?: string; onAction?: () => void; amber?: boolean }) {
   return (
     <div>
-      <h1 className={`font-serif text-2xl font-normal ${amber ? "text-amber-700" : "text-stone-900"}`}>{title}</h1>
-      <p className="mt-1 text-sm text-stone-500">{body}</p>
+      <h1 className={`font-serif text-[17px] leading-6 font-normal ${amber ? "text-amber-700" : "text-stone-900"}`}>{title}</h1>
+      <p className="mt-0.5 text-[13px] leading-5 text-stone-500">{body}</p>
       {action && onAction && (
-        <Button className="mt-4 px-4 py-2 text-sm" onClick={onAction}>
+        <Button size="sm" className="mt-3 px-3" onClick={onAction}>
           {action}
         </Button>
       )}
@@ -244,19 +263,19 @@ function NudgeStrip({ nudge, sound }: { nudge: Nudge; sound: boolean }) {
     if (useStore.getState().nudges.length === 0) void api.hidePopover();
   };
   return (
-    <div className="-mx-5 -mt-5 mb-3 border-b border-stone-200 bg-white px-5 py-2.5" role="status">
+    <div className="-mx-5 -mt-5 mb-4 border-b border-stone-200 border-t-2 border-t-stone-900 px-5 pb-3 pt-2.5" role="status">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[15px] font-medium leading-snug text-stone-900">{nudge.title}</div>
-          {nudge.body && <div className="text-sm text-stone-500">{nudge.body}</div>}
+          <div className="text-[15px] leading-6 text-stone-900">{nudge.title}</div>
+          {nudge.body && <div className="text-[13px] leading-5 text-stone-500">{nudge.body}</div>}
         </div>
-        <button type="button" className="shrink-0 text-xs text-stone-500 hover:text-stone-900" aria-label="Dismiss" onClick={() => dismiss(nudge.kind)}>
+        <button type="button" className="shrink-0 font-serif text-[12px] leading-6 text-stone-500 hover:text-stone-900" aria-label="Dismiss" onClick={() => dismiss(nudge.kind)}>
           ✕
         </button>
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-4">
-        {nudge.actions.map((a) => (
-          <Button key={a.id} variant="link" className="px-0" onClick={() => void act(a.id)}>
+      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
+        {nudge.actions.map((a, i) => (
+          <Button key={a.id} variant={i === 0 ? "primary" : "link"} size="sm" className={i === 0 ? "px-3" : ""} onClick={() => void act(a.id)}>
             {a.label}
           </Button>
         ))}
