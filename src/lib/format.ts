@@ -74,3 +74,8 @@ export function shortDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
+
+/** A path as people write it: the home folder as "~". Display only. */
+export function tildePath(path: string): string {
+  return path.replace(/^\/Users\/[^/]+/, "~");
+}

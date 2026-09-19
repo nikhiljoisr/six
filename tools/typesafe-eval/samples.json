@@ -1,0 +1,27 @@
+{
+  "note": "Synthetic lists. Nothing here is anyone's real task.",
+  "plans": [
+    {
+      "name": "A mixed list",
+      "tasks": [
+        { "title": "Send the Q3 numbers to Priya" },
+        { "title": "Draft the opening section of the deck", "note": "Start from last quarter's version" },
+        { "title": "Clean up the vendor list and decide whether to merge it with the CRM" },
+        { "title": "Work on the website" },
+        { "title": "Call the accountant about the filing" },
+        { "title": "Ring the accountant re: tax filing" }
+      ]
+    },
+    {
+      "name": "Big, small and vague",
+      "tasks": [
+        { "title": "Rewrite the onboarding flow end to end" },
+        { "title": "Book the dentist" },
+        { "title": "Reply to the hiring thread" },
+        { "title": "Send Maya the accounts list and the statements" },
+        { "title": "Think about pricing" },
+        { "title": "Gym" }
+      ]
+    }
+  ]
+}

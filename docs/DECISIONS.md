@@ -540,3 +540,44 @@ recorded time under a minute (now shown only from a minute up).
 Not testable on this Mac: the tray item itself, which the notch hides for the newest
 status item (the popover was exercised through the break-over banner instead, and in
 the harness); and reduced motion, which needs a system setting.
+
+## 2026-09-19 — Step 16: four brittle spots fixed; TypeSafe explored, outside the app
+
+Nikhil asked where TypeSafe (hosted System One judgments: Noul, Choice, Score) could
+stand in for fragile code, and then what it could add to make Six more useful. The
+codebase was surveyed against TypeSafe's own first rule, "use code when you can".
+
+**Fixed in code, because none of it needed judgment.**
+- The scheduler chose the long-break notification set by comparing a button's label to a
+  string it formatted itself; `nudges::break_label` and `another_label` are now the one
+  source of that wording for the nudge planner and the scheduler.
+- The notification permission word was a lowercased `Debug` string (which would have sent
+  "promptwithrationale", a word Settings does not know); it is an explicit match now.
+- The tray title was cut mid-word at 28 characters, and 14 of the 17 titles in the owner's
+  database are longer than that. It is cut at the end of a word when that keeps at least
+  12 characters, never left hanging on a connecting word ("and", "to", "with"…), and a
+  single long word is still cut where it must be. SPEC §4.11's 28-character limit holds.
+- The home-folder regex appeared four times in the view; it is `format.ts`'s `tildePath`.
+
+**Where judgment would help, ranked.** (1) A planning coach at the evening ritual: is a
+row two tasks in one, does it have a clear finish, is it a duplicate of another row in
+different words. A search for " and " cannot do the first: 8 of the owner's 17 titles
+contain it, some one task and some two. (2) A check-in interval sized to the task instead
+of one global 75 minutes, which makes the app nag less on deep work and sooner on a
+five-minute call. (3) A weekly fact about the kind of work done. (4) A tray title chosen
+from code-made candidates. Not recommended: ranking tasks by importance (the model cannot
+know what matters to the owner), anything that generates text, and judging an idle gap
+(there is no evidence to judge).
+
+**Why none of it is in the app.** TypeSafe is `POST https://api.typesafe.ai/v1/systemone`
+with a bearer key. Six promises no network requests of any kind (SPEC §2, the README, a
+CSP that blocks all connections, no HTTP client in the Rust core), the task titles are
+private, and the working rules forbid creating accounts or handling credentials. So the
+work is a bench beside the app, `tools/typesafe-eval/`: one fan-out request per list, the
+policy in code (one hint per row at most), synthetic lists by default, a local stand-in
+server and a self-test that needs no key. It is not bundled, not run by CI and never
+reads Six's database. No live TypeSafe call has been made; whether the judgments are
+good enough is exactly what the bench is for, with the owner's key and the owner's say.
+
+Verified: `cargo test` 127 passing with the new truncation cases; `pnpm typecheck` clean;
+`node tools/typesafe-eval/selftest.mjs` passing. Version unchanged; not released.

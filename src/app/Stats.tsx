@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
-import { duration, shiftDays, shortDate, weekOf } from "../lib/format";
+import { duration, shiftDays, shortDate, tildePath, weekOf } from "../lib/format";
 import type { DaySnapshot, Stats as StatsView } from "../lib/types";
 import { useStore } from "../store";
 
@@ -33,7 +33,7 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
   const doExport = async () => {
     try {
       const r = await api.exportRange(week.from, week.to, "both");
-      setExported(`Saved to ${r.dir.replace(/^\/Users\/[^/]+/, "~")}`);
+      setExported(`Saved to ${tildePath(r.dir)}`);
     } catch (e) {
       setProblem((e as { message?: string })?.message ?? "Export failed.");
     }

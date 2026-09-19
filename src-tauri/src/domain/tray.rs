@@ -21,17 +21,40 @@ pub struct TraySummary {
     pub compact: bool,
 }
 
-/// Cut a title to `TITLE_CHARS` characters, marking the cut with an ellipsis.
+/// The shortest a word-boundary cut may leave; below this a hard cut reads better.
+const MIN_WORD_CUT: usize = 12;
+
+/// Words a cut title should not end on ("Clean up the map and…").
+const DANGLING: [&str; 12] = ["and", "or", "the", "a", "an", "to", "of", "for", "with", "in", "on", "&"];
+
+/// Cut a title to at most `TITLE_CHARS` characters, marking the cut with an ellipsis. The
+/// cut falls at the end of a word when that keeps at least `MIN_WORD_CUT` characters, and
+/// never leaves a connecting word dangling; a single long word is cut where it must be.
 pub fn truncate_title(title: &str) -> String {
     let title = title.trim();
-    if title.chars().count() <= TITLE_CHARS {
+    let chars: Vec<char> = title.chars().collect();
+    if chars.len() <= TITLE_CHARS {
         return title.to_string();
     }
-    let mut cut: String = title.chars().take(TITLE_CHARS - 1).collect();
-    let trimmed = cut.trim_end().to_string();
-    cut = trimmed;
-    cut.push('…');
-    cut
+    let room = TITLE_CHARS - 1;
+    let hard: String = chars[..room].iter().collect();
+    let mut cut = if chars[room].is_whitespace() {
+        hard.trim_end().to_string()
+    } else {
+        match hard.rfind(char::is_whitespace) {
+            Some(i) if hard[..i].trim_end().chars().count() >= MIN_WORD_CUT => hard[..i].trim_end().to_string(),
+            _ => hard.trim_end().to_string(),
+        }
+    };
+    if let Some(i) = cut.rfind(char::is_whitespace) {
+        let last = cut[i..].trim().to_lowercase();
+        let kept = cut[..i].trim_end();
+        if DANGLING.contains(&last.as_str()) && kept.chars().count() >= MIN_WORD_CUT {
+            cut = kept.to_string();
+        }
+    }
+    let cut = cut.trim_end_matches([',', ';', ':', '-', '–']).trim_end().to_string();
+    format!("{cut}…")
 }
 
 pub fn tray_title(s: &TraySummary) -> String {
@@ -81,15 +104,29 @@ mod tests {
     }
 
     #[test]
-    fn long_titles_are_cut_at_twenty_eight_characters() {
+    fn long_titles_are_cut_at_a_word_within_twenty_eight_characters() {
         let long = "Write the investor update and send it to everyone";
         let s = TraySummary {
             active: Some((1, long.into())),
             ..base()
         };
-        let title = tray_title(&s);
-        assert_eq!(title, "1/6 · Write the investor update a…"); // 27 chars + ellipsis
-        assert_eq!(truncate_title(long).chars().count(), TITLE_CHARS);
+        // Cut at a word, and not left hanging on "and".
+        assert_eq!(tray_title(&s), "1/6 · Write the investor update…");
+        assert!(truncate_title(long).chars().count() <= TITLE_CHARS);
+        assert_eq!(
+            truncate_title("Clean up Network map and consider combining with Relationship OS"),
+            "Clean up Network map…"
+        );
+        // The cut lands exactly on a space: nothing more is lost.
+        assert_eq!(truncate_title("Send the quarterly numbers, then call Priya"), "Send the quarterly numbers…");
+        // One long word, or a first word too short to stand alone: cut where it must be.
+        assert_eq!(truncate_title("Supercalifragilisticexpialidocious"), "Supercalifragilisticexpiali…");
+        assert_eq!(
+            truncate_title("Fix internationalisationsettings now"),
+            "Fix internationalisationset…"
+        );
+        // Never longer than the limit, whatever the script.
+        assert!(truncate_title("ಕನ್ನಡ ಪಠ್ಯ ಇಲ್ಲಿ ತುಂಬಾ ಉದ್ದವಾಗಿದೆ ಮತ್ತು ಮುಂದುವರಿಯುತ್ತದೆ").chars().count() <= TITLE_CHARS);
         assert_eq!(truncate_title("Short"), "Short");
         assert_eq!(
             truncate_title("Exactly twenty-eight chars!!"),

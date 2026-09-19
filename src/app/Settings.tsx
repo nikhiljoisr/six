@@ -1,7 +1,7 @@
 import { cloneElement, isValidElement, useEffect, useId, useState, type ReactElement } from "react";
 import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
-import { hourLabel } from "../lib/format";
+import { hourLabel, tildePath } from "../lib/format";
 import type { AppInfo, DaySnapshot, NotificationStatus, Settings as SettingsView } from "../lib/types";
 import { useStore } from "../store";
 
@@ -37,7 +37,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   const exportAll = async () => {
     try {
       const r = await api.exportAll();
-      setExported(`Saved to ${r.paths[0]?.replace(/^\/Users\/[^/]+/, "~") ?? r.dir}`);
+      setExported(`Saved to ${(r.paths[0] ? tildePath(r.paths[0]) : r.dir)}`);
     } catch (e) {
       setExported((e as { message?: string })?.message ?? "Export failed.");
     }
@@ -143,14 +143,14 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
       </Section>
 
       <Section title="Data">
-        <Row label="Export all data" hint={exported ?? (info ? `JSON, to ${info.exports_dir.replace(/^\/Users\/[^/]+/, "~")}.` : "")}>
+        <Row label="Export all data" hint={exported ?? (info ? `JSON, to ${tildePath(info.exports_dir)}.` : "")}>
           <Button size="sm" className="px-3" onClick={() => void exportAll()}>
             Export
           </Button>
         </Row>
         {info && (
           <p className="mt-3 font-serif text-[12px] leading-5 text-stone-400">
-            Six {info.version} · data in {info.data_dir.replace(/^\/Users\/[^/]+/, "~")}
+            Six {info.version} · data in {tildePath(info.data_dir)}
           </p>
         )}
       </Section>

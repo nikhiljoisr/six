@@ -69,6 +69,17 @@ pub struct NudgeAction {
     pub label: String,
 }
 
+/// "Break 5 min": the wording of a break answer. The OS action sets are matched to a nudge
+/// by this label, so every place that needs it asks here.
+pub fn break_label(minutes: impl std::fmt::Display) -> String {
+    format!("Break {minutes} min")
+}
+
+/// "Another 25 min": the wording of the next-pomodoro answer.
+pub fn another_label(minutes: impl std::fmt::Display) -> String {
+    format!("Another {minutes} min")
+}
+
 fn act(id: &'static str, label: impl Into<String>) -> NudgeAction {
     NudgeAction {
         id,
@@ -192,7 +203,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         actions: vec![
                             act("done", "Mark complete"),
                             act("keep_going", "Continue"),
-                            act("take_break", format!("Break {break_minutes} min")),
+                            act("take_break", break_label(break_minutes)),
                         ],
                         task_id: Some(task.id.clone()),
                     });
@@ -256,12 +267,12 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                 let (title, label) = if long {
                     (
                         "Pomodoro finished. That completes a set.".to_string(),
-                        format!("Break {} min", input.settings.long_break_minutes),
+                        break_label(input.settings.long_break_minutes),
                     )
                 } else {
                     (
                         "Pomodoro finished.".to_string(),
-                        format!("Break {} min", input.settings.break_minutes),
+                        break_label(input.settings.break_minutes),
                     )
                 };
                 out.push(Nudge {
@@ -273,7 +284,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         act("take_break", label),
                         act(
                             "one_more",
-                            format!("Another {} min", input.settings.pomodoro_minutes),
+                            another_label(input.settings.pomodoro_minutes),
                         ),
                         act("keep_going", "Continue without timer"),
                     ],

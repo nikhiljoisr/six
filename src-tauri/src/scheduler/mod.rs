@@ -235,7 +235,7 @@ fn deliver_due(app: &AppHandle, now: DateTime<Utc>, system: bool) {
 /// Which OS action set a nudge uses; the long pomodoro break carries its own labels.
 #[cfg(any(target_os = "macos", mobile))]
 fn action_type_for(n: &Nudge, settings: &Settings) -> &'static str {
-    let long = format!("Break {} min", settings.long_break_minutes);
+    let long = crate::domain::nudges::break_label(settings.long_break_minutes);
     match n.kind {
         NudgeKind::PomodoroDone
             if settings.long_break_minutes != settings.break_minutes
@@ -250,9 +250,9 @@ fn action_type_for(n: &Nudge, settings: &Settings) -> &'static str {
 #[cfg(any(target_os = "macos", mobile))]
 fn action_types(settings: &Settings) -> Vec<tauri_plugin_notifications::ActionType> {
     use serde_json::json;
-    let short = format!("Break {} min", settings.break_minutes);
-    let long = format!("Break {} min", settings.long_break_minutes);
-    let another = format!("Another {} min", settings.pomodoro_minutes);
+    let short = crate::domain::nudges::break_label(settings.break_minutes);
+    let long = crate::domain::nudges::break_label(settings.long_break_minutes);
+    let another = crate::domain::nudges::another_label(settings.pomodoro_minutes);
     let defs = vec![
         json!({"id": "evening_ritual", "actions": [
             {"id": "plan", "title": "Plan", "foreground": true},

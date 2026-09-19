@@ -178,12 +178,23 @@ pub struct NotificationStatus {
     pub permission: String,
 }
 
+/// The word the Settings screen knows for each permission state.
+#[cfg(any(target_os = "macos", mobile))]
+fn permission_word(state: tauri::plugin::PermissionState) -> &'static str {
+    use tauri::plugin::PermissionState as P;
+    match state {
+        P::Granted => "granted",
+        P::Denied => "denied",
+        P::Prompt | P::PromptWithRationale => "prompt",
+    }
+}
+
 async fn permission_string(app: &AppHandle) -> String {
     #[cfg(any(target_os = "macos", mobile))]
     {
         use tauri_plugin_notifications::NotificationsExt;
         match app.notifications().permission_state().await {
-            Ok(state) => format!("{state:?}").to_lowercase(),
+            Ok(state) => permission_word(state).to_string(),
             Err(_) => "unavailable".to_string(),
         }
     }
@@ -225,7 +236,7 @@ pub async fn request_notification_permission(app: AppHandle) -> CmdResult<Notifi
     {
         use tauri_plugin_notifications::NotificationsExt;
         let permission = match app.notifications().request_permission().await {
-            Ok(state) => format!("{state:?}").to_lowercase(),
+            Ok(state) => permission_word(state).to_string(),
             Err(e) => {
                 eprintln!("[nudges] permission request failed: {e}");
                 "unavailable".to_string()
