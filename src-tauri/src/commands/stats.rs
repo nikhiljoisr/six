@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager};
 use super::{parse_date, read_clock, AppError, AppState, CmdResult};
 use crate::db;
 use crate::domain::analytics::{self, Stats};
-use crate::domain::{report, streak, Day, Event, Plan, Pomodoro, Session, Task};
+use crate::domain::{Day, Event, Jot, Plan, Pomodoro, report, Session, streak, Task};
 
 /// Consecutive planned days ending today or tomorrow.
 #[tauri::command(rename_all = "snake_case")]
@@ -59,6 +59,7 @@ struct DayExport<'a> {
     tasks: &'a [Task],
     sessions: &'a [Session],
     pomodoros: &'a [Pomodoro],
+    jots: &'a [Jot],
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -147,6 +148,7 @@ pub async fn export_range(
                     tasks: &d.tasks,
                     sessions: &d.sessions,
                     pomodoros: &d.pomodoros,
+                    jots: &d.jots,
                 })
                 .collect(),
             events: &events,
@@ -183,6 +185,7 @@ pub async fn export_all(app: AppHandle) -> CmdResult<ExportResult> {
                 tasks: &d.tasks,
                 sessions: &d.sessions,
                 pomodoros: &d.pomodoros,
+                jots: &d.jots,
             })
             .collect(),
         events: &events,

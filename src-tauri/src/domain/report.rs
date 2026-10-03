@@ -91,6 +91,9 @@ pub fn text_report(stats: &Stats, days: &[Day], now: DateTime<Utc>) -> String {
         {
             out.push_str(&format!("  Thought: {}\n", r.trim()));
         }
+        for jot in &d.jots {
+            out.push_str(&format!("  Parked: {}\n", jot.text));
+        }
     }
     out
 }

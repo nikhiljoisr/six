@@ -14,7 +14,8 @@ const PLAN_COLS: &str =
 const TASK_COLS: &str =
     "id, plan_id, position, title, note, status, carried_from, completed_at, updated_at, device_id";
 const SESSION_COLS: &str = "id, task_id, started_at, ended_at, ended_reason, last_interaction_at, \
-                            idle_from, idle_until, device_id, updated_at";
+                            idle_from, idle_until, idle_ack, device_id, updated_at";
+const JOT_COLS: &str = "id, plan_id, task_id, text, created_at, device_id, updated_at";
 const EVENT_COLS: &str = "id, task_id, plan_id, kind, occurred_at, device_id";
 const POMODORO_COLS: &str =
     "id, task_id, session_id, started_at, planned_seconds, ended_at, outcome, \
@@ -100,7 +101,7 @@ async fn assemble(pool: &Pool, row: PlanRow) -> DbResult<Day> {
         .map(Task::try_from)
         .collect::<Result<Vec<_>, _>>()?;
     let sessions_sql = "SELECT s.id, s.task_id, s.started_at, s.ended_at, s.ended_reason, \
-                        s.last_interaction_at, s.idle_from, s.idle_until, s.device_id, \
+                        s.last_interaction_at, s.idle_from, s.idle_until, s.idle_ack, s.device_id, \
                         s.updated_at FROM sessions s \
                         JOIN tasks t ON t.id = s.task_id WHERE t.plan_id = ? \
                         ORDER BY s.started_at, s.id";
@@ -122,7 +123,17 @@ async fn assemble(pool: &Pool, row: PlanRow) -> DbResult<Day> {
         .into_iter()
         .map(Pomodoro::try_from)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(Day::from_rows(plan, tasks, sessions, pomodoros))
+    let jots_sql = format!("SELECT {JOT_COLS} FROM jots WHERE plan_id = ? ORDER BY created_at, id");
+    let jots = sqlx::query_as::<_, JotRow>(&jots_sql)
+        .bind(&plan.id)
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(Jot::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut day = Day::from_rows(plan, tasks, sessions, pomodoros);
+    day.jots = jots;
+    Ok(day)
 }
 
 // ----- saving --------------------------------------------------------------------------
@@ -239,12 +250,12 @@ async fn upsert_task(tx: &mut Transaction<'_, Sqlite>, t: &Task) -> DbResult<()>
 
 async fn upsert_session(tx: &mut Transaction<'_, Sqlite>, s: &Session) -> DbResult<()> {
     let sql = format!(
-        "INSERT INTO sessions ({SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        "INSERT INTO sessions ({SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
          ON CONFLICT(id) DO UPDATE SET task_id = excluded.task_id, started_at = excluded.started_at, \
          ended_at = excluded.ended_at, ended_reason = excluded.ended_reason, \
          last_interaction_at = excluded.last_interaction_at, idle_from = excluded.idle_from, \
-         idle_until = excluded.idle_until, device_id = excluded.device_id, \
-         updated_at = excluded.updated_at"
+         idle_until = excluded.idle_until, idle_ack = excluded.idle_ack, \
+         device_id = excluded.device_id, updated_at = excluded.updated_at"
     );
     sqlx::query(&sql)
         .bind(&s.id)
@@ -255,6 +266,7 @@ async fn upsert_session(tx: &mut Transaction<'_, Sqlite>, s: &Session) -> DbResu
         .bind(fmt_opt_ts(s.last_interaction_at))
         .bind(fmt_opt_ts(s.idle_from))
         .bind(fmt_opt_ts(s.idle_until))
+        .bind(fmt_opt_ts(s.idle_ack))
         .bind(&s.device_id)
         .bind(fmt_ts(s.updated_at))
         .execute(&mut **tx)
@@ -301,7 +313,45 @@ async fn insert_event(tx: &mut Transaction<'_, Sqlite>, e: &Event) -> DbResult<(
     Ok(())
 }
 
+// ----- parked thoughts ------------------------------------------------------------------
+// Jots are read with their day and written on their own: they are not part of the state
+// machine, so `save_day` never touches them.
+
+pub async fn insert_jot(pool: &Pool, jot: &Jot) -> DbResult<()> {
+    let sql = format!("INSERT INTO jots ({JOT_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    sqlx::query(&sql)
+        .bind(&jot.id)
+        .bind(&jot.plan_id)
+        .bind(&jot.task_id)
+        .bind(&jot.text)
+        .bind(fmt_ts(jot.created_at))
+        .bind(&jot.device_id)
+        .bind(fmt_ts(jot.updated_at))
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Remove one parked thought. Returns whether there was one to remove.
+pub async fn delete_jot(pool: &Pool, jot_id: &str) -> DbResult<bool> {
+    let done = sqlx::query("DELETE FROM jots WHERE id = ?")
+        .bind(jot_id)
+        .execute(pool)
+        .await?;
+    Ok(done.rows_affected() > 0)
+}
+
 // ----- lookups -------------------------------------------------------------------------
+
+/// The most recent locked plan of all, whatever its date.
+pub async fn latest_locked_date(pool: &Pool) -> DbResult<Option<NaiveDate>> {
+    let found: Option<String> = sqlx::query_scalar(
+        "SELECT plan_date FROM daily_plans WHERE locked_at IS NOT NULL ORDER BY plan_date DESC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+    found.as_deref().map(parse_date).transpose()
+}
 
 /// The most recent locked plan before `date`: the source of carryover.
 pub async fn latest_locked_date_before(
@@ -614,6 +664,69 @@ mod tests {
         let loaded = load_day(&pool, date(3)).await.unwrap().unwrap();
         assert!(loaded.pomodoros.is_empty(), "the row went with it");
         assert_eq!(loaded, day);
+    }
+
+    #[tokio::test]
+    async fn parked_thoughts_are_stored_beside_the_day_and_survive_its_saves() {
+        let pool = open_in_memory().await.unwrap();
+        let c = ctx(3, 9, 0);
+        let mut day = Day::draft(date(3), inputs(&["One", "Two"]), &c).unwrap();
+        day.lock(&c).unwrap();
+        save_day(&pool, &mut day).await.unwrap();
+        let first = day.new_jot("call the bank", &ctx(3, 10, 0)).unwrap();
+        insert_jot(&pool, &first).await.unwrap();
+        let mut loaded = load_day(&pool, date(3)).await.unwrap().unwrap();
+        assert_eq!(loaded.jots, vec![first.clone()]);
+        let second = loaded.new_jot("renew the domain", &ctx(3, 11, 0)).unwrap();
+        insert_jot(&pool, &second).await.unwrap();
+        // A save of the day (a completed task) leaves them alone.
+        let t1 = loaded.tasks[0].id.clone();
+        loaded.complete(&t1, &ctx(3, 11, 5)).unwrap();
+        save_day(&pool, &mut loaded).await.unwrap();
+        let again = load_day(&pool, date(3)).await.unwrap().unwrap();
+        assert_eq!(
+            again.jots.iter().map(|j| j.text.as_str()).collect::<Vec<_>>(),
+            vec!["call the bank", "renew the domain"]
+        );
+        assert_eq!(again.jots[0].task_id.as_deref(), Some(t1.as_str()));
+        delete_jot(&pool, &first.id).await.unwrap();
+        delete_jot(&pool, "no such thought").await.unwrap();
+        let last = load_day(&pool, date(3)).await.unwrap().unwrap();
+        assert_eq!(last.jots, vec![second]);
+    }
+
+    #[tokio::test]
+    async fn an_answered_silence_is_remembered_across_a_save() {
+        let pool = open_in_memory().await.unwrap();
+        let c = ctx(3, 9, 0);
+        let mut day = Day::draft(date(3), inputs(&["One"]), &c).unwrap();
+        day.lock(&c).unwrap();
+        day.touch(&ctx(3, 13, 0));
+        let sid = day.open_session().unwrap().id.clone();
+        day.keep_gap(&sid, &ctx(3, 13, 1)).unwrap();
+        save_day(&pool, &mut day).await.unwrap();
+        let loaded = load_day(&pool, date(3)).await.unwrap().unwrap();
+        assert_eq!(loaded, day);
+        let later = Utc.with_ymd_and_hms(2026, 9, 3, 13, 30, 0).unwrap();
+        assert!(loaded.return_gap(later).is_none(), "not offered twice");
+        assert_eq!(loaded.idle_flags(later).len(), 1, "still there for the review");
+    }
+
+    #[tokio::test]
+    async fn the_latest_locked_list_is_found_with_or_without_a_bound() {
+        let pool = open_in_memory().await.unwrap();
+        assert_eq!(latest_locked_date(&pool).await.unwrap(), None);
+        for d in [3, 5] {
+            let c = ctx(d, 9, 0);
+            let mut day = Day::draft(date(d), inputs(&["One"]), &c).unwrap();
+            day.lock(&c).unwrap();
+            save_day(&pool, &mut day).await.unwrap();
+        }
+        let c = ctx(6, 9, 0);
+        let mut draft = Day::draft(date(6), inputs(&["One"]), &c).unwrap();
+        save_day(&pool, &mut draft).await.unwrap();
+        assert_eq!(latest_locked_date(&pool).await.unwrap(), Some(date(5)), "a draft is not a list");
+        assert_eq!(latest_locked_date_before(&pool, date(5)).await.unwrap(), Some(date(3)));
     }
 
     #[tokio::test]

@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+use super::snapshot::JotView;
 use super::{
     mutate_by_plan, mutate_by_session, parse_ts, read_clock, AppError, AppState, CmdResult,
     DaySnapshot, PlanView,
@@ -19,6 +20,11 @@ pub struct ReviewView {
     pub idle_flags: Vec<IdleFlag>,
     /// Ids of tasks still unfinished: the ones panel 2 asks about.
     pub unfinished: Vec<String>,
+    /// No later list has been locked, so what carries from this day is what the next
+    /// planner will pre-fill. False once a later list exists: it already took them.
+    pub is_latest_list: bool,
+    /// Thoughts parked during the day, read back here.
+    pub jots: Vec<JotView>,
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -34,6 +40,7 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
         (day, clock)
     };
     let events = db::events_for_plan(&state.pool, &plan_id).await?;
+    let is_latest_list = db::latest_locked_date(&state.pool).await? == Some(day.plan.plan_date);
     let top = day
         .tasks
         .iter()
@@ -53,7 +60,15 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
             .filter(|t| t.status.is_open())
             .map(|t| t.id.clone())
             .collect(),
+        is_latest_list,
+        jots: JotView::from_day(&day),
     })
+}
+
+/// The user looked at a silence and kept the time as recorded: do not offer it again.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn keep_gap(app: AppHandle, session_id: String) -> CmdResult<DaySnapshot> {
+    mutate_by_session(&app, &session_id, |day, ctx| day.keep_gap(&session_id, ctx)).await
 }
 
 /// Take a silence out of a session: the bounds (RFC 3339) come from the review's flag.

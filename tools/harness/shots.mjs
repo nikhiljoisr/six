@@ -1,5 +1,5 @@
 // Renders every seeded scene to PNG, at the sizes the real windows have.
-//   pnpm build && node tools/harness/shots.mjs [--only running,ring] [--out dir] [--set key:value,…] [--dark]
+//   pnpm build && node tools/harness/shots.mjs [--only running,ring] [--out dir] [--set key:value,…] [--dark] [--batch 2]
 // The main window's content area is 480×532 points (560 minus the title bar); the menu
 // bar panel is 320 wide and as tall as its content.
 import { execFile } from "node:child_process";
@@ -33,6 +33,10 @@ export const SHOTS = [
   { name: "day-tomorrow-planned", query: "state=tomorrow-planned&phase=evening" },
   { name: "day-edited", query: "state=edited" },
   { name: "day-banner", query: "state=banner" },
+  { name: "day-return-gap", query: "state=return-gap" },
+  { name: "day-jot", query: "state=jot", wait: 2600 },
+  { name: "day-morning-unreviewed", query: "state=morning-unreviewed" },
+  { name: "day-evening-unreviewed", query: "state=morning-unreviewed&phase=evening" },
   { name: "skip-1", query: "state=skip-1" },
   { name: "skip-2", query: "state=skip-2" },
   { name: "skip-3", query: "state=skip-3", wait: 3200 },
@@ -43,7 +47,12 @@ export const SHOTS = [
   { name: "planner-pending", query: "state=planner-pending", wait: 2800 },
   { name: "review-1", query: "state=review-1&phase=evening" },
   { name: "review-2", query: "state=review-2&phase=evening", wait: 3000 },
+  { name: "review-jots", query: "state=review-jots&phase=evening" },
+  { name: "review-past", query: "state=review-past" },
+  { name: "review-past-2", query: "state=review-past-2", wait: 3000 },
+  { name: "review-later", query: "state=review-later" },
   { name: "history", query: "state=history" },
+  { name: "history-open", query: "state=history-open", wait: 3000 },
   { name: "stats", query: "state=stats" },
   { name: "settings", query: "state=settings" },
   { name: "welcome-1", query: "state=welcome-1" },
@@ -79,16 +88,26 @@ async function main() {
   const { server, url } = await start();
   try {
     const shots = SHOTS.filter((s) => !only || only.includes(s.name));
-    // A few at a time: each is its own short-lived process.
-    for (let i = 0; i < shots.length; i += 6) {
+    // A few at a time: each is its own short-lived process. The time limit is generous
+    // because a busy machine can take most of a minute over one render.
+    const batch = Number(value("--batch") ?? 4);
+    for (let i = 0; i < shots.length; i += batch) {
       await Promise.all(
-        shots.slice(i, i + 6).map(async (shot) => {
+        shots.slice(i, i + batch).map(async (shot) => {
           const size = shot.panel ? PANEL : MAIN;
           const query = set ? `${shot.query}&set=${set}` : shot.query;
           const file = join(out, `${shot.name}.png`);
           const cli = [`${url}/?${query}`, file, String(size.width), String(size.height), String(shot.wait ?? 2400)];
           if (dark) cli.push("--dark");
-          await run(render, cli, { timeout: 30000 });
+          // WebKit's snapshot can fail outright when the machine is starved; try again.
+          for (let attempt = 1; ; attempt++) {
+            try {
+              await run(render, cli, { timeout: 180000 });
+              break;
+            } catch (e) {
+              if (attempt === 3) throw e;
+            }
+          }
           console.log(`${shot.name}.png`);
         }),
       );

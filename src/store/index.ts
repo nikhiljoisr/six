@@ -28,6 +28,9 @@ interface AppStore {
   /** A quiet confirmation after Rust reported a save; clears itself. */
   notice: string | null;
   notify: (text: string) => void;
+  /** The day view's one-line field for parking a thought is open (the J key, or its link). */
+  jotting: boolean;
+  setJotting: (open: boolean) => void;
   /** In-app banners waiting to be answered, oldest first. */
   nudges: Nudge[];
   pushNudge: (n: Nudge) => void;
@@ -64,6 +67,8 @@ export const useStore = create<AppStore>((set, get) => ({
     if (noticeTimer !== null) window.clearTimeout(noticeTimer);
     noticeTimer = window.setTimeout(() => set({ notice: null }), 2500);
   },
+  jotting: false,
+  setJotting: (open) => set({ jotting: open }),
   nudges: [],
   pushNudge: (n) =>
     set((s) => {
@@ -97,6 +102,7 @@ export const useStore = create<AppStore>((set, get) => ({
       view,
       previous: s.view,
       error: null,
+      jotting: false,
       // Back on the day view, the card takes over from a ring's banner.
       nudges: view.name === "day" ? s.nudges.filter((n) => n.kind !== "pomodoro_done") : s.nudges,
     }));

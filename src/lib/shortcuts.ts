@@ -4,8 +4,9 @@ import { useStore } from "../store";
 
 // Keyboard shortcuts for the main window. Space toggles the active task between running
 // and on a break (the app's one timer); P starts a pomodoro on it; Cmd+Return completes
-// it. Cmd+N opens the planner for the next unplanned day, since Six has no quick capture:
-// the six are chosen deliberately. Cmd+E edits today's list. Cmd+, opens Settings. Esc
+// it. J opens the one-line field that parks a thought for the evening review (a thought,
+// never a task). Cmd+N opens the planner for the next unplanned day: the six are chosen
+// deliberately, so there is no quick capture of tasks. Cmd+E edits today's list. Cmd+, opens Settings. Esc
 // goes back from History, Stats and Settings. Cmd+W is the native Close Window, which
 // hides to the menu bar.
 
@@ -72,6 +73,12 @@ export function installShortcuts(): () => void {
       if (!active || !snap.pomodoro.enabled || snap.pomodoro.phase === "running") return;
       e.preventDefault();
       void store.dispatch(() => api.startPomodoro(active.id));
+      return;
+    }
+    if (bare && !e.shiftKey && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day" && e.key.toLowerCase() === "j") {
+      if (!snap.today_plan?.locked_at) return;
+      e.preventDefault();
+      store.setJotting(true);
       return;
     }
     if (e.key === " " && bare && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {

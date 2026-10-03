@@ -3,7 +3,7 @@ import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { hourLabel, tildePath } from "../lib/format";
 import { backFrom } from "../lib/nav";
-import type { AppInfo, DaySnapshot, NotificationStatus, Settings as SettingsView } from "../lib/types";
+import type { AppInfo, DaySnapshot, GlobalShortcut, NotificationStatus, Settings as SettingsView } from "../lib/types";
 import { useStore } from "../store";
 
 // A minimal screen (SPEC §4.9). Every value is saved as it changes; Rust validates.
@@ -18,11 +18,24 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   const [notif, setNotif] = useState<NotificationStatus | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [exported, setExported] = useState<string | null>(null);
+  // Opening at login is macOS's to remember, not Six's: asked for, never mirrored in settings.
+  const [atLogin, setAtLogin] = useState<boolean | null>(null);
+  const [loginProblem, setLoginProblem] = useState<string | null>(null);
 
   useEffect(() => {
     api.notificationStatus().then(setNotif).catch(() => setNotif({ available: false, permission: "unavailable" }));
     api.getAppInfo().then(setInfo).catch(() => setInfo(null));
+    api.getAutostart().then(setAtLogin).catch(() => setAtLogin(null));
   }, []);
+
+  const openAtLogin = async (on: boolean) => {
+    try {
+      setAtLogin(await api.setAutostart(on));
+      setLoginProblem(null);
+    } catch (e) {
+      setLoginProblem((e as { message?: string })?.message ?? "macOS did not accept the change.");
+    }
+  };
 
   const set = (key: keyof SettingsView, value: string | number | boolean) =>
     void dispatch(() => api.setSetting(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value)));
@@ -100,9 +113,23 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
       </Section>
 
       <Section title="Keyboard">
+        <Row label="From anywhere" hint="Shows or hides Six from any app.">
+          <select
+            value={s.global_shortcut}
+            onChange={(e) => set("global_shortcut", e.target.value)}
+            className="h-7 rounded-control border border-stone-200 bg-white px-2 text-[13px] text-stone-900 focus:border-stone-400 focus:outline-none"
+          >
+            {(Object.keys(SHORTCUT_NAMES) as GlobalShortcut[]).map((k) => (
+              <option key={k} value={k}>
+                {SHORTCUT_NAMES[k]}
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label="Space" hint="Take a break, or resume." />
         <Row label="Cmd+Return" hint="Complete the active task. In the planner, save the list." />
         <Row label="P" hint="Start a pomodoro on the active task." />
+        <Row label="J" hint="Park a thought for the evening review. A thought, not a task." />
         <Row label="Space or Return, held" hint="The last step of skipping ahead." />
         <Row label="Return" hint="In the planner, move to the next row." />
         <Row label="Option+↑ or ↓" hint="In the planner, move the row up or down." />
@@ -111,6 +138,12 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Cmd+," hint="Settings." />
         <Row label="Esc" hint="Go back. Also closes the menu bar panel and leaves the skip-ahead sheet." />
         <Row label="Cmd+W" hint="Hide the window to the menu bar." />
+      </Section>
+
+      <Section title="This Mac">
+        <Row label="Open Six at login" hint={loginProblem ?? (atLogin === null ? "Unavailable in this build." : "The list is in front of you when the day starts.")}>
+          {atLogin !== null && <Toggle value={atLogin} onChange={(v) => void openAtLogin(v)} />}
+        </Row>
       </Section>
 
       <Section title="Menu bar">
@@ -154,6 +187,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
             Export
           </Button>
         </Row>
+        {info && <Row label="Daily copy" hint={`A copy of the database once a day; the last 7 are kept in ${tildePath(info.backups_dir)}.`} />}
         {info && (
           <p className="mt-3 font-serif text-[12px] leading-5 text-stone-400">
             Six {info.version} · data in {tildePath(info.data_dir)}
@@ -163,6 +197,13 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
     </div>
   );
 }
+
+const SHORTCUT_NAMES: Record<GlobalShortcut, string> = {
+  off: "Off",
+  "alt+cmd+6": "Option+Cmd+6",
+  "ctrl+alt+6": "Control+Option+6",
+  "ctrl+alt+space": "Control+Option+Space",
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

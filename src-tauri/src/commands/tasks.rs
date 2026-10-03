@@ -147,7 +147,8 @@ pub async fn set_note(
 }
 
 /// The user interacted with the app: stamp the running session for idle detection.
-/// Quiet on purpose: no snapshot is broadcast.
+/// Quiet on purpose: no snapshot is broadcast, unless this is the user coming back from
+/// a long silence, which the view then offers to take out.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn touch(app: AppHandle) -> CmdResult<bool> {
     let state = app.state::<AppState>();
@@ -159,7 +160,34 @@ pub async fn touch(app: AppHandle) -> CmdResult<bool> {
     let ctx = clock.ctx(&state.device_id);
     if day.touch(&ctx) {
         db::save_day(&state.pool, &mut day).await?;
+        if day.return_gap(clock.now).is_some() {
+            super::publish(&app).await?;
+        }
         return Ok(true);
     }
     Ok(false)
+}
+
+/// Park a thought on today's list: one line, kept for the evening review.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn add_jot(app: AppHandle, text: String) -> CmdResult<DaySnapshot> {
+    let state = app.state::<AppState>();
+    let _gate = state.gate.lock().await;
+    let (settings, clock) = read_clock(&state).await?;
+    super::housekeeping(&state, &settings, &clock).await?;
+    let day = db::load_day(&state.pool, clock.today)
+        .await?
+        .ok_or_else(|| AppError::new("no_list", "there is no list for today to park a thought on"))?;
+    let jot = day.new_jot(&text, &clock.ctx(&state.device_id))?;
+    db::insert_jot(&state.pool, &jot).await?;
+    super::publish(&app).await
+}
+
+/// Remove a parked thought.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn remove_jot(app: AppHandle, jot_id: String) -> CmdResult<DaySnapshot> {
+    let state = app.state::<AppState>();
+    let _gate = state.gate.lock().await;
+    db::delete_jot(&state.pool, &jot_id).await?;
+    super::publish(&app).await
 }

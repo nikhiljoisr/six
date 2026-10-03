@@ -22,6 +22,7 @@ use uuid::Uuid;
 use super::model::*;
 use super::pomodoro::{Pomodoro, PomodoroOutcome, PomodoroPhase};
 use super::timing::{self, IdleFlag};
+use super::jot;
 use super::timing::idle_threshold;
 
 /// Everything a transition needs from the outside world.
@@ -82,6 +83,10 @@ pub enum DomainError {
     PomodoroRunning,
     #[error("a pomodoro needs a positive length")]
     InvalidPomodoroLength,
+    #[error("a parked thought needs some words")]
+    EmptyJot,
+    #[error("that is the day's limit for parked thoughts")]
+    TooManyJots,
 }
 
 impl DomainError {
@@ -103,6 +108,8 @@ impl DomainError {
             DomainError::InvalidTrim => "invalid_trim",
             DomainError::PomodoroRunning => "pomodoro_running",
             DomainError::InvalidPomodoroLength => "invalid_pomodoro_length",
+            DomainError::EmptyJot => "empty_jot",
+            DomainError::TooManyJots => "too_many_jots",
         }
     }
 }
@@ -164,6 +171,9 @@ pub struct Day {
     pub pomodoros: Vec<Pomodoro>,
     /// Events produced since the last save; the store appends and clears them.
     pub pending_events: Vec<Event>,
+    /// Parked thoughts, oldest first. Read with the day; written on their own (they are
+    /// not part of the state machine, and `save_day` never touches them).
+    pub jots: Vec<Jot>,
 }
 
 fn clean_inputs(inputs: Vec<TaskInput>) -> Result<Vec<TaskInput>, DomainError> {
@@ -210,6 +220,7 @@ impl Day {
             sessions,
             pomodoros,
             pending_events: Vec::new(),
+            jots: Vec::new(),
         }
     }
 
@@ -248,6 +259,7 @@ impl Day {
             sessions: Vec::new(),
             pomodoros: Vec::new(),
             pending_events: Vec::new(),
+            jots: Vec::new(),
         })
     }
 
@@ -324,6 +336,57 @@ impl Day {
 
     pub fn idle_flags(&self, now: DateTime<Utc>) -> Vec<IdleFlag> {
         timing::idle_flags(&self.sessions, now)
+    }
+
+    /// The silence on the running session that has not been answered yet: offered when
+    /// the user comes back, so the recorded time can be put right while it is fresh.
+    pub fn return_gap(&self, now: DateTime<Utc>) -> Option<IdleFlag> {
+        self.open_session().and_then(|s| timing::return_gap(s, now))
+    }
+
+    /// The user looked at a silence and kept the time as recorded. The silence stays on
+    /// the session as evidence (the review can still take it out); it is not offered
+    /// again unless a longer one follows.
+    pub fn keep_gap(&mut self, session_id: &str, ctx: &Ctx) -> Result<(), DomainError> {
+        let idx = self
+            .sessions
+            .iter()
+            .position(|s| s.id == session_id)
+            .ok_or(DomainError::SessionNotFound)?;
+        let flag = timing::idle_flags(std::slice::from_ref(&self.sessions[idx]), ctx.now)
+            .into_iter()
+            .next();
+        let s = &mut self.sessions[idx];
+        if let Some(flag) = flag {
+            s.idle_from = Some(flag.gap_start);
+            s.idle_until = Some(flag.gap_end);
+            s.idle_ack = Some(flag.gap_end);
+        }
+        if s.is_open() {
+            s.last_interaction_at = Some(ctx.now);
+        }
+        s.updated_at = ctx.now;
+        Ok(())
+    }
+
+    /// A parked thought for this day, checked and ready to store. The day must be a
+    /// locked list; the thought is tied to the task in hand, if there is one.
+    pub fn new_jot(&self, text: &str, ctx: &Ctx) -> Result<Jot, DomainError> {
+        if !self.plan.is_locked() {
+            return Err(DomainError::NotLocked);
+        }
+        if self.jots.len() >= jot::MAX_PER_DAY {
+            return Err(DomainError::TooManyJots);
+        }
+        Ok(Jot {
+            id: new_id(),
+            plan_id: self.plan.id.clone(),
+            task_id: self.current_task().map(|t| t.id.clone()),
+            text: jot::clean(text)?,
+            created_at: ctx.now,
+            device_id: ctx.device_id.to_string(),
+            updated_at: ctx.now,
+        })
     }
 
     // ----- plan-level transitions ------------------------------------------------------
@@ -508,6 +571,7 @@ impl Day {
             s.last_interaction_at = s.last_interaction_at.map(|t| t.min(gap_start));
             s.idle_from = None;
             s.idle_until = None;
+            s.idle_ack = None;
             s.updated_at = ctx.now;
         }
         // A pomodoro that ran into the silence ends where it began. One that only started
@@ -540,6 +604,7 @@ impl Day {
                 ),
                 idle_from: None,
                 idle_until: None,
+                idle_ack: None,
                 device_id: ctx.device_id.to_string(),
                 updated_at: ctx.now,
             };
@@ -956,6 +1021,7 @@ impl Day {
             last_interaction_at: Some(ctx.now),
             idle_from: None,
             idle_until: None,
+            idle_ack: None,
             device_id: ctx.device_id.to_string(),
             updated_at: ctx.now,
         });

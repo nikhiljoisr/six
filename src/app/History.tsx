@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
-import { duration, longDate } from "../lib/format";
+import { clockTime, duration, longDate } from "../lib/format";
 import type { DaySnapshot, PlanView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
 
@@ -88,8 +88,28 @@ export function History({ snapshot }: { snapshot: DaySnapshot }) {
                   </li>
                 ))}
               </ol>
+              {open === day.id && day.jots.length > 0 && (
+                <ul className="mt-2" aria-label="Parked thoughts">
+                  {day.jots.map((j) => (
+                    <li key={j.id} className="flex items-baseline justify-between gap-4 text-[13px] leading-6 text-stone-500">
+                      <span className="min-w-0">{j.text}</span>
+                      <span className="shrink-0 font-serif text-[12px] tabular-nums">parked {clockTime(j.created_at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {open === day.id && day.reflection && <p className="mt-2 text-[13px] leading-5 text-stone-500">{day.reflection}</p>}
-              {open === day.id && !day.reflection && <p className="mt-2 font-serif text-[12px] leading-5 text-stone-400">No reflection recorded.</p>}
+              {open === day.id && !day.reflection && (day.reviewed_at || day.is_today) && (
+                <p className="mt-2 font-serif text-[12px] leading-5 text-stone-400">No reflection recorded.</p>
+              )}
+              {open === day.id && !day.reviewed_at && !day.is_today && (
+                <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
+                  Not reviewed.{" "}
+                  <button type="button" className="text-stone-900 hover:text-stone-500" onClick={() => navigate({ name: "review", planId: day.id })}>
+                    Review this day
+                  </button>
+                </p>
+              )}
             </li>
           );
         })}

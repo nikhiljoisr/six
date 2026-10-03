@@ -105,6 +105,7 @@ pub struct SessionRow {
     pub last_interaction_at: Option<String>,
     pub idle_from: Option<String>,
     pub idle_until: Option<String>,
+    pub idle_ack: Option<String>,
     pub device_id: String,
     pub updated_at: String,
 }
@@ -128,6 +129,33 @@ impl TryFrom<SessionRow> for Session {
             last_interaction_at: parse_opt_ts(r.last_interaction_at.as_deref())?,
             idle_from: parse_opt_ts(r.idle_from.as_deref())?,
             idle_until: parse_opt_ts(r.idle_until.as_deref())?,
+            idle_ack: parse_opt_ts(r.idle_ack.as_deref())?,
+            device_id: r.device_id,
+            updated_at: parse_ts(&r.updated_at)?,
+        })
+    }
+}
+
+#[derive(Debug, FromRow)]
+pub struct JotRow {
+    pub id: String,
+    pub plan_id: String,
+    pub task_id: Option<String>,
+    pub text: String,
+    pub created_at: String,
+    pub device_id: String,
+    pub updated_at: String,
+}
+
+impl TryFrom<JotRow> for Jot {
+    type Error = DbError;
+    fn try_from(r: JotRow) -> Result<Self, DbError> {
+        Ok(Jot {
+            id: r.id,
+            plan_id: r.plan_id,
+            task_id: r.task_id,
+            text: r.text,
+            created_at: parse_ts(&r.created_at)?,
             device_id: r.device_id,
             updated_at: parse_ts(&r.updated_at)?,
         })

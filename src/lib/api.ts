@@ -37,6 +37,9 @@ export const api = {
   reopen: (task_id: string) => invoke<DaySnapshot>("reopen", { task_id }),
   setNote: (task_id: string, note: string | null) => invoke<DaySnapshot>("set_note", { task_id, note }),
   touch: () => invoke<boolean>("touch"),
+  /** Park one line on today's list, for the evening review. */
+  addJot: (text: string) => invoke<DaySnapshot>("add_jot", { text }),
+  removeJot: (jot_id: string) => invoke<DaySnapshot>("remove_jot", { jot_id }),
   getElapsed: () => invoke<Elapsed | null>("get_elapsed"),
   startPomodoro: (taskId: string) => invoke<DaySnapshot>("start_pomodoro", { task_id: taskId }),
   acknowledgePomodoro: (taskId: string) => invoke<DaySnapshot>("acknowledge_pomodoro", { task_id: taskId }),
@@ -44,6 +47,8 @@ export const api = {
   getReview: (plan_id: string) => invoke<ReviewView>("get_review", { plan_id }),
   trimSession: (session_id: string, gap_start: string, gap_end: string) =>
     invoke<DaySnapshot>("trim_session", { session_id, gap_start, gap_end }),
+  /** The silence was seen and the time kept as recorded: do not offer it again. */
+  keepGap: (session_id: string) => invoke<DaySnapshot>("keep_gap", { session_id }),
   completeReview: (plan_id: string, reflection: string | null, decisions: ReviewDecision[]) =>
     invoke<DaySnapshot>("complete_review", { plan_id, reflection, decisions }),
 
@@ -66,5 +71,8 @@ export const api = {
     invoke<ExportResult>("export_range", { from, to, format }),
   exportAll: () => invoke<ExportResult>("export_all"),
   getSettings: () => invoke<Settings>("get_settings"),
+  /** Whether macOS opens Six at login. The answer lives with macOS, not in Six's settings. */
+  getAutostart: () => invoke<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => invoke<boolean>("set_autostart", { enabled }),
   setSetting: (key: keyof Settings, value: string) => invoke<DaySnapshot>("set_setting", { key, value }),
 };

@@ -5,7 +5,8 @@ use serde::Serialize;
 
 use super::{housekeeping, read_clock, AppState, CmdResult};
 use crate::db;
-use crate::domain::{streak, Day, EndedReason, PomodoroPhase, Settings, TaskInput, TaskStatus};
+use crate::domain::timing::IdleFlag;
+use crate::domain::{review, streak, Day, EndedReason, PomodoroPhase, Settings, TaskInput, TaskStatus};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskView {
@@ -24,6 +25,41 @@ pub struct TaskView {
     pub pomodoros_completed: usize,
 }
 
+/// A parked thought as the view shows it.
+#[derive(Debug, Clone, Serialize)]
+pub struct JotView {
+    pub id: String,
+    pub text: String,
+    pub created_at: DateTime<Utc>,
+    /// The position of the task in hand when it was written, if that task is still on the list.
+    pub position: Option<u8>,
+}
+
+impl JotView {
+    pub fn from_day(day: &Day) -> Vec<Self> {
+        day.jots
+            .iter()
+            .map(|j| Self {
+                id: j.id.clone(),
+                text: j.text.clone(),
+                created_at: j.created_at,
+                position: j
+                    .task_id
+                    .as_deref()
+                    .and_then(|id| day.tasks.iter().find(|t| t.id == id))
+                    .map(|t| t.position),
+            })
+            .collect()
+    }
+}
+
+/// The last locked day, when it ended without a review.
+#[derive(Debug, Clone, Serialize)]
+pub struct UnreviewedDay {
+    pub plan_id: String,
+    pub date: NaiveDate,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanView {
     pub id: String,
@@ -39,6 +75,8 @@ pub struct PlanView {
     pub total_focus_seconds: i64,
     pub pomodoros_completed: usize,
     pub tasks: Vec<TaskView>,
+    /// Thoughts parked during this day, oldest first.
+    pub jots: Vec<JotView>,
 }
 
 /// The pomodoro layer as the active card and the popover show it.
@@ -173,6 +211,7 @@ impl PlanView {
             total_focus_seconds: day.total_focus_seconds(now),
             pomodoros_completed: day.pomodoros_completed(None),
             tasks,
+            jots: JotView::from_day(day),
         }
     }
 }
@@ -211,6 +250,10 @@ pub struct DaySnapshot {
     /// The break the paused task is on, if it is on one.
     #[serde(rename = "break")]
     pub break_: Option<BreakView>,
+    /// The last locked day, if it ended without a review and is no more than a week old.
+    pub unreviewed: Option<UnreviewedDay>,
+    /// A silence on the running session that has not been answered: trim it, or keep it.
+    pub return_gap: Option<IdleFlag>,
 }
 
 /// Carryover for a list dated `date`: the most recent locked list before it.
@@ -254,6 +297,13 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
 
     let pomodoro = PomodoroView::from_day(today_day.as_ref(), &settings, clock.now);
     let break_ = BreakView::from_day(today_day.as_ref(), &settings);
+    let last_locked = match db::latest_locked_date_before(&state.pool, today).await? {
+        Some(date) => db::load_day(&state.pool, date).await?,
+        None => None,
+    };
+    let unreviewed = review::owed(last_locked.as_ref().map(|d| &d.plan), today)
+        .map(|(plan_id, date)| UnreviewedDay { plan_id, date });
+    let return_gap = today_day.as_ref().and_then(|d| d.return_gap(clock.now));
     Ok(DaySnapshot {
         revision: state.next_revision(),
         today,
@@ -275,6 +325,8 @@ pub async fn build(state: &AppState) -> CmdResult<DaySnapshot> {
         carryover_preview,
         pomodoro,
         break_,
+        unreviewed,
+        return_gap,
     })
 }
 

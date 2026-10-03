@@ -4,11 +4,13 @@
 
 pub mod analytics;
 pub mod day;
+pub mod jot;
 pub mod model;
 pub mod nudges;
 pub mod plan;
 pub mod pomodoro;
 pub mod report;
+pub mod review;
 pub mod settings;
 pub mod streak;
 pub mod timing;

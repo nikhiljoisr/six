@@ -31,6 +31,23 @@ export interface PlanView {
   total_focus_seconds: number;
   pomodoros_completed: number;
   tasks: TaskView[];
+  /** Thoughts parked during the day, oldest first. */
+  jots: JotView[];
+}
+
+/** One line parked mid-task for the evening review. Never a task. */
+export interface JotView {
+  id: string;
+  text: string;
+  created_at: string;
+  /** Position of the task in hand when it was written, if that task is still on the list. */
+  position: number | null;
+}
+
+/** The last locked day, when it ended without a review and is no more than a week old. */
+export interface UnreviewedDay {
+  plan_id: string;
+  date: string;
 }
 
 export type PomodoroPhase = "idle" | "running" | "done";
@@ -77,9 +94,13 @@ export interface Settings {
   sound_enabled: boolean;
   onboarded: boolean;
   nudge_style: "banner" | "system";
-  /** A thin line under a running countdown. A prototype; off by default. */
+  /** A thin line under a running countdown. */
   countdown_line: boolean;
+  /** The system-wide shortcut that shows or hides Six, or "off". */
+  global_shortcut: GlobalShortcut;
 }
+
+export type GlobalShortcut = "off" | "alt+cmd+6" | "ctrl+alt+6" | "ctrl+alt+space";
 
 /** The break the paused task is on. */
 export interface BreakView {
@@ -105,6 +126,9 @@ export interface DaySnapshot {
   carryover_preview: CarryoverPreview | null;
   pomodoro: PomodoroView;
   break: BreakView | null;
+  unreviewed: UnreviewedDay | null;
+  /** A silence on the running session that has not been answered: take it out, or keep it. */
+  return_gap: IdleFlag | null;
 }
 
 export interface IdleFlag {
@@ -127,6 +151,9 @@ export interface ReviewView {
   overrides: number;
   idle_flags: IdleFlag[];
   unfinished: string[];
+  /** No later list is locked, so what carries from this day is what the next planner takes. */
+  is_latest_list: boolean;
+  jots: JotView[];
 }
 
 /** Focus time of today's current task, from Rust, for the ticking display. */
@@ -217,5 +244,6 @@ export interface AppInfo {
   version: string;
   data_dir: string;
   exports_dir: string;
+  backups_dir: string;
   platform: string;
 }

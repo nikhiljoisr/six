@@ -73,11 +73,20 @@ the banner is the default.
   without timer. Leaving a task early is recorded as a fact, never a penalty.
 - **Breaks:** Take 5 pauses task time ("On a break · 3:12 left. Task time paused."); a
   quiet banner asks you back, and Resume starts recording again.
+- **A thought that is not this task:** press J (or "Jot" under the list), type one line,
+  Return. It is kept for the evening review so you can let go of it now. It never becomes
+  a task: the six are chosen in the planner, by hand.
+- **Coming back:** if a task was running and Six saw nothing for more than three hours,
+  it says so when you return and offers to take that stretch out of the recorded time, or
+  to keep it. Nothing is ever taken out unless you say so.
 - **End of day:** the review. What happened (facts only), what carries to tomorrow, and
   tomorrow's six. A one-line thought if you want one. If Six recorded no interaction for
   hours during a task, the review says so ("You may have been working elsewhere") and
   offers to take that stretch out, showing exactly what stays; the work before and after
-  it is kept, and nothing is trimmed unless you say so.
+  it is kept, and nothing is trimmed unless you say so. The thoughts you parked during
+  the day are read back here.
+- **A day that ended without its review** can still have one: the next morning's screen
+  offers it for a week, and History offers it on any day ("Review this day").
 - **History and Stats:** the last 30 days, this week's numbers, a seven-day trend, the task
   that has rolled over the most, and a plain-text or JSON export.
 
@@ -97,6 +106,7 @@ Settings.
 | Space | Pause the active task for a break, or resume it (not while a dialog is open) |
 | Cmd+Return | Complete the active task; in the planner, save the list |
 | P | Start a pomodoro on the active task |
+| J | Park a thought for the evening review (a thought, not a task) |
 | Space or Return, held | The last step of skipping ahead, same as holding the button |
 | Return | In the planner, move to the next row |
 | Option+↑ / Option+↓ | In the planner, move the row up or down |
@@ -107,12 +117,20 @@ Settings.
 | Cmd+W | Hide the window to the menu bar |
 | Cmd+Q | Quit |
 
+One shortcut can work from any app: Settings → Keyboard → "From anywhere" offers
+Option+Cmd+6, Control+Option+6 or Control+Option+Space. It shows Six, or hides it when it
+is already in front. It is off until you choose one.
+
 ## Privacy and data
 
 All data is one SQLite file at
-`~/Library/Application Support/com.nikhiljois.six/six.db`. Exports go to
-`~/Six/exports/`. Six makes no network requests of any kind. Deleting the app and that
-folder removes everything.
+`~/Library/Application Support/com.nikhiljois.six/six.db`. Once a day Six saves a
+copy of that file to `backups/` beside it and keeps the last seven. Exports go to
+`~/Six/exports/`. Six makes no network requests of any kind.
+
+Settings → This Mac → "Open Six at login" is off by default. Switching it on writes one
+file, `~/Library/LaunchAgents/com.nikhiljois.six.plist`; switching it off removes it.
+Deleting the app, that file if it is there, and the data folder removes everything.
 
 ## Build from source
 

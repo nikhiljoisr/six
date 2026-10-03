@@ -4,12 +4,14 @@ import { TaskCard } from "../components/TaskCard";
 import { Button, FlameIcon, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { dayLabel, dayMonth, hourLabel, weekday } from "../lib/format";
-import type { DaySnapshot, PlanView, TaskView } from "../lib/types";
+import { isAppError, type DaySnapshot, type PlanView, type TaskView, type UnreviewedDay } from "../lib/types";
 import { useStore } from "../store";
 
 export function Day({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
   const dispatch = useStore((s) => s.dispatch);
+  const jotting = useStore((s) => s.jotting);
+  const setJotting = useStore((s) => s.setJotting);
   const [skipTarget, setSkipTarget] = useState<TaskView | null>(null);
 
   const plan = snapshot.today_plan;
@@ -41,6 +43,7 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
 
       {!locked && !evening && <NoListYet snapshot={snapshot} />}
       {!locked && evening && <EveningRitual snapshot={snapshot} />}
+      {!locked && snapshot.unreviewed && <Unreviewed day={snapshot.unreviewed} today={snapshot.today} />}
       {locked && plan && (
         <>
           {plan.all_done && <SixDone />}
@@ -82,7 +85,8 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
       {/* The footer line, in every state: tomorrow on the left once today's list is locked,
           navigation on the right. History is always here; Edit while the pointer is over a locked page. */}
       <div className="mt-auto">
-        <Rule className="mb-3" />
+        {/* The jot bar stands in for the footer while it is open; its own top edge is the rule. */}
+        <Rule className={`mb-3 ${locked && jotting ? "invisible" : ""}`} />
         <div className="flex items-baseline justify-between gap-6 font-serif text-[12px] leading-5 text-stone-500">
         {locked && plan ? <TomorrowArea snapshot={snapshot} /> : <span />}
         <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap">
@@ -96,12 +100,26 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
               Edit
             </button>
           )}
+          {locked && (
+            <button
+              type="button"
+              className="hover:text-stone-900"
+              title="Park a thought (J)"
+              aria-label="Jot: park a thought for the evening review (J)"
+              aria-expanded={jotting}
+              onClick={() => setJotting(!jotting)}
+            >
+              Jot
+            </button>
+          )}
           <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "history" })}>
             History
           </button>
         </nav>
         </div>
       </div>
+
+      {locked && jotting && <JotLine onClose={() => setJotting(false)} />}
 
       {skipTarget && blocking && (
         <SkipAheadSheet
@@ -141,6 +159,91 @@ function Streak({ days }: { days: number }) {
       {days}
     </span>
   );
+}
+
+/** The last locked day ended without a review: one quiet line, never in the way of planning. */
+function Unreviewed({ day, today }: { day: UnreviewedDay; today: string }) {
+  const navigate = useStore((s) => s.navigate);
+  const which = sourceLabel(day.date, today);
+  return (
+    <p className="mt-5 text-[13px] leading-5 text-stone-500">
+      {which === "yesterday" ? "Yesterday" : which} was not reviewed.{" "}
+      <button type="button" className="text-stone-900 hover:text-stone-500" onClick={() => navigate({ name: "review", planId: day.plan_id })}>
+        Review it
+      </button>
+    </p>
+  );
+}
+
+/**
+ * One line, parked for the evening review so it can be let go of now. It is kept with
+ * the day and never becomes a task by itself: six is still the ceiling. A bar over the
+ * foot of the page, so nothing on the list moves while it is open. Return saves, Esc
+ * closes, and so does leaving it empty.
+ */
+function JotLine({ onClose }: { onClose: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try {
+      useStore.getState().apply(await api.addJot(text));
+      useStore.getState().notify("Parked for the evening review.");
+      onClose();
+    } catch (e) {
+      // Said here, beside the field, not in the page's error line (which this bar covers).
+      setProblem(isAppError(e) ? sentence(e.message) : "Could not keep that. Try again.");
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-paper">
+      <form
+        className="mx-auto w-full max-w-md px-6 py-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <div className="pl-8">
+          <input
+            autoFocus
+            value={text}
+            maxLength={200}
+            aria-label="Park a thought for the evening review"
+            placeholder="Park a thought for the evening review"
+            onChange={(e) => {
+              setText(e.target.value);
+              setProblem(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Escape") return;
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            onBlur={() => {
+              if (!text.trim()) onClose();
+            }}
+            className="w-full rounded-control border border-stone-200 bg-white px-3 py-2 text-[15px] text-stone-900 placeholder:text-stone-300 focus:border-stone-400 focus:outline-none"
+          />
+          {problem && (
+            <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500" role="alert">
+              {problem}
+            </p>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** A message from Rust as a sentence: capitalised, with its full stop. */
+function sentence(message: string): string {
+  const s = message.trim();
+  return s ? `${s[0].toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? "" : "."}` : s;
 }
 
 function isOpen(t: TaskView) {
@@ -291,5 +394,5 @@ function sourceLabel(fromDate: string, today: string): string {
   const [y, m, d] = today.split("-").map(Number);
   const yesterday = new Date(y, m - 1, d - 1);
   const iso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
-  return fromDate === iso ? "yesterday" : dayLabel(fromDate).toLowerCase();
+  return fromDate === iso ? "yesterday" : dayLabel(fromDate);
 }

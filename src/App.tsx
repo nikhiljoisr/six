@@ -6,7 +6,7 @@ import { Review } from "./app/Review";
 import { Settings } from "./app/Settings";
 import { Stats } from "./app/Stats";
 import { Welcome } from "./app/Welcome";
-import { Banner } from "./components/Banner";
+import { Banner, GapBanner } from "./components/Banner";
 import { installNotificationActions } from "./lib/notifications";
 import { installShortcuts } from "./lib/shortcuts";
 import { installInteractionStamps } from "./lib/touch";
@@ -48,6 +48,7 @@ export default function App() {
       {snapshot && view.name === "stats" && <Stats key="stats" snapshot={snapshot} />}
       {snapshot && view.name === "settings" && <Settings key="settings" snapshot={snapshot} />}
       {nudge && <Banner nudge={nudge} />}
+      {!nudge && snapshot?.return_gap && view.name === "day" && <GapBanner flag={snapshot.return_gap} />}
       {notice && !error && (
         <p role="status" className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-stone-200 bg-paper px-6 py-2.5 font-serif text-[13px] leading-5 text-stone-500">
           {notice}

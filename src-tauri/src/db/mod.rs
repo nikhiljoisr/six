@@ -3,6 +3,7 @@
 //! writes rows. The frontend has no SQL permissions, so every write goes through the
 //! domain first.
 
+pub mod backup;
 pub mod rows;
 pub mod store;
 
@@ -52,6 +53,18 @@ pub fn migrations() -> Vec<tauri_plugin_sql::Migration> {
             version: 4,
             description: "idle_gap",
             sql: include_str!("../../migrations/0004_idle_gap.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 5,
+            description: "idle_ack",
+            sql: include_str!("../../migrations/0005_idle_ack.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 6,
+            description: "jots",
+            sql: include_str!("../../migrations/0006_jots.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
     ]

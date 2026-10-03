@@ -201,6 +201,24 @@ pub struct Session {
     /// kept as evidence for the review even after the user comes back.
     pub idle_from: Option<DateTime<Utc>>,
     pub idle_until: Option<DateTime<Utc>>,
+    /// The recorded silence was offered and kept: the `idle_until` it was answered at.
+    /// A longer silence recorded later ends later, and is offered again.
+    #[serde(default)]
+    pub idle_ack: Option<DateTime<Utc>>,
+    pub device_id: String,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// A parked thought: one line jotted down mid-task so it can be let go of. It belongs
+/// to the day, is read back in the review, and never becomes a task by itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Jot {
+    pub id: String,
+    pub plan_id: String,
+    /// The task in hand when it was written, if one was.
+    pub task_id: Option<String>,
+    pub text: String,
+    pub created_at: DateTime<Utc>,
     pub device_id: String,
     pub updated_at: DateTime<Utc>,
 }

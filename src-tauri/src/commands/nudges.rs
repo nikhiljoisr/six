@@ -260,6 +260,7 @@ pub struct AppInfo {
     pub version: String,
     pub data_dir: String,
     pub exports_dir: String,
+    pub backups_dir: String,
     pub platform: String,
 }
 
@@ -270,8 +271,14 @@ pub async fn get_app_info(app: AppHandle) -> CmdResult<AppInfo> {
         .app_config_dir()
         .map(|p| p.display().to_string())
         .unwrap_or_default();
+    let backups_dir = app
+        .path()
+        .app_config_dir()
+        .map(|p| p.join("backups").display().to_string())
+        .unwrap_or_default();
     Ok(AppInfo {
         version: app.package_info().version.to_string(),
+        backups_dir,
         data_dir,
         exports_dir: super::stats::exports_dir(&app)
             .map(|p| p.display().to_string())

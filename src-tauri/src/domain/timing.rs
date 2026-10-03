@@ -54,6 +54,17 @@ pub struct IdleFlag {
     pub suggested_seconds: i64,
 }
 
+/// The silence on a session that the user has not answered yet. A running session's
+/// silence is offered when they come back: the one it recorded, or the stretch since
+/// the last interaction if nothing has been stamped yet. Keeping the time as recorded
+/// acknowledges it; only a silence that ends later than the acknowledged one is new.
+pub fn return_gap(session: &Session, now: DateTime<Utc>) -> Option<IdleFlag> {
+    idle_flags(std::slice::from_ref(session), now)
+        .into_iter()
+        .next()
+        .filter(|flag| session.idle_ack.is_none_or(|ack| flag.gap_end > ack))
+}
+
 /// Sessions with a silence of more than three hours: the one the session recorded when
 /// the user came back, or the stretch since the last interaction when nothing followed.
 /// Whichever is longer is the one offered.
@@ -119,6 +130,7 @@ mod tests {
             last_interaction_at: last,
             idle_from: None,
             idle_until: None,
+            idle_ack: None,
             device_id: "dev".into(),
             updated_at: start,
         }

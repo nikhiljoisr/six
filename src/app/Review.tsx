@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
-import { clockTime, duration, longDate } from "../lib/format";
+import { clockOn, clockTime, duration, longDate } from "../lib/format";
+import { reviewFlow } from "../lib/reviewFlow";
 import type { DaySnapshot, Decision, IdleFlag, PlanView, ReviewView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
 import { Planner } from "./Planner";
 
 // The evening review: three panels. 1) what happened, in plain facts, with any likely-idle
-// sessions to trim and an optional one-line thought; 2) carry or drop each unfinished
-// task; 3) tomorrow's six, pre-filled with what carries. Leaving panel 2 records the
-// review; panel 3 is the planner itself.
+// sessions to trim, the thoughts parked during the day and an optional one-line thought;
+// 2) carry or drop each unfinished task; 3) tomorrow's six, pre-filled with what carries.
+// Leaving panel 2 records the review; panel 3 is the planner itself.
+//
+// A day that ended without a review can still have one (lib/reviewFlow.ts). It plans
+// nothing: it asks about what was left only while that still changes the next list, and
+// returns to where it was opened.
 
 const STATUS_WORD: Record<TaskStatus, string> = {
   done: "done",
@@ -23,6 +28,8 @@ const STATUS_WORD: Record<TaskStatus, string> = {
 export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: string }) {
   const navigate = useStore((s) => s.navigate);
   const dispatch = useStore((s) => s.dispatch);
+  // Where the review was opened from, fixed at the first render (navigation moves on).
+  const [origin] = useState(() => (useStore.getState().previous?.name === "history" ? ({ name: "history" } as const) : ({ name: "day" } as const)));
   const [review, setReview] = useState<ReviewView | null>(null);
   const [panel, setPanel] = useState(0);
   const [reflection, setReflection] = useState("");
@@ -60,16 +67,26 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
     setBusy(false);
   };
 
+  const flow = review ? reviewFlow(review.plan.is_today, review.is_latest_list, review.unfinished.length) : null;
+
   const commit = async () => {
-    if (!review) return;
+    if (!review || !flow) return;
     setBusy(true);
-    const list = review.unfinished.map((task_id) => ({ task_id, decision: decisions[task_id] ?? "carry" }));
+    const list = flow.askCarry ? review.unfinished.map((task_id) => ({ task_id, decision: decisions[task_id] ?? "carry" })) : [];
     const err = await dispatch(() => api.completeReview(planId, reflection.trim() || null, list));
     setBusy(false);
     if (!err) {
       useStore.getState().notify("Review saved.");
-      setPanel(2);
+      if (flow.endsIn === "planner") setPanel(2);
+      else navigate(origin);
     }
+  };
+
+  const removeJot = async (id: string) => {
+    setBusy(true);
+    const err = await dispatch(() => api.removeJot(id));
+    if (!err) await load();
+    setBusy(false);
   };
 
   // Swipe between the first two panels on touch; the step into panel 3 commits, so it
@@ -89,42 +106,56 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
   return (
     <div className="pb-16 pl-8 pr-0 pt-2" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
-        <h1 className="font-serif text-[15px] font-normal text-stone-900">Evening review</h1>
+        <h1 className="font-serif text-[15px] font-normal text-stone-900">{flow?.past ? "Review" : "Evening review"}</h1>
         <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
-          <span className="font-serif tabular-nums text-stone-400" aria-label={`Step ${panel + 1} of 3`}>
-            {panel + 1} of 3
-          </span>
-          <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "day" })}>
+          {flow && flow.steps > 1 && (
+            <span className="font-serif tabular-nums text-stone-400" aria-label={`Step ${panel + 1} of ${flow.steps}`}>
+              {panel + 1} of {flow.steps}
+            </span>
+          )}
+          <button type="button" className="hover:text-stone-900" onClick={() => navigate(origin)}>
             Cancel
           </button>
         </nav>
       </header>
       <Rule className="mt-3" />
 
-      {review && (
+      {review && flow && (
         <p className="mt-3 font-serif text-[12px] leading-5 text-stone-500">
-          {longDate(review.plan.date)}. What carries goes to {longDate(snapshot.tomorrow)}.
+          {`${longDate(review.plan.date)}. ${
+            !flow.past
+              ? `What carries goes to ${longDate(snapshot.tomorrow)}.`
+              : flow.askCarry
+                ? "What carries goes to the next list you plan."
+                : review.is_latest_list
+                  ? "Nothing was left unfinished."
+                  : "A later list has been planned since, so nothing here changes it."
+          }`}
         </p>
       )}
       {problem && <p className="mt-8 text-[13px] text-stone-500">{problem}</p>}
       {!review && !problem && <p className="mt-8 font-serif text-[12px] text-stone-400">Loading…</p>}
 
-      {review && panel === 0 && (
+      {review && flow && panel === 0 && (
         <WhatHappened
           review={review}
           kept={kept}
           busy={busy}
+          past={flow.past}
+          last={flow.steps === 1}
           reflection={reflection}
           onReflection={setReflection}
           onTrim={trim}
           onKeep={(id) => setKept([...kept, id])}
-          onNext={() => setPanel(1)}
+          onRemoveJot={(id) => void removeJot(id)}
+          onNext={() => (flow.steps === 1 ? void commit() : setPanel(1))}
         />
       )}
-      {review && panel === 1 && (
+      {review && flow && panel === 1 && (
         <Unfinished
           review={review}
-          tomorrow={snapshot.tomorrow_plan}
+          past={flow.past}
+          tomorrow={flow.past ? null : snapshot.tomorrow_plan}
           decisions={decisions}
           busy={busy}
           onDecide={(id, d) => setDecisions({ ...decisions, [id]: d })}
@@ -140,19 +171,27 @@ function WhatHappened({
   review,
   kept,
   busy,
+  past,
+  last,
   reflection,
   onReflection,
   onTrim,
   onKeep,
+  onRemoveJot,
   onNext,
 }: {
   review: ReviewView;
   kept: string[];
   busy: boolean;
+  /** The day has ended; it is not today. */
+  past: boolean;
+  /** This is the only screen, so its button saves the review. */
+  last: boolean;
   reflection: string;
   onReflection: (v: string) => void;
   onTrim: (flag: IdleFlag) => void;
   onKeep: (sessionId: string) => void;
+  onRemoveJot: (id: string) => void;
   onNext: () => void;
 }) {
   const plan = review.plan;
@@ -188,7 +227,7 @@ function WhatHappened({
         <div key={f.session_id} className="-ml-10 mt-6 border-t border-b border-t-stone-900 border-b-stone-200 py-4 pl-10">
           <Label>Possible gap</Label>
           <p className="mt-2 text-[15px] leading-6 text-stone-900">
-            No interaction was recorded in Six from {when(f.gap_start, f.started_at)} to {when(f.gap_end, f.started_at)}. You may have been working
+            No interaction was recorded in Six from {clockOn(f.gap_start, f.started_at)} to {clockOn(f.gap_end, f.started_at)}. You may have been working
             elsewhere.
           </p>
           <p className="mt-1 text-[13px] leading-5 text-stone-500">
@@ -206,18 +245,41 @@ function WhatHappened({
         </div>
       ))}
 
-      <Label className="mt-8">One thought about today</Label>
+      {review.jots.length > 0 && (
+        <>
+          <Label className="mt-8">Parked thoughts</Label>
+          <ul className="mt-1 divide-y divide-stone-200 border-b border-stone-200">
+            {review.jots.map((j) => (
+              <li key={j.id} className="flex items-baseline justify-between gap-4 py-2">
+                <span className="min-w-0 text-[15px] leading-6 text-stone-900">{j.text}</span>
+                <span className="flex shrink-0 items-baseline gap-4">
+                  <span className="font-serif text-[12px] tabular-nums text-stone-500">
+                    {clockTime(j.created_at)}
+                    {j.position ? ` · task ${j.position}` : ""}
+                  </span>
+                  <button type="button" className="text-[12px] text-stone-500 hover:text-stone-900" disabled={busy} aria-label={`Remove the parked thought: ${j.text}`} onClick={() => onRemoveJot(j.id)}>
+                    Remove
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">They stay with this day. What matters next goes on a list by your own hand.</p>
+        </>
+      )}
+
+      <Label className="mt-8">{past ? "One thought about that day" : "One thought about today"}</Label>
       <input
         value={reflection}
-        aria-label="One thought about today"
+        aria-label={past ? "One thought about that day" : "One thought about today"}
         onChange={(e) => onReflection(e.target.value)}
         placeholder="Optional"
         maxLength={200}
         className="mt-2 w-full rounded-control border border-stone-200 bg-white px-3 py-2 text-[15px] text-stone-900 placeholder:text-stone-300 focus:border-stone-400 focus:outline-none"
       />
 
-      <Button full className="mt-8" onClick={onNext}>
-        Next
+      <Button full className="mt-8" disabled={last && busy} onClick={onNext}>
+        {last ? "Save review" : "Next"}
       </Button>
     </section>
   );
@@ -225,6 +287,7 @@ function WhatHappened({
 
 function Unfinished({
   review,
+  past,
   tomorrow,
   decisions,
   busy,
@@ -233,6 +296,8 @@ function Unfinished({
   onNext,
 }: {
   review: ReviewView;
+  /** A day that has ended: what carries goes to the next list, whenever it is planned. */
+  past: boolean;
   tomorrow: PlanView | null;
   decisions: Record<string, Decision>;
   busy: boolean;
@@ -249,7 +314,9 @@ function Unfinished({
   const intro =
     tasks.length === 0
       ? "Everything on the list is finished."
-      : !locked
+      : past
+        ? "Carry them to the next list you plan, or drop them for good."
+        : !locked
         ? "Carry them to tomorrow, or drop them for good."
         : free > 0
           ? `Tomorrow's six are already set; ${free} empty ${free === 1 ? "row" : "rows"} can take what carries. Or drop them for good.`
@@ -279,7 +346,7 @@ function Unfinished({
               ) : (
                 <div className="mt-2 inline-flex rounded-control border border-stone-300" role="group" aria-label={`What happens to task ${t.position}`}>
                   <Toggle selected={d === "carry"} onClick={() => onDecide(t.id, "carry")}>
-                    Carry to tomorrow
+                    {past ? "Carry forward" : "Carry to tomorrow"}
                   </Toggle>
                   <Toggle selected={d === "drop"} onClick={() => onDecide(t.id, "drop")}>
                     Drop
@@ -292,9 +359,9 @@ function Unfinished({
       </ol>
       <Rule className="mt-6" />
       <Button full className="mt-6" disabled={busy} onClick={onNext}>
-        Save review &amp; plan tomorrow
+        {past ? "Save review" : <>Save review &amp; plan tomorrow</>}
       </Button>
-      <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">The review is saved first. Cancelling the planner keeps it.</p>
+      {!past && <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">The review is saved first. Cancelling the planner keeps it.</p>}
       <div className="mt-3">
         <Button variant="link" onClick={onBack}>
           Back
@@ -302,14 +369,6 @@ function Unfinished({
       </div>
     </section>
   );
-}
-
-/** A clock time, with its date when it falls on a different day from `ref`. */
-function when(iso: string, ref: string): string {
-  const a = new Date(iso);
-  const b = new Date(ref);
-  const sameDay = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  return sameDay ? clockTime(iso) : `${a.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${clockTime(iso)}`;
 }
 
 /**

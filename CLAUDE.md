@@ -6,13 +6,13 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 3 Sep 2026: one Mac, one SQLite file.
 
 ## Product principles (SPEC §2)
-- Six is the ceiling, always. No seventh task, ever, by any path.
+- Six is the ceiling, always. No seventh task, ever, by any path. A parked thought (J, "Jot") is one line kept for the evening review; it is never a task and nothing turns it into one.
 - One task is active at a time. Task 1 until it is done, deferred or skipped.
 - Constraint with an escape hatch: skipping ahead is always possible but goes through a three-step ladder (two asks, then a press-and-hold, by pointer or by holding Space/Enter) and is logged as an override. Never a hard lock; never a single tap. See docs/DECISIONS.md.
 - The evening ritual (planning tomorrow's six) is the heart; it is the primary action once the evening hour passes.
 - Silent by default. An optional sound on timer transitions is a Settings switch, off out of the box; nothing else ever sounds.
 - Facts, not gamification. The only counter is the planning streak.
-- Timers measure, they don't nag. Pomodoro (Nikhil's addition, on by default) is a rhythm layer over sessions: a countdown on the active card, a silent ring answered by a tap; interruptions are recorded as facts, never penalised. Focus time exists for the evening reflection. A long silence in a session is recorded, and the review offers to take it out; the app never subtracts time by itself.
+- Timers measure, they don't nag. Pomodoro (Nikhil's addition, on by default) is a rhythm layer over sessions: a countdown on the active card, a silent ring answered by a tap; interruptions are recorded as facts, never penalised. Focus time exists for the evening reflection. A long silence in a session is recorded; Six offers to take it out when you come back and again in the review, and never subtracts time by itself.
 - Offline only. No accounts, no network, no telemetry.
 - Boring technology. Solo maintainer; every choice must still make sense in a year.
 - When in doubt, remove rather than add.
@@ -32,7 +32,10 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - SQLite via `tauri-plugin-sql` (sqlx). Migrations are numbered SQL files in `src-tauri/migrations/`. The frontend has no SQL permissions; Rust takes the plugin's pool.
 - Every mutation emits one `state_changed` event carrying the full day snapshot. No optimistic UI.
 - Nudges are planned in Rust; delivered as an in-app banner while the window is focused, otherwise as Six's own banner under the menu bar (the popover). `tauri-plugin-notifications` is an opt-in for signed builds only. Menu bar: Tauri tray with `title`.
-- Settings live in the SQLite `settings` table. Single device; no sync, no network.
+- Settings live in the SQLite `settings` table. Single device; no sync, no network. Two answers live with macOS instead: whether Six opens at login (a LaunchAgent, `tauri-plugin-autostart`) and the registered global shortcut (`tauri-plugin-global-shortcut`; the choice itself is a setting). Both are off until chosen.
+- Parked thoughts (`jots`) are read with the `Day` and written by their own commands; `save_day` never touches them.
+- A copy of the database is written once per calendar day, at startup and by the ticker (`db/backup.rs`, `VACUUM INTO`, seven kept).
+- Tauri stays at 2.11.5: plugins are pinned to versions that do not pull a newer one.
 - "Today" is the local date at (now − day_start_hour). Rollover is checked on every state read.
 
 ## Working rules (SPEC §7)

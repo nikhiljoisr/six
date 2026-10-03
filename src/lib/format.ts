@@ -49,6 +49,14 @@ export function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+/** A clock time, with its date when it falls on a different day from `ref`: "2 Sep, 10:30 PM". */
+export function clockOn(iso: string, ref: string): string {
+  const a = new Date(iso);
+  const b = new Date(ref);
+  const sameDay = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return sameDay ? clockTime(iso) : `${a.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${clockTime(iso)}`;
+}
+
 /** A countdown as m:ss, for the pomodoro line. */
 export function countdown(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

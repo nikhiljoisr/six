@@ -3,6 +3,7 @@
 mod commands;
 mod db;
 mod domain;
+mod hotkey;
 mod scheduler;
 mod tray;
 
@@ -42,11 +43,21 @@ fn notifications_available() -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let notifications = notifications_available();
-    let mut builder = tauri::Builder::default().plugin(
-        tauri_plugin_sql::Builder::new()
-            .add_migrations(db::DB_URL, db::migrations())
-            .build(),
-    );
+    let mut builder = tauri::Builder::default()
+        .plugin(
+            tauri_plugin_sql::Builder::new()
+                .add_migrations(db::DB_URL, db::migrations())
+                .build(),
+        )
+        // Opening at login is the user's choice (Settings); the launch agent is named
+        // for the bundle so it is recognisable in ~/Library/LaunchAgents.
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("com.nikhiljois.six")
+                .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
+                .build(),
+        )
+        .plugin(hotkey::plugin());
     #[cfg(any(target_os = "macos", mobile))]
     if notifications {
         builder = builder.plugin(tauri_plugin_notifications::init());
@@ -73,7 +84,17 @@ pub fn run() {
                 Err(TryLockError::Error(e)) => return Err(e.into()),
             }
             let pool = db::pool_from_plugin(app.handle())?;
+            // One copy of the database per day Six is opened, the last seven kept.
+            let today = chrono::Local::now().date_naive();
+            match tauri::async_runtime::block_on(db::backup::run(&pool, &data_dir.join("backups"), today)) {
+                Ok(Some(path)) => eprintln!("[six] backup written: {}", path.display()),
+                Ok(None) => {}
+                Err(problem) => eprintln!("[six] backup skipped: {problem}"),
+            }
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
+            let shortcut = tauri::async_runtime::block_on(db::load_settings(&pool))
+                .map(|s| s.global_shortcut)
+                .unwrap_or_else(|_| "off".to_string());
             app.manage(commands::AppState::new(pool, device_id));
             scheduler::setup(app.handle(), notifications);
             if !notifications {
@@ -83,6 +104,9 @@ pub fn run() {
             {
                 tray::setup(app.handle())?;
                 tray::refresh(app.handle());
+            }
+            if let Err(problem) = hotkey::apply(app.handle(), &shortcut) {
+                eprintln!("[six] global shortcut not registered: {problem}");
             }
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -132,8 +156,11 @@ pub fn run() {
             commands::tasks::get_elapsed,
             commands::tasks::start_pomodoro,
             commands::tasks::acknowledge_pomodoro,
+            commands::tasks::add_jot,
+            commands::tasks::remove_jot,
             commands::review::get_review,
             commands::review::trim_session,
+            commands::review::keep_gap,
             commands::review::complete_review,
             commands::stats::get_streak,
             commands::stats::get_stats,
@@ -146,6 +173,8 @@ pub fn run() {
             commands::nudges::get_app_info,
             commands::settings::get_settings,
             commands::settings::set_setting,
+            commands::settings::get_autostart,
+            commands::settings::set_autostart,
             commands::window::show_main,
             commands::window::hide_popover,
             commands::window::show_banner,

@@ -1398,3 +1398,146 @@ fn editing_a_task_away_drops_its_pomodoros() {
     assert!(day.pomodoros.is_empty());
     ok(&day);
 }
+
+// ----- coming back: a silence is offered once ---------------------------------------
+
+#[test]
+fn a_silence_is_offered_on_return_until_it_is_answered() {
+    let (mut day, _) = locked_today(1);
+    assert!(
+        day.return_gap(at(3, 11, 0)).is_none(),
+        "two hours is not a silence"
+    );
+    // Back at 12:30 after nothing since 09:00.
+    day.touch(&ctx(3, 12, 30));
+    let gap = day.return_gap(at(3, 12, 31)).expect("offered on return");
+    assert_eq!((gap.gap_start, gap.gap_end), (at(3, 9, 0), at(3, 12, 30)));
+
+    // Kept as recorded: not offered again, no time changes, and the review can still
+    // take it out.
+    day.keep_gap(&gap.session_id, &ctx(3, 12, 31)).unwrap();
+    assert!(day.return_gap(at(3, 12, 40)).is_none());
+    assert_eq!(day.sessions.len(), 1);
+    assert_eq!(
+        day.sessions[0].idle_gap(),
+        Some((at(3, 9, 0), at(3, 12, 30)))
+    );
+    assert_eq!(day.idle_flags(at(3, 12, 40)).len(), 1);
+
+    // A longer silence later is a new one.
+    day.touch(&ctx(3, 17, 0));
+    let again = day
+        .return_gap(at(3, 17, 1))
+        .expect("a longer silence is offered");
+    assert_eq!(
+        (again.gap_start, again.gap_end),
+        (at(3, 12, 31), at(3, 17, 0))
+    );
+    ok(&day);
+}
+
+#[test]
+fn a_silence_is_offered_before_the_first_touch_back_and_a_trim_answers_it() {
+    let (mut day, _) = locked_today(1);
+    day.touch(&ctx(3, 9, 5));
+    // The window opens at 13:00 with nothing stamped since 09:05: the stretch up to now.
+    let gap = day.return_gap(at(3, 13, 0)).expect("offered");
+    assert_eq!((gap.gap_start, gap.gap_end), (at(3, 9, 5), at(3, 13, 0)));
+    day.trim_idle(&gap.session_id, gap.gap_start, gap.gap_end, &ctx(3, 13, 0))
+        .unwrap();
+    assert!(day.return_gap(at(3, 13, 1)).is_none());
+    assert_eq!(day.focus_seconds(&id(&day, 1), at(3, 13, 10)), 15 * 60);
+    ok(&day);
+}
+
+#[test]
+fn keeping_a_silence_that_was_never_stamped_records_it() {
+    let (mut day, _) = locked_today(1);
+    let sid = day.open_session().unwrap().id.clone();
+    day.keep_gap(&sid, &ctx(3, 13, 0)).unwrap();
+    assert_eq!(
+        day.sessions[0].idle_gap(),
+        Some((at(3, 9, 0), at(3, 13, 0)))
+    );
+    assert_eq!(day.sessions[0].last_interaction_at, Some(at(3, 13, 0)));
+    assert!(day.return_gap(at(3, 13, 30)).is_none());
+    assert_eq!(
+        day.keep_gap("nope", &ctx(3, 13, 0)).unwrap_err(),
+        DomainError::SessionNotFound
+    );
+    // Nothing to keep: answering a session with no silence changes no record of one.
+    let (mut fresh, _) = locked_today(1);
+    let sid = fresh.open_session().unwrap().id.clone();
+    fresh.keep_gap(&sid, &ctx(3, 9, 30)).unwrap();
+    assert!(fresh.sessions[0].idle_gap().is_none());
+    assert!(fresh.sessions[0].idle_ack.is_none());
+    ok(&day);
+    ok(&fresh);
+}
+
+#[test]
+fn a_paused_task_has_no_silence_to_offer() {
+    let (mut day, _) = locked_today(1);
+    let t1 = id(&day, 1);
+    day.pause(&t1, PauseReason::Paused, &ctx(3, 9, 30)).unwrap();
+    assert!(
+        day.return_gap(at(3, 15, 0)).is_none(),
+        "no session is running"
+    );
+    ok(&day);
+}
+
+// ----- parked thoughts -----------------------------------------------------------------
+
+#[test]
+fn a_parked_thought_belongs_to_a_locked_day_and_the_task_in_hand() {
+    let c = ctx(3, 9, 0);
+    let draft = Day::draft(date(3), inputs(&TITLES[..2]), &c).unwrap();
+    assert_eq!(
+        draft.new_jot("call the bank", &c).unwrap_err(),
+        DomainError::NotLocked
+    );
+
+    let (mut day, c) = locked_today(2);
+    let events = day.pending_events.len();
+    let jot = day.new_jot("  call   the bank ", &ctx(3, 10, 0)).unwrap();
+    assert_eq!(jot.text, "call the bank");
+    assert_eq!(jot.plan_id, day.plan.id);
+    assert_eq!(jot.task_id.as_deref(), Some(id(&day, 1).as_str()));
+    assert_eq!(jot.created_at, at(3, 10, 0));
+    assert_eq!(day.new_jot("   ", &c).unwrap_err(), DomainError::EmptyJot);
+    assert_eq!(day.tasks.len(), 2, "a thought is never a task");
+    assert_eq!(day.pending_events.len(), events, "and not an event in the day's log");
+
+    for _ in 0..super::jot::MAX_PER_DAY {
+        day.jots.push(jot.clone());
+    }
+    assert_eq!(
+        day.new_jot("one more", &c).unwrap_err(),
+        DomainError::TooManyJots
+    );
+    ok(&day);
+}
+
+// ----- a review that comes late --------------------------------------------------------
+
+#[test]
+fn a_past_day_can_be_reviewed_late_and_what_was_left_is_recorded_as_carried() {
+    let (mut day, _) = locked_today(3);
+    day.complete(&id(&day, 1), &ctx(3, 10, 0)).unwrap();
+    let later = Ctx::new(at(5, 8, 0), date(5), DEV);
+    day.complete_review(Some(" a slow day ".into()), vec![], &later)
+        .unwrap();
+    assert_eq!(day.plan.reviewed_at, Some(at(5, 8, 0)));
+    assert_eq!(day.plan.reflection.as_deref(), Some("a slow day"));
+    assert_eq!(status(&day, 1), TaskStatus::Done);
+    assert_eq!(status(&day, 2), TaskStatus::Deferred);
+    assert_eq!(status(&day, 3), TaskStatus::Deferred);
+    assert!(day.open_session().is_none());
+    assert_eq!(day.carryover().len(), 2, "what was left still carries");
+    assert_eq!(
+        day.complete_review(None, vec![], &later).unwrap_err(),
+        DomainError::AlreadyReviewed
+    );
+    ok(&day);
+}

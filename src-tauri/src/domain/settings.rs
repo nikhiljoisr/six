@@ -29,10 +29,15 @@ pub struct Settings {
     /// How nudges reach you when the window is away: "banner" (Six's own banner under the
     /// menu bar, works everywhere) or "system" (macOS Notification Centre; needs a signed app).
     pub nudge_style: String,
-    /// A thin line under the countdown showing what remains of the pomodoro. Off by
-    /// default; a prototype, kept only while it earns its place.
+    /// A thin line under the countdown showing what remains of the pomodoro.
     pub countdown_line: bool,
+    /// A system-wide shortcut that summons Six, or "off". One of `GLOBAL_SHORTCUTS`.
+    pub global_shortcut: String,
 }
+
+/// The combinations offered for the global shortcut. A short list, not a recorder: every
+/// one is a combination macOS can register and that no system feature claims by default.
+pub const GLOBAL_SHORTCUTS: [&str; 4] = ["off", "alt+cmd+6", "ctrl+alt+6", "ctrl+alt+space"];
 
 impl Default for Settings {
     fn default() -> Self {
@@ -50,6 +55,7 @@ impl Default for Settings {
             onboarded: false,
             nudge_style: "banner".to_string(),
             countdown_line: true,
+            global_shortcut: "off".to_string(),
         }
     }
 }
@@ -67,7 +73,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 13] = [
+    pub const KEYS: [&'static str; 14] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -81,6 +87,7 @@ impl Settings {
         "onboarded",
         "nudge_style",
         "countdown_line",
+        "global_shortcut",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
@@ -97,6 +104,18 @@ impl Settings {
                     })
                 }
             };
+            return Ok(());
+        }
+        if key == "global_shortcut" {
+            let choice = value.trim();
+            if !GLOBAL_SHORTCUTS.contains(&choice) {
+                return Err(SettingsError::OutOfRange {
+                    key: "global_shortcut",
+                    min: 0,
+                    max: 3,
+                });
+            }
+            self.global_shortcut = choice.to_string();
             return Ok(());
         }
         if key == "tray_style" {
@@ -233,6 +252,20 @@ mod tests {
         s.apply("nudge_style", "system").unwrap();
         assert_eq!(s.nudge_style, "system");
         assert!(s.apply("nudge_style", "carrier pigeon").is_err());
+    }
+
+    #[test]
+    fn the_global_shortcut_is_one_of_a_short_list_and_off_until_chosen() {
+        let mut s = Settings::default();
+        assert_eq!(s.global_shortcut, "off");
+        for choice in GLOBAL_SHORTCUTS {
+            s.apply("global_shortcut", choice).unwrap();
+            assert_eq!(s.global_shortcut, choice);
+        }
+        assert!(s.apply("global_shortcut", "cmd+q").is_err());
+        assert!(s.apply("global_shortcut", "").is_err());
+        assert_eq!(s.global_shortcut, "ctrl+alt+space", "a refused value changes nothing");
+        assert!(Settings::KEYS.contains(&"global_shortcut"));
     }
 
     #[test]

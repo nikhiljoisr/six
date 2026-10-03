@@ -44,7 +44,10 @@
     onboarded: true,
     nudge_style: "banner",
     countdown_line: true,
+    global_shortcut: "off",
   };
+  let returnGap = null; // the unanswered silence on the running session, if a scene seeds one
+  let atLogin = false;
   for (const pair of (q.get("set") || "").split(",").filter(Boolean)) {
     const [key, raw] = pair.split(":");
     settings[key] = raw === "true" ? true : raw === "false" ? false : /^\d+$/.test(raw) ? Number(raw) : raw;
@@ -60,6 +63,7 @@
       reflection: null,
       overrides: 0,
       idle_flags: [],
+      jots: [], // { id, text, created_at, task_id }
       tasks: rows.map((r, i) => ({
         id: id("task"),
         position: i + 1,
@@ -162,7 +166,22 @@
       total_focus_seconds: p.tasks.reduce((sum, t) => sum + focusOf(t), 0),
       pomodoros_completed: p.tasks.reduce((sum, t) => sum + completedCount(t.id), 0),
       tasks: p.tasks.map((t) => ({ ...t, focus_seconds: focusOf(t), pomodoros_completed: completedCount(t.id) })),
+      jots: jotViews(p),
     };
+  }
+  const jotViews = (p) =>
+    p.jots.map((j) => ({ id: j.id, text: j.text, created_at: j.created_at, position: p.tasks.find((t) => t.id === j.task_id)?.position ?? null }));
+  const lockedDates = (before) =>
+    Object.keys(plans)
+      .filter((d) => plans[d].locked_at && (!before || d < before))
+      .sort();
+  /** The last locked day before today, when it has no review and is at most a week old. */
+  function unreviewed() {
+    const dates = lockedDates(TODAY);
+    const p = plans[dates[dates.length - 1]];
+    if (!p || p.reviewed_at) return null;
+    const age = Math.round((new Date(`${TODAY}T00:00:00`) - new Date(`${p.date}T00:00:00`)) / 86400000);
+    return age >= 1 && age <= 7 ? { plan_id: p.id, date: p.date } : null;
   }
   function carryover(date) {
     const dates = Object.keys(plans).filter((d) => d < date && plans[d].locked_at).sort();
@@ -204,6 +223,8 @@
       carryover_preview: !today?.locked_at ? carryover(TODAY) : !tomorrow?.locked_at ? carryover(TOMORROW) : null,
       pomodoro: pomView(today),
       break: brk,
+      unreviewed: unreviewed(),
+      return_gap: returnGap,
     };
   }
 
@@ -229,7 +250,7 @@
   }
   const publish = () => emit("state_changed", snapshot());
   const BOOLEAN_SETTINGS = ["pomodoro_enabled", "sound_enabled", "onboarded", "countdown_line"];
-  const TEXT_SETTINGS = ["tray_style", "nudge_style"];
+  const TEXT_SETTINGS = ["tray_style", "nudge_style", "global_shortcut"];
 
   const commands = {
     get_snapshot: () => snapshot(),
@@ -338,6 +359,25 @@
       return snapshot();
     },
     touch: () => true,
+    add_jot: ({ text }) => {
+      const p = plans[TODAY];
+      if (!p || !p.locked_at) fail("no_list", "there is no list for today to park a thought on");
+      const line = String(text).split(/\s+/).filter(Boolean).join(" ").slice(0, 200);
+      if (!line) fail("empty_jot", "a parked thought needs some words");
+      if (p.jots.length >= 30) fail("too_many_jots", "that is the day's limit for parked thoughts");
+      p.jots.push({ id: id("jot"), text: line, created_at: iso(), task_id: current(p)?.id ?? null });
+      return snapshot();
+    },
+    remove_jot: ({ jot_id }) => {
+      for (const p of Object.values(plans)) p.jots = p.jots.filter((j) => j.id !== jot_id);
+      return snapshot();
+    },
+    keep_gap: () => {
+      returnGap = null;
+      return snapshot();
+    },
+    get_autostart: () => atLogin,
+    set_autostart: ({ enabled }) => (atLogin = !!enabled),
     get_elapsed: () => {
       const p = plans[TODAY];
       const t = current(p);
@@ -376,9 +416,17 @@
         overrides: p.overrides,
         idle_flags: p.idle_flags,
         unfinished: p.tasks.filter(isOpen).map((t) => t.id),
+        is_latest_list: lockedDates().pop() === p.date,
+        jots: jotViews(p),
       };
     },
     trim_session: ({ session_id }) => {
+      if (returnGap && returnGap.session_id === session_id) {
+        const task = byTask(returnGap.task_id)[1];
+        task.focus_seconds = Math.max(0, task.focus_seconds - returnGap.gap_seconds);
+        returnGap = null;
+        return snapshot();
+      }
       for (const p of Object.values(plans)) {
         const flag = p.idle_flags.find((f) => f.session_id === session_id);
         if (!flag) continue;
@@ -451,7 +499,7 @@
     export_all: () => ({ paths: [`/Users/you/Six/exports/six-all-${TODAY}.json`], dir: "/Users/you/Six/exports" }),
     notification_status: () => ({ available: true, permission: "prompt" }),
     request_notification_permission: () => ({ available: true, permission: "granted" }),
-    get_app_info: () => ({ version: "harness", data_dir: "/Users/you/Library/Application Support/com.nikhiljois.six", exports_dir: "/Users/you/Six/exports", platform: "macos" }),
+    get_app_info: () => ({ version: "harness", data_dir: "/Users/you/Library/Application Support/com.nikhiljois.six", exports_dir: "/Users/you/Six/exports", backups_dir: "/Users/you/Library/Application Support/com.nikhiljois.six/backups", platform: "macos" }),
     nudge_action: ({ kind, action, task_id }) => {
       harness.lastNudgeAction = { kind, action, task_id };
       const t = current(plans[TODAY]);
@@ -550,6 +598,17 @@
     const button = Array.from(document.querySelectorAll("button")).find((b) => b.textContent.trim() === text);
     if (button) button.click();
   };
+  const clickStarting = (text) => {
+    const button = Array.from(document.querySelectorAll("button")).find((b) => b.textContent.trim().startsWith(text));
+    if (button) button.click();
+  };
+  const park = (plan, text, when, task) => plan.jots.push({ id: id("jot"), text, created_at: when, task_id: task ? task.id : null });
+  /** Yesterday ended without its review: one task never started, one deferred, two thoughts parked. */
+  const yesterdayUnreviewed = () => {
+    Object.assign(day2, { reviewed_at: null, reflection: null });
+    park(day2, "Ask Priya whether the board wants the long deck", at(11, 20, -1), day2.tasks[1]);
+    park(day2, "Renew the passport before November", at(15, 5, -1), day2.tasks[2]);
+  };
   const type = (selector, text) => {
     const input = document.querySelector(selector);
     if (!input) return;
@@ -619,6 +678,35 @@
     },
     "tomorrow-planned": tomorrowsSix,
     edited: () => void (six.edited_after_lock = true),
+    // Back at 10:30 after nothing since 06:15 on the running task.
+    "return-gap"() {
+      second.focus_seconds = 900;
+      second.session_started_at = at(6, 0);
+      returnGap = {
+        session_id: "session-7",
+        task_id: second.id,
+        started_at: at(6, 0),
+        ended_at: iso(),
+        seconds: 4 * 3600 + 30 * 60,
+        gap_start: at(6, 15),
+        gap_end: at(10, 29),
+        gap_seconds: 4 * 3600 + 14 * 60,
+        suggested_seconds: 16 * 60,
+      };
+    },
+    // The field is filled and left at once: a focused text field makes an offscreen web
+    // view wait on the system's spelling service, and the render times out.
+    jot() {
+      later(700, () => click("Jot"));
+      later(1100, () => {
+        type('input[aria-label^="Park a thought"]', "Ask Priya whether the board wants the long deck");
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+    },
+    "morning-unreviewed"() {
+      delete plans[TODAY];
+      yesterdayUnreviewed();
+    },
     banner() {
       later(600, () =>
         emit(
@@ -689,6 +777,35 @@
       tomorrowsSix();
       nav({ name: "review", planId: six.id });
       later(1200, () => click("Next"));
+    },
+    // Today's review with thoughts parked during the day.
+    "review-jots"() {
+      park(six, "Ask Priya whether the board wants the long deck", iso(-5400000), six.tasks[0]);
+      park(six, "Renew the passport before November", iso(-1200000), second);
+      nav({ name: "review", planId: six.id });
+    },
+    // A day that ended without a review. Still the latest list: what was left is asked about.
+    "review-past"() {
+      delete plans[TODAY];
+      yesterdayUnreviewed();
+      nav({ name: "review", planId: day2.id });
+    },
+    "review-past-2"() {
+      delete plans[TODAY];
+      yesterdayUnreviewed();
+      nav({ name: "review", planId: day2.id });
+      later(1200, () => click("Next"));
+    },
+    // The same day once today's list is locked: one screen, nothing to carry or drop.
+    "review-later"() {
+      yesterdayUnreviewed();
+      nav({ name: "review", planId: day2.id });
+    },
+    "history-open"() {
+      yesterdayUnreviewed();
+      park(six, "Renew the passport before November", iso(-1200000), second);
+      nav({ name: "history" });
+      later(1200, () => clickStarting("Wednesday"));
     },
     history: () => nav({ name: "history" }),
     stats: () => nav({ name: "stats" }),

@@ -642,3 +642,89 @@ task; P, Space, Cmd+Return on the day view; Esc from Stats, Settings and History
 
 An independent review of the step then found nine things, all in the keyboard paths; the
 ones that were faults are fixed in step 18b and the wording above describes the result.
+
+## 2026-10-03 — Step 19 (Tier 2): what a daily habit needs
+
+The audit's plainest finding was that Six had not been opened since 7 September: nothing
+starts it, nothing summons it, a day that ends without its review is never offered one
+again, and three long sessions had been closed by the day's rollover with their silences
+never looked at. This step is about those four things, plus a place for a stray thought
+and a copy of the database. Everything here is additive; nothing that worked before
+changed its behaviour, and every new switch is off until chosen.
+
+- **Open Six at login.** Settings → This Mac. Off by default. `tauri-plugin-autostart`
+  2.5.1 writes one LaunchAgent, `~/Library/LaunchAgents/com.nikhiljois.six.plist`, and
+  removes it when the switch goes off. The answer is macOS's, read from macOS each time
+  Settings opens; it is not a row in Six's settings. A login launch is an ordinary launch:
+  the window shows, because the point is to have the list in front of you.
+- **One shortcut from anywhere.** Settings → Keyboard → "From anywhere": Off (the
+  default), Option+Cmd+6, Control+Option+6 or Control+Option+Space. It shows Six, or sends
+  it back to the menu bar when it is already in front. `tauri-plugin-global-shortcut`
+  2.3.2. A short list and not a recorder, so the choice is always one macOS can register;
+  a combination another app holds is refused with a sentence and the previous one keeps
+  working. It needs no permission.
+- **A day that ended without its review can still have one.** The snapshot carries
+  `unreviewed`: the last locked day before today, when it has no review and is at most a
+  week old (`domain/review.rs`). The screens that show no list for today offer it in one
+  line ("Yesterday was not reviewed. Review it"); History offers "Review this day" on any
+  unreviewed past day, of any age. How such a review runs is `lib/reviewFlow.ts`: today's
+  review is unchanged (three screens, ending in tomorrow's planner); a past day's never
+  plans anything and returns to where it was opened; it asks carry or drop only while
+  that day is still the latest locked list, because only then does the answer change
+  what the next planner is given. Once a later list exists it is one screen. Rust's
+  `complete_review` is unchanged: tasks left open are recorded as carried, which is what
+  happened to them (an unreviewed day's unfinished tasks have always been offered to the
+  next planner).
+- **A silence is offered when you come back.** SPEC §2 says a long silence is recorded
+  and the review offers to take it out, and that Six never subtracts time by itself.
+  Both still hold. What is new is the moment: the snapshot carries `return_gap`, the
+  unanswered silence on the running session, and the day view shows it in the banner
+  under the title bar with two answers, "Take 4 h 14 min out" and "Keep as recorded". It
+  is the day's state, not a nudge: it is not scheduled, makes no sound, and stays until
+  answered. Keeping is remembered on the session (`sessions.idle_ack`, migration 0005),
+  so the same silence is not offered twice; the evening review still lists it. One limit,
+  inherited: a session keeps only its longest silence, so a second, shorter one after a
+  kept one is not offered.
+- **Parked thoughts ("Jot").** J, or "Jot" under the list, opens one line; Return keeps
+  it. It is stored with the day and the task in hand (`jots`, migration 0006; 200
+  characters, 30 a day), read back in the evening review ("Parked thoughts", each
+  removable), shown in History when a day is open, and included in both exports. It is
+  never a task and nothing converts it into one; that control was left out on purpose.
+  This is not the "quick add" the audit brief asked for, which SPEC §2 rules out (the six
+  are chosen deliberately, in the planner). A thought that matters tomorrow reaches a
+  list by hand. Jots are read with the `Day` and written by their own commands;
+  `save_day` never touches them.
+- **A daily copy of the database.** Once per calendar day, at startup or on the first
+  tick of a new day, Six writes `backups/six-YYYY-MM-DD.db` beside the database
+  (`VACUUM INTO`, a consistent copy while in use) and keeps the newest seven. No switch.
+  A failure is logged and nothing else notices.
+- **Smaller things.** The carry-over line wrote a weekday in lower case ("from thursday,
+  oct 1"); it now reads "from Thursday, Oct 1". The harness renders retry when WebKit's
+  snapshot fails on a starved machine, take a batch size, and have scenes for everything
+  above.
+
+New dependencies, both official Tauri plugins, both pinned so Tauri itself stays at
+2.11.5: `tauri-plugin-autostart =2.5.1`, `tauri-plugin-global-shortcut =2.3.2`. Privacy
+is unchanged: still no network, no accounts, no telemetry. The README says where the two
+new files live (the LaunchAgent and the backups folder).
+
+Not built, from the audit brief, because recorded decisions rule them out: a per-second
+countdown in the menu bar (SPEC §4.11: the title changes on state, not on time), quick
+capture of tasks, progress rings and glows, estimated-against-actual pomodoro counts and
+velocity trends (SPEC §2: facts, not gamification).
+
+Verified: `cargo test` 144 passing (17 new: the return offer and its answer, parked
+thoughts, a late review, the shortcut setting, the backup, the store round trips);
+`pnpm typecheck` clean; `pnpm test` 24 passing (3 new, `reviewFlow`). All 44 harness
+scenes rendered; against the step 18 renders, 21 are pixel-identical and the 12 locked
+day scenes differ only by the new "Jot" link in the footer. In a browser against the
+harness: J opens the field without typing a "j", Esc and an empty blur close it, Return
+saves and trims, Space in the field leaves the task alone; both answers to the return
+offer; a late review from the morning screen through carry or drop and back. Natively,
+on a scratch copy under its own home folder: the build starts on a seeded database, both
+migrations apply, the daily copy is written to the scratch home, Option+Cmd+6 registers
+at startup, and a stored shortcut outside the list is ignored. Not verified natively:
+clicking through the new screens in the real window (the screen was locked during this
+step), which includes the login switch writing its LaunchAgent. That pass is owed before
+a release.
+

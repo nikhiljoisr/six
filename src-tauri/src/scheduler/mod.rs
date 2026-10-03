@@ -62,6 +62,9 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut last: Option<(NaiveDate, bool)> = None;
+        // Startup wrote today's copy of the database; a Six that stays open for days
+        // writes the next one on the first tick of each new calendar day.
+        let mut backed_up = Some(chrono::Local::now().date_naive());
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(TICK_SECS)).await;
             // Whatever is due from the current plan is shown before anything settles it.
@@ -76,6 +79,16 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
                         let changed = commands::housekeeping(&state, &settings, &clock)
                             .await
                             .unwrap_or(false);
+                        let calendar_day = chrono::Local::now().date_naive();
+                        if backed_up != Some(calendar_day) {
+                            backed_up = Some(calendar_day);
+                            if let Ok(dir) = app.path().app_config_dir() {
+                                match db::backup::run(&state.pool, &dir.join("backups"), calendar_day).await {
+                                    Ok(_) => {}
+                                    Err(problem) => eprintln!("[six] backup skipped: {problem}"),
+                                }
+                            }
+                        }
                         let key = (clock.today, clock.after_evening(&settings));
                         if changed || last.is_some_and(|k| k != key) {
                             // Something moved (a ring, a rollover, the evening hour): republish.
