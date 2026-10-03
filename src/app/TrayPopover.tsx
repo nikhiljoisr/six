@@ -6,7 +6,8 @@ import { chime } from "../lib/sound";
 import { installInteractionStamps } from "../lib/touch";
 import { useElapsed, type Live } from "../lib/useElapsed";
 import type { BreakView, DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
-import { clockFacts, Dots, initialLive, RingAnswers, SecondaryActions } from "../components/Pomodoro";
+import { Dots, RingAnswers, SecondaryActions } from "../components/Pomodoro";
+import { clockFacts, initialLive } from "../lib/clocks";
 import { useStore, type View } from "../store";
 
 // The menu bar popover (SPEC §4.11): 320 points wide, anchored to the tray, as tall as

@@ -54,6 +54,22 @@ export function Planner({
   const [dragging, setDragging] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const dragIndex = useRef<number | null>(null);
+  // Keyboard: Return moves to the next row, Option+arrow moves the row itself. Rows are
+  // keyed by place, so after a move the focus follows the row to its new place.
+  const titleRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const focusAfterRender = useRef<number | null>(null);
+  const focusTitle = (i: number) => {
+    const el = titleRefs.current[i];
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+  useEffect(() => {
+    if (focusAfterRender.current === null) return;
+    const i = focusAfterRender.current;
+    focusAfterRender.current = null;
+    focusTitle(i);
+  });
 
   // Pre-fill once: the existing list if there is one, otherwise the carryover.
   useEffect(() => {
@@ -185,8 +201,31 @@ export function Planner({
     setDragging(null);
   };
 
+  const canSave = dateIsPlannable && filled > 0 && !saving;
+  const onRowKey = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey) return;
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const to = e.key === "ArrowUp" ? i - 1 : i + 1;
+      e.preventDefault();
+      if (to < 0 || to >= rows.length) return;
+      move(i, to);
+      focusAfterRender.current = to;
+      return;
+    }
+    if (e.key === "Enter" && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      if (i + 1 < rows.length) focusTitle(i + 1);
+    }
+  };
+  const onPlannerKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (canSave) void save();
+    }
+  };
+
   return (
-    <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2">
+    <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2" onKeyDown={onPlannerKey}>
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
         <h1 className="font-serif text-[15px] font-normal text-stone-600">{longDate(date)}</h1>
         <div className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
@@ -220,10 +259,14 @@ export function Planner({
             </span>
             <div className="min-w-0 border-b border-stone-200 pb-0.5 focus-within:border-stone-400">
               <input
+                ref={(el) => {
+                  titleRefs.current[i] = el;
+                }}
                 value={row.title}
                 aria-label={`Task ${i + 1}`}
                 placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
                 onChange={(e) => update(i, { title: e.target.value })}
+                onKeyDown={(e) => onRowKey(i, e)}
                 className="w-full bg-transparent py-0 pr-28 text-[15px] leading-8 text-stone-900 placeholder:text-stone-400 focus:outline-none"
                 maxLength={140}
                 autoFocus={i === 0 && !row.title}
@@ -235,6 +278,7 @@ export function Planner({
                   aria-label={`Note for task ${i + 1}`}
                   placeholder="A one-line note"
                   onChange={(e) => update(i, { note: e.target.value })}
+                  onKeyDown={(e) => onRowKey(i, e)}
                   className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-400 focus:outline-none"
                   maxLength={200}
                   autoFocus={row.showNote && !row.note}
@@ -247,10 +291,10 @@ export function Planner({
                   note
                 </button>
               )}
-              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, i - 1)} aria-label="Move up">
+              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === 0} onClick={() => move(i, i - 1)} title="Option+↑" aria-label="Move up (Option+Up)">
                 <Chevron direction="up" />
               </button>
-              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === rows.length - 1} onClick={() => move(i, i + 1)} aria-label="Move down">
+              <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={i === rows.length - 1} onClick={() => move(i, i + 1)} title="Option+↓" aria-label="Move down (Option+Down)">
                 <Chevron direction="down" />
               </button>
               <button type="button" className="hover:text-stone-900 disabled:opacity-30" disabled={!row.title && !row.note} onClick={() => clear(i)} aria-label="Clear row">
@@ -268,7 +312,7 @@ export function Planner({
             {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}
           </p>
         )}
-        <Button full disabled={!dateIsPlannable || filled === 0 || saving} onClick={() => void save()}>
+        <Button full disabled={!canSave} title="⌘↩" onClick={() => void save()}>
           {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
         </Button>
         <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">

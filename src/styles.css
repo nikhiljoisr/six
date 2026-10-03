@@ -64,6 +64,20 @@ textarea {
   color: var(--color-stone-500);
 }
 
+/* A task changing state fades in (SPEC §3: 150–200 ms, no sliding, no springs). */
+@keyframes six-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility fade-in {
+  animation: six-fade-in 180ms ease-out both;
+}
+
 /* Six has no perpetual animation; with reduced motion requested, its short fades and the
    timer line's easing become immediate too. */
 @media (prefers-reduced-motion: reduce) {

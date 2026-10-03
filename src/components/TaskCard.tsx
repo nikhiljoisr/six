@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { clockTime } from "../lib/format";
 import type { BreakView, PomodoroView, TaskView } from "../lib/types";
 import { useElapsed } from "../lib/useElapsed";
-import { Clocks, initialLive, RingAnswers, SecondaryActions } from "./Pomodoro";
+import { initialLive } from "../lib/clocks";
+import { Clocks, RingAnswers, SecondaryActions } from "./Pomodoro";
 import { Button, Numeral } from "./ui";
 
 // The list is a table of contents: one column of serif numerals, one column of titles,
@@ -39,6 +41,16 @@ interface Props extends Actions {
  */
 const ROW = "-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline";
 const GUTTER = "pr-3 text-right";
+
+/**
+ * A row fades in when it is made (a task changing state re-makes its row; SPEC §3). The
+ * fade is chosen once, at that moment, and only while the page is on screen: a hidden
+ * web view does not advance animations, and a row must never wait at zero opacity.
+ */
+function useFadeIn(): string {
+  const [fade] = useState(() => (typeof document !== "undefined" && !document.hidden ? "fade-in" : ""));
+  return fade;
+}
 
 export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdownLine = true, ...on }: Props) {
   switch (task.status) {
@@ -93,8 +105,9 @@ function Row({
   children?: React.ReactNode;
 }) {
   const title = tone === "upcoming" ? "text-stone-600" : "text-stone-500";
+  const fade = useFadeIn();
   return (
-    <div className={`group ${ROW} h-8`}>
+    <div className={`${fade} group ${ROW} h-8`}>
       <Numeral n={task.position} size="xs" tone={tone === "upcoming" ? "muted" : "dim"} className={`${GUTTER} leading-8`} />
       <div className={`min-w-0 truncate text-[15px] leading-8 ${title}`}>{task.title}</div>
       <div className="flex items-baseline justify-end gap-4 leading-8">
@@ -135,6 +148,7 @@ function CurrentRow({
 }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean } & Actions) {
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
+  const fade = useFadeIn();
   const note = task.note ?? "";
   const primary = paused ? (
     <Button size="sm" title="Space" aria-label="Resume (Space); task time records again" onClick={() => onResume?.(task)}>
@@ -149,8 +163,8 @@ function CurrentRow({
   const secondary = (
     <SecondaryActions task={task} pomodoro={pomodoro} live={live} paused={paused} withRing={false} onTakeFive={() => onTakeFive?.(task)} onDefer={() => onDefer?.(task)} />
   );
-return (
-    <div className="-ml-10 my-3 border-t border-b border-t-stone-900 border-b-stone-200 pt-4 pb-4">
+  return (
+    <div className={`${fade} -ml-10 my-3 border-t border-b border-t-stone-900 border-b-stone-200 pt-4 pb-4`}>
       <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
         <Numeral n={task.position} size="xs" tone="ink" className="pr-3 text-right leading-7" />
         <div className="min-w-0">

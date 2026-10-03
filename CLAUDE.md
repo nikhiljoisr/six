@@ -38,6 +38,6 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 ## Working rules (SPEC §7)
 - Work step by step; stop at the end of each step and wait for "go". Commit as `step N: <summary>`.
 - Never create online accounts, enter credentials or request paid services.
-- Every piece of domain logic has tests (`cd src-tauri && cargo test`). Frontend: type-check only.
+- Every piece of domain logic has tests (`cd src-tauri && cargo test`). Frontend: type-check, plus tests for pure view logic (`pnpm test`, Node's own runner over `tests/`). Look at interface changes in the harness (`tools/harness/`, renders at the real 480×532) before shipping them.
 - Verify library APIs against current docs before use.
 - If the brief is impossible or wrong in practice, say so and propose the smallest change. Never deviate silently.

@@ -94,13 +94,17 @@ Settings.
 
 | Keys | Does |
 |---|---|
-| Space | Pause the active task (Take 5) or resume it (not while a dialog is open) |
-| Space or Enter, held | The last step of skipping ahead, same as holding the button |
-| Esc | Leave the skip-ahead sheet |
+| Space | Pause the active task for a break, or resume it (not while a dialog is open) |
+| Cmd+Return | Complete the active task; in the planner, save the list |
+| P | Start a pomodoro on the active task |
+| Space or Return, held | The last step of skipping ahead, same as holding the button |
+| Return | In the planner, move to the next row |
+| Option+↑ / Option+↓ | In the planner, move the row up or down |
+| Cmd+E | Edit today's list |
 | Cmd+N | Open the planner for the next unplanned day |
 | Cmd+, | Settings |
+| Esc | Go back from History, Stats and Settings; leave the skip-ahead sheet; close the menu bar panel |
 | Cmd+W | Hide the window to the menu bar |
-| Esc | Close the menu bar panel |
 | Cmd+Q | Quit |
 
 ## Privacy and data

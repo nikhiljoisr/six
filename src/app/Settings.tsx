@@ -2,6 +2,7 @@ import { cloneElement, isValidElement, useEffect, useId, useState, type ReactEle
 import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { hourLabel, tildePath } from "../lib/format";
+import { backFrom } from "../lib/nav";
 import type { AppInfo, DaySnapshot, NotificationStatus, Settings as SettingsView } from "../lib/types";
 import { useStore } from "../store";
 
@@ -13,7 +14,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   const dispatch = useStore((s) => s.dispatch);
   const s = snapshot.settings;
   // Back returns to wherever Settings was opened from.
-  const back = previous && previous.name !== "settings" ? previous : { name: "history" as const };
+  const back = backFrom({ name: "settings" }, previous) ?? { name: "history" as const };
   const [notif, setNotif] = useState<NotificationStatus | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [exported, setExported] = useState<string | null>(null);
@@ -100,11 +101,16 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
 
       <Section title="Keyboard">
         <Row label="Space" hint="Take a break, or resume." />
-        <Row label="Space or Enter, held" hint="The last step of skipping ahead." />
+        <Row label="Cmd+Return" hint="Complete the active task. In the planner, save the list." />
+        <Row label="P" hint="Start a pomodoro on the active task." />
+        <Row label="Space or Return, held" hint="The last step of skipping ahead." />
+        <Row label="Return" hint="In the planner, move to the next row." />
+        <Row label="Option+↑ or ↓" hint="In the planner, move the row up or down." />
+        <Row label="Cmd+E" hint="Edit today's list." />
         <Row label="Cmd+N" hint="Plan the next unplanned day." />
         <Row label="Cmd+," hint="Settings." />
+        <Row label="Esc" hint="Go back. Also closes the menu bar panel and leaves the skip-ahead sheet." />
         <Row label="Cmd+W" hint="Hide the window to the menu bar." />
-        <Row label="Esc" hint="Close the menu bar panel, or leave the skip-ahead sheet." />
       </Section>
 
       <Section title="Menu bar">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SkipAheadSheet } from "../components/SkipAheadSheet";
 import { TaskCard } from "../components/TaskCard";
-import { Button, Label, Numeral, Rule } from "../components/ui";
+import { Button, FlameIcon, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { dayLabel, dayMonth, hourLabel, weekday } from "../lib/format";
 import type { DaySnapshot, PlanView, TaskView } from "../lib/types";
@@ -28,11 +28,14 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
         <h1 className="font-serif text-[15px] font-normal text-stone-900">
           {weekday(snapshot.today)}, {dayMonth(snapshot.today)}
         </h1>
-        {locked && plan && (
-          <span className="font-serif text-[13px] tabular-nums text-stone-500">
-            {plan.done_count} of {plan.task_count} done
-          </span>
-        )}
+        <div className="flex shrink-0 items-baseline gap-4 font-serif text-[13px] tabular-nums">
+          {snapshot.streak > 0 && <Streak days={snapshot.streak} />}
+          {locked && plan && (
+            <span className="text-stone-500">
+              {plan.done_count} of {plan.task_count} done
+            </span>
+          )}
+        </div>
       </header>
       <Rule className="mt-3" />
 
@@ -44,11 +47,12 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
           {firstMinutes(plan, snapshot) && (
             <p className="mt-4 text-[13px] leading-5 text-stone-500">Task 1 started recording time when the list was locked. A pomodoro is optional.</p>
           )}
-          <div className="min-h-5 flex-1" aria-hidden />
+          <div className="min-h-4 flex-1" aria-hidden />
           <ol>
             {plan.tasks.map((task) => (
               <li key={task.id}>
                 <TaskCard
+                  key={stateGroup(task)}
                   task={task}
                   pomodoro={snapshot.pomodoro}
                   brk={snapshot.break}
@@ -72,7 +76,7 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
               Review today
             </Button>
           )}
-          <div className="min-h-7 flex-[2]" aria-hidden />
+          <div className="min-h-5 flex-[2]" aria-hidden />
         </>
       )}
 
@@ -126,6 +130,22 @@ function firstMinutes(plan: PlanView, snapshot: DaySnapshot): boolean {
     first.focus_seconds < 600 &&
     first.pomodoros_completed === 0 &&
     snapshot.pomodoro.phase === "idle"
+  );
+}
+
+/** A row is re-made, and so fades in, when its state changes; pausing the current task is not such a change. */
+function stateGroup(t: TaskView): string {
+  return t.status === "active" || t.status === "paused" ? "current" : t.status;
+}
+
+/** The planning streak, the one counter Six keeps (SPEC §4.6): days in a row with a locked list. */
+function Streak({ days }: { days: number }) {
+  const label = `Planning streak: ${days} ${days === 1 ? "day" : "days"} in a row with a locked list`;
+  return (
+    <span className="whitespace-nowrap text-amber-700" role="img" title={label} aria-label={label}>
+      <FlameIcon className="mr-1 inline-block h-3 w-3 align-[-1px]" />
+      {days}
+    </span>
   );
 }
 

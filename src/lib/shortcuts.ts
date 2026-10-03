@@ -1,10 +1,13 @@
 import { api } from "./api";
+import { backFrom } from "./nav";
 import { useStore } from "../store";
 
 // Keyboard shortcuts for the main window. Space toggles the active task between running
-// and on a break (the app's one timer). Cmd+N opens the planner for the next unplanned
-// day, since Six has no quick capture: the six are chosen deliberately. Cmd+, opens
-// Settings. Cmd+W is the native Close Window, which hides to the menu bar.
+// and on a break (the app's one timer); P starts a pomodoro on it; Cmd+Return completes
+// it. Cmd+N opens the planner for the next unplanned day, since Six has no quick capture:
+// the six are chosen deliberately. Cmd+E edits today's list. Cmd+, opens Settings. Esc
+// goes back from History, Stats and Settings. Cmd+W is the native Close Window, which
+// hides to the menu bar.
 
 function typing(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -22,6 +25,9 @@ function spaceTakenBy(target: EventTarget | null): boolean {
 
 export function installShortcuts(): () => void {
   const onKey = (e: KeyboardEvent) => {
+    // A key the screen in front has already handled (the planner's Cmd+Return saves the
+    // list) is not also a global shortcut.
+    if (e.defaultPrevented) return;
     const store = useStore.getState();
     const snap = store.snapshot;
     if (!snap) return;
@@ -51,7 +57,22 @@ export function installShortcuts(): () => void {
       return;
     }
     const dialogOpen = !!document.querySelector("[role='dialog']");
-    if (e.key === " " && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {
+    const bare = !e.metaKey && !e.ctrlKey && !e.altKey;
+    if (e.key === "Escape" && bare && !dialogOpen && !typing(e.target)) {
+      const back = backFrom(store.view, store.previous);
+      if (!back) return;
+      e.preventDefault();
+      store.navigate(back);
+      return;
+    }
+    if (e.key.toLowerCase() === "p" && bare && !e.shiftKey && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day") {
+      const active = snap.today_plan?.tasks.find((t) => t.status === "active");
+      if (!active || !snap.pomodoro.enabled || snap.pomodoro.phase === "running") return;
+      e.preventDefault();
+      void store.dispatch(() => api.startPomodoro(active.id));
+      return;
+    }
+    if (e.key === " " && bare && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {
       const current = snap.today_plan?.tasks.find((t) => t.status === "active" || t.status === "paused");
       if (!current) return;
       e.preventDefault();

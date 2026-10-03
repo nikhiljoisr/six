@@ -581,3 +581,55 @@ good enough is exactly what the bench is for, with the owner's key and the owner
 
 Verified: `cargo test` 127 passing with the new truncation cases; `pnpm typecheck` clean;
 `node tools/typesafe-eval/selftest.mjs` passing. Version unchanged; not released.
+
+## 2026-10-03 — Audit, and step 18 (Tier 1): the quick wins
+
+An audit of 1.5.1 (read-only; aggregate counts from a copy of the owner's database, no
+titles) found the app unused since 7 September, three planned days in all, no review ever
+recorded, and three things wrong in the repository itself. Nikhil asked for all three
+tiers of the enhancement plan, one at a time. This is the first.
+
+- **The streak is back.** The planning streak (SPEC §4.1, §4.6: the one counter Six
+  keeps) stopped being shown in step 11, when the masthead became the date alone; Rust
+  kept computing it and no entry recorded its removal. That was an undocumented
+  regression. It returns to the masthead, right, before the count: the flame and the
+  number in `amber-700`, only when the streak is above zero, named for assistive
+  technology ("Planning streak: 3 days in a row with a locked list").
+- **A harness that lives in the repo.** The stand-in core and the screenshot renderer
+  behind every visual check since step 10 lived in a temporary folder, and were gone.
+  `tools/harness/` holds them now: `mock-tauri.js` (a fixed clock, ~35 seeded scenes),
+  `serve.mjs`, `render.swift` (an offscreen WKWebView, works with the screen locked) and
+  `shots.mjs`. Renders are 480×532, the window's real content area. Not bundled.
+- **View logic has tests.** What the clocks say (`lib/clocks.ts`), when a queued nudge
+  still applies and which nudge an OS notification was (`lib/nudgeRules.ts`), and where
+  "back" leads (`lib/nav.ts`) are pure modules with tests in `tests/`, run by Node's own
+  test runner (`pnpm test`; no new dependency) and by CI. This amends the working rule
+  "Frontend: type-check only" to "type-check, plus tests for pure view logic".
+- **The planner takes the keyboard.** Return moves to the next row, Option+↑/↓ moves the
+  row and the focus with it, Cmd+Return saves or locks. A key a screen has handled is no
+  longer also a global shortcut: without that, one Cmd+Return could save the list and,
+  on the day view it returned to, complete the active task.
+- **Esc goes back** from History, Stats and Settings (never from the planner or the
+  review, which hold unsaved input). **P starts a pomodoro** on the active task. Settings
+  and the README list every shortcut, including Cmd+Return and Cmd+E, which were missing.
+- **A task changing state fades in** over 180 ms, the transition SPEC §3 asked for and
+  the list never had. A row is re-made when its state changes (pausing the current task
+  is not such a change). The fade is applied only while the page is on screen, so a row
+  made while the window is hidden cannot wait at zero opacity.
+- **The ring state fits.** A rung pomodoro pushed the footer 12 points below the window's
+  532; the list's two flexible spacers give those points back when the page is tight.
+- **Housekeeping.** Four unused exports are gone (`TimerLine`, `recordedClause`,
+  `breakLabel`, `CalendarIcon`). The release workflow runs the view tests and uses the
+  current major versions of its actions (checkout 7, setup-node 7, upload-artifact 7,
+  pnpm/action-setup 6; their notes show no change to the inputs used here; the next
+  release run is the proof).
+
+Left alone on purpose: the OS-notification path still sends no task id with a button
+press, so the stale-task guard does not apply there. The plugin can carry one (`extra`),
+but macOS ignores notifications from ad-hoc builds, so the change could not be tested on
+any build this project ships.
+
+Verified: `cargo test` 127 passing; `pnpm typecheck` clean; `pnpm test` 21 passing; every
+harness scene rendered before and after; the keyboard paths driven in a browser against
+the harness (Return, Option+arrows, Cmd+Return in the planner without touching the active
+task; P, Space, Cmd+Return on the day view; Esc from Stats, Settings and History).
