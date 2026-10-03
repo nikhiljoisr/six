@@ -43,6 +43,13 @@ A two-screen guide explains the method and takes you straight to your first six.
 to allow and nothing to sign in to. Six never makes a sound unless you switch one on in
 Settings.
 
+## Appearance and sound
+
+Six is light, as it has always been, unless you choose otherwise: Settings → This Mac →
+Appearance offers Light, Dark and Follow macOS. Sound is off by default. Switched on, it
+plays when a pomodoro or a break ends; choose between three sounds (Two notes, Bell,
+Knock) and three levels. All three are synthesised by the app; nothing is downloaded.
+
 ## Nudges
 
 Six nudges you six ways, all quiet: the evening ritual, a check-in after 75 minutes on a
@@ -87,8 +94,10 @@ the banner is the default.
   the day are read back here.
 - **A day that ended without its review** can still have one: the next morning's screen
   offers it for a week, and History offers it on any day ("Review this day").
-- **History and Stats:** the last 30 days, this week's numbers, a seven-day trend, the task
-  that has rolled over the most, and a plain-text or JSON export.
+- **History and Stats:** the last 30 days, this week's numbers (days reviewed and
+  interrupted pomodoros among them), a seven-day trend, how often each position on the
+  list got done over the last 30 days, the task that has rolled over the most, and a
+  plain-text or JSON export.
 
 ## Menu bar
 
@@ -97,7 +106,9 @@ when nothing is running. Left-click opens a small panel with the countdown and
 Done · Take 5 · Defer; right-click gives Open Six · Plan tomorrow · Pause · Review today ·
 Quit. Closing the window (Cmd+W) hides it there; the app keeps running until you quit
 (Cmd+Q). If your menu bar is crowded (a MacBook with a notch), choose the compact style in
-Settings.
+Settings. Settings → Menu bar → "Minutes left" adds the minutes left of a running pomodoro
+or break (`2/6 · 18m · Draft the Q2 playbook`); it changes once a minute and is off by
+default.
 
 ## Keyboard
 

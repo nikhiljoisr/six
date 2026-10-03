@@ -1,5 +1,7 @@
 //! What the menu bar says. Pure: takes a small summary of the day and returns the text.
-//! The title changes on state change only, never per second.
+//! The title changes on state change only, never per second. With "Minutes left" switched
+//! on in Settings it also carries the whole minutes left of a running pomodoro or break,
+//! which changes once a minute.
 
 /// Title truncation length for the active task (SPEC §4.11).
 pub const TITLE_CHARS: usize = 28;
@@ -19,6 +21,15 @@ pub struct TraySummary {
     pub tomorrow_planned: bool,
     /// Compact style: position only, for crowded (notched) menu bars.
     pub compact: bool,
+    /// Whole minutes left of the running pomodoro, or of the break the paused task is on;
+    /// `None` when neither is running or the setting is off.
+    pub minutes_left: Option<u32>,
+}
+
+/// Seconds remaining as the whole minutes a person would say: 61 s is "2m", 60 s is "1m",
+/// 1 s is "1m". Nothing left is no reading at all.
+pub fn minutes_left(remaining_seconds: i64) -> Option<u32> {
+    (remaining_seconds > 0).then(|| u32::try_from((remaining_seconds + 59) / 60).unwrap_or(u32::MAX))
 }
 
 /// The shortest a word-boundary cut may leave; below this a hard cut reads better.
@@ -59,10 +70,16 @@ pub fn truncate_title(title: &str) -> String {
 
 pub fn tray_title(s: &TraySummary) -> String {
     if let Some((position, title)) = &s.active {
+        // The minutes sit right after the position, where a crowded menu bar clips last.
+        let clock = s.minutes_left.map(|m| format!(" · {m}m")).unwrap_or_default();
         if s.compact {
-            return format!("{position}/{}", s.task_count);
+            return format!("{position}/{}{clock}", s.task_count);
         }
-        return format!("{position}/{} · {}", s.task_count, truncate_title(title));
+        return format!("{position}/{}{clock} · {}", s.task_count, truncate_title(title));
+    }
+    if let (true, Some(m)) = (s.paused, s.minutes_left) {
+        // On a break with the minutes shown: when to come back is the one useful thing.
+        return format!("Six · break {m}m");
     }
     if s.compact && (!s.has_list || (s.after_evening && !s.tomorrow_planned)) {
         return "Six".to_string();
@@ -224,6 +241,52 @@ mod tests {
             ..base()
         };
         assert_eq!(tray_title(&done), "Six · done");
+    }
+
+    #[test]
+    fn minutes_left_ride_with_the_position_and_a_break_shows_its_own() {
+        let running = TraySummary {
+            active: Some((2, "Draft Q2 playbook".into())),
+            minutes_left: Some(18),
+            ..base()
+        };
+        assert_eq!(tray_title(&running), "2/6 · 18m · Draft Q2 playbook");
+        let compact = TraySummary {
+            compact: true,
+            ..running.clone()
+        };
+        assert_eq!(tray_title(&compact), "2/6 · 18m");
+        let on_break = TraySummary {
+            paused: true,
+            minutes_left: Some(3),
+            done_count: 4,
+            ..base()
+        };
+        assert_eq!(tray_title(&on_break), "Six · break 3m");
+        // A break wins over the evening prompt while it runs: it is what is happening.
+        let evening_break = TraySummary {
+            after_evening: true,
+            ..on_break.clone()
+        };
+        assert_eq!(tray_title(&evening_break), "Six · break 3m");
+        // Minutes without a pomodoro or a break change nothing.
+        let idle = TraySummary {
+            minutes_left: Some(9),
+            done_count: 4,
+            ..base()
+        };
+        assert_eq!(tray_title(&idle), "Six · 4/6");
+    }
+
+    #[test]
+    fn minutes_are_whole_and_rounded_up_and_nothing_left_is_no_reading() {
+        assert_eq!(minutes_left(25 * 60), Some(25));
+        assert_eq!(minutes_left(24 * 60 + 1), Some(25));
+        assert_eq!(minutes_left(61), Some(2));
+        assert_eq!(minutes_left(60), Some(1));
+        assert_eq!(minutes_left(1), Some(1));
+        assert_eq!(minutes_left(0), None);
+        assert_eq!(minutes_left(-30), None);
     }
 
     #[test]

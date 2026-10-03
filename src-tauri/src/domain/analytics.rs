@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::Serialize;
 
-use super::model::{Event, EventKind, TaskStatus};
+use super::model::{Event, EventKind, TaskStatus, MAX_TASKS};
 use super::plan::Day;
+use super::pomodoro::PomodoroOutcome;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DayStat {
@@ -16,6 +17,15 @@ pub struct DayStat {
     pub tasks_done: usize,
     pub focus_seconds: i64,
     pub pomodoros: usize,
+}
+
+/// How one position on the list fared across the days in range: where the lists stop.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PositionStat {
+    pub position: u8,
+    /// Lists that had a task at this position.
+    pub total: usize,
+    pub done: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -39,7 +49,14 @@ pub struct Stats {
     pub rest_done: usize,
     pub focus_seconds: i64,
     pub pomodoros: usize,
+    /// Pomodoros the task left before their end (a pause, a defer, the day's end). A
+    /// task completed early is neither: it is counted nowhere.
+    pub pomodoros_interrupted: usize,
     pub overrides: usize,
+    /// Planned days in range that ended with a review.
+    pub days_reviewed: usize,
+    /// Positions 1 to 6, always all six, in order.
+    pub by_position: Vec<PositionStat>,
     /// One entry per calendar day in the range, oldest first; unplanned days are zeros.
     pub trend: Vec<DayStat>,
     pub most_carried: Option<MostCarried>,
@@ -107,7 +124,16 @@ pub fn stats(
         rest_done: 0,
         focus_seconds: 0,
         pomodoros: 0,
+        pomodoros_interrupted: 0,
         overrides,
+        days_reviewed: locked.iter().filter(|d| d.plan.reviewed_at.is_some()).count(),
+        by_position: (1..=MAX_TASKS)
+            .map(|p| PositionStat {
+                position: u8::try_from(p).unwrap_or(u8::MAX),
+                total: 0,
+                done: 0,
+            })
+            .collect(),
         trend,
         most_carried: most_carried(days),
     };
@@ -116,6 +142,10 @@ pub fn stats(
             let done = t.status == TaskStatus::Done;
             s.tasks_total += 1;
             s.tasks_done += usize::from(done);
+            if let Some(slot) = s.by_position.iter_mut().find(|p| p.position == t.position) {
+                slot.total += 1;
+                slot.done += usize::from(done);
+            }
             if t.position <= 3 {
                 s.top3_total += 1;
                 s.top3_done += usize::from(done);
@@ -126,6 +156,11 @@ pub fn stats(
         }
         s.focus_seconds += d.total_focus_seconds(now);
         s.pomodoros += d.pomodoros_completed(None);
+        s.pomodoros_interrupted += d
+            .pomodoros
+            .iter()
+            .filter(|p| p.outcome == Some(PomodoroOutcome::Interrupted))
+            .count();
     }
     s
 }
@@ -242,6 +277,48 @@ mod tests {
         assert_eq!(s.trend[1].tasks_done, 0);
         assert_eq!(percent(s.top3_done, s.top3_total), 25);
         assert_eq!(percent(0, 0), 0);
+    }
+
+    #[test]
+    fn positions_reviews_and_interrupted_pomodoros_are_counted_as_they_happened() {
+        // Day 1: four tasks; 1 and 2 done; reviewed. A pomodoro on task 1 completed, one
+        // on task 2 finished early with the task, one on task 3 interrupted by a pause.
+        let mut d1 = day(1, &["A", "B", "C", "D"], &[]);
+        let ids: Vec<String> = d1.tasks.iter().map(|t| t.id.clone()).collect();
+        let at_min = |h: u32, m: u32| Utc.with_ymd_and_hms(2026, 9, 1, h, m, 0).unwrap();
+        let c = |h: u32, m: u32| Ctx::new(at_min(h, m), date(1), "dev");
+        d1.start_pomodoro(&ids[0], 1500, &c(9, 0)).unwrap();
+        d1.settle_pomodoros(&c(9, 30));
+        d1.complete(&ids[0], &c(9, 40)).unwrap();
+        d1.start_pomodoro(&ids[1], 1500, &c(9, 45)).unwrap();
+        d1.complete(&ids[1], &c(9, 50)).unwrap();
+        d1.start_pomodoro(&ids[2], 1500, &c(10, 0)).unwrap();
+        d1.pause(&ids[2], crate::domain::PauseReason::Paused, &c(10, 5)).unwrap();
+        d1.complete_review(None, vec![], &c(18, 0)).unwrap();
+        // Day 2: two tasks, the first done, never reviewed.
+        let mut d2 = day(2, &["E", "F"], &[]);
+        let e = d2.tasks[0].id.clone();
+        d2.complete(&e, &Ctx::new(at(2, 10), date(2), "dev")).unwrap();
+
+        let s = stats(&[d1, d2], &[], date(1), date(7), at(2, 12));
+        assert_eq!(s.days_planned, 2);
+        assert_eq!(s.days_reviewed, 1);
+        assert_eq!((s.pomodoros, s.pomodoros_interrupted), (1, 1), "finished early is neither");
+        let table: Vec<(u8, usize, usize)> = s.by_position.iter().map(|p| (p.position, p.total, p.done)).collect();
+        assert_eq!(
+            table,
+            vec![(1, 2, 2), (2, 2, 1), (3, 1, 0), (4, 1, 0), (5, 0, 0), (6, 0, 0)]
+        );
+        assert_eq!(s.by_position.iter().map(|p| p.total).sum::<usize>(), s.tasks_total);
+        assert_eq!(s.by_position.iter().map(|p| p.done).sum::<usize>(), s.tasks_done);
+    }
+
+    #[test]
+    fn an_empty_range_still_has_six_positions() {
+        let s = stats(&[], &[], date(1), date(7), at(2, 12));
+        assert_eq!(s.by_position.len(), 6);
+        assert!(s.by_position.iter().all(|p| p.total == 0 && p.done == 0));
+        assert_eq!((s.days_reviewed, s.pomodoros_interrupted), (0, 0));
     }
 
     #[test]

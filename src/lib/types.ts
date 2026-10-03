@@ -98,6 +98,12 @@ export interface Settings {
   countdown_line: boolean;
   /** The system-wide shortcut that shows or hides Six, or "off". */
   global_shortcut: GlobalShortcut;
+  /** The minutes left of a pomodoro or a break, in the menu bar. Off by default. */
+  tray_minutes: boolean;
+  sound_style: "two_note" | "bell" | "knock";
+  sound_level: "soft" | "normal" | "loud";
+  /** Light unless chosen otherwise; "auto" follows macOS. */
+  appearance: "light" | "dark" | "auto";
 }
 
 export type GlobalShortcut = "off" | "alt+cmd+6" | "ctrl+alt+6" | "ctrl+alt+space";
@@ -225,7 +231,13 @@ export interface Stats {
   rest_done: number;
   focus_seconds: number;
   pomodoros: number;
+  /** Pomodoros the task left before their end. */
+  pomodoros_interrupted: number;
   overrides: number;
+  /** Planned days in range that ended with a review. */
+  days_reviewed: number;
+  /** Positions 1 to 6, always all six. */
+  by_position: { position: number; total: number; done: number }[];
   trend: DayStat[];
   most_carried: { title: string; days: number } | null;
 }

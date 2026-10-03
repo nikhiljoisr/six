@@ -99,13 +99,14 @@ async function main() {
           const file = join(out, `${shot.name}.png`);
           const cli = [`${url}/?${query}`, file, String(size.width), String(size.height), String(shot.wait ?? 2400)];
           if (dark) cli.push("--dark");
-          // WebKit's snapshot can fail outright when the machine is starved; try again.
+          // WebKit's snapshot can fail outright when the machine is starved; wait and try again.
           for (let attempt = 1; ; attempt++) {
             try {
               await run(render, cli, { timeout: 180000 });
               break;
             } catch (e) {
-              if (attempt === 3) throw e;
+              if (attempt === 8) throw e;
+              await new Promise((r) => setTimeout(r, 1500 * attempt));
             }
           }
           console.log(`${shot.name}.png`);

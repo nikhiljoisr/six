@@ -45,6 +45,10 @@
     nudge_style: "banner",
     countdown_line: true,
     global_shortcut: "off",
+    tray_minutes: false,
+    sound_style: "two_note",
+    sound_level: "normal",
+    appearance: "light",
   };
   let returnGap = null; // the unanswered silence on the running session, if a scene seeds one
   let atLogin = false;
@@ -249,8 +253,8 @@
     }
   }
   const publish = () => emit("state_changed", snapshot());
-  const BOOLEAN_SETTINGS = ["pomodoro_enabled", "sound_enabled", "onboarded", "countdown_line"];
-  const TEXT_SETTINGS = ["tray_style", "nudge_style", "global_shortcut"];
+  const BOOLEAN_SETTINGS = ["pomodoro_enabled", "sound_enabled", "onboarded", "countdown_line", "tray_minutes"];
+  const TEXT_SETTINGS = ["tray_style", "nudge_style", "global_shortcut", "sound_style", "sound_level", "appearance"];
 
   const commands = {
     get_snapshot: () => snapshot(),
@@ -490,7 +494,13 @@
         rest_done: done(rest),
         focus_seconds: all.reduce((sum, t) => sum + focusOf(t), 0),
         pomodoros: completedCount(null),
+        pomodoros_interrupted: poms.filter((p) => p.outcome === "interrupted").length,
         overrides: inRange.reduce((sum, p) => sum + p.overrides, 0),
+        days_reviewed: inRange.filter((p) => p.reviewed_at).length,
+        by_position: [1, 2, 3, 4, 5, 6].map((position) => {
+          const at = all.filter((t) => t.position === position);
+          return { position, total: at.length, done: done(at) };
+        }),
         trend,
         most_carried: { title: "Draft Q2 playbook outline", days: 3 },
       };

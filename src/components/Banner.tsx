@@ -16,7 +16,9 @@ export function Banner({ nudge }: { nudge: Nudge }) {
   const dismiss = useStore((s) => s.dismissNudge);
   const sound = useStore((s) => s.snapshot?.settings.sound_enabled ?? false);
   useEffect(() => {
-    if (sound && (nudge.kind === "pomodoro_done" || nudge.kind === "break_over")) chime();
+    if (!sound || (nudge.kind !== "pomodoro_done" && nudge.kind !== "break_over")) return;
+    const chosen = useStore.getState().snapshot?.settings;
+    chime(chosen?.sound_style, chosen?.sound_level);
   }, [sound, nudge.kind, nudge.due]);
   const act = async (id: string) => {
     const err = await dispatch(() => api.nudgeAction(nudge.kind, id, nudge.task_id));

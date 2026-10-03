@@ -16,7 +16,7 @@ use tauri::{
 };
 
 use crate::commands::{self, AppState, DaySnapshot, TaskView};
-use crate::domain::tray::{tray_title, TraySummary};
+use crate::domain::tray::{minutes_left, tray_title, TraySummary};
 use crate::domain::{PauseReason, TaskStatus};
 
 pub const MAIN: &str = "main";
@@ -176,6 +176,17 @@ fn summarize(snapshot: &DaySnapshot) -> TraySummary {
         .as_ref()
         .filter(|p| p.locked_at.is_some());
     let current = current_task(snapshot);
+    // The minutes are read only when asked for: a running pomodoro's, or the break's.
+    let minutes = if !snapshot.settings.tray_minutes {
+        None
+    } else if snapshot.pomodoro.phase == crate::domain::PomodoroPhase::Running {
+        minutes_left(snapshot.pomodoro.remaining_seconds)
+    } else {
+        snapshot
+            .break_
+            .as_ref()
+            .and_then(|b| minutes_left((b.ends_at - snapshot.now).num_seconds()))
+    };
     TraySummary {
         has_list: plan.is_some(),
         task_count: plan.map(|p| p.task_count).unwrap_or(0),
@@ -191,6 +202,7 @@ fn summarize(snapshot: &DaySnapshot) -> TraySummary {
             .as_ref()
             .is_some_and(|p| p.locked_at.is_some()),
         compact: snapshot.settings.tray_style == "compact",
+        minutes_left: minutes,
     }
 }
 

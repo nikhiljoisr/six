@@ -46,7 +46,23 @@ pub fn text_report(stats: &Stats, days: &[Day], now: DateTime<Utc>) -> String {
     ));
     out.push_str(&format!("Focus: {}\n", describe(stats.focus_seconds)));
     out.push_str(&format!("Pomodoros: {}\n", stats.pomodoros));
+    if stats.pomodoros_interrupted > 0 {
+        out.push_str(&format!("Pomodoros interrupted: {}\n", stats.pomodoros_interrupted));
+    }
     out.push_str(&format!("Overrides: {}\n", stats.overrides));
+    out.push_str(&format!(
+        "Days reviewed: {} of {}\n",
+        stats.days_reviewed, stats.days_planned
+    ));
+    let positions: Vec<String> = stats
+        .by_position
+        .iter()
+        .filter(|p| p.total > 0)
+        .map(|p| format!("{}: {} of {}", p.position, p.done, p.total))
+        .collect();
+    if !positions.is_empty() {
+        out.push_str(&format!("Done by position: {}\n", positions.join(", ")));
+    }
     if let Some(mc) = &stats.most_carried {
         out.push_str(&format!(
             "Most carried: {} ({} {})\n",

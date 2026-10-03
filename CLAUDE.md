@@ -10,7 +10,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - One task is active at a time. Task 1 until it is done, deferred or skipped.
 - Constraint with an escape hatch: skipping ahead is always possible but goes through a three-step ladder (two asks, then a press-and-hold, by pointer or by holding Space/Enter) and is logged as an override. Never a hard lock; never a single tap. See docs/DECISIONS.md.
 - The evening ritual (planning tomorrow's six) is the heart; it is the primary action once the evening hour passes.
-- Silent by default. An optional sound on timer transitions is a Settings switch, off out of the box; nothing else ever sounds.
+- Silent by default. An optional sound on timer transitions is a Settings switch, off out of the box (three synthesised sounds, three levels); nothing else ever sounds.
 - Facts, not gamification. The only counter is the planning streak.
 - Timers measure, they don't nag. Pomodoro (Nikhil's addition, on by default) is a rhythm layer over sessions: a countdown on the active card, a silent ring answered by a tap; interruptions are recorded as facts, never penalised. Focus time exists for the evening reflection. A long silence in a session is recorded; Six offers to take it out when you come back and again in the review, and never subtracts time by itself.
 - Offline only. No accounts, no network, no telemetry.
@@ -24,6 +24,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - `amber-700` only for: streak flame + count, "Six done." headline, "Complete" badge on 6/6 days, "↑ from yesterday" tag. Never on buttons or the active task.
 - No green, red, blue or indigo. The serif is the app's own voice (date, numerals 1–6, footer, navigation, headings); the system sans is the user's words and the controls. Weights 400/500 only; the day view is 400 throughout.
 - Single column, max-width 28rem, centred, on the paper ground (`--color-paper`). 6px card radius, 4px controls. 150–200ms fades, no springs.
+- Dark appearance (Settings; light is the default) is the same roles remapped: `src/styles.css` redefines the colour variables under `data-theme="dark"`. Components never name a dark colour and there are no `dark:` variants; a colour that is not one of the variables (a hex in a component) breaks it.
 
 ## Architecture decisions (SPEC §5.1) — decided, do not revisit
 - Tauri v2, macOS only. React 18 + TypeScript + Tailwind + Zustand, Vite.

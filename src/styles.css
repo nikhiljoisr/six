@@ -12,6 +12,30 @@
   --color-paper: #f6f3ee;
 }
 
+/* Dark appearance (Settings → This Mac; off unless chosen). The same roles, remapped: every
+   colour in the app is one of these variables, so no component knows which is in force.
+   Paper becomes a warm near-black, ink a warm off-white; secondary text keeps better than
+   4.5:1 against the ground; amber is lifted so it still reads as amber. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #1b1917;
+  --color-white: #262320; /* text fields, and the knob of a switch */
+  --color-stone-50: #1b1917; /* text on a filled button */
+  --color-stone-200: #36322e; /* hairlines */
+  --color-stone-300: #56514b; /* decoration, struck text, a switch that is off */
+  --color-stone-400: #7d766e; /* decoration */
+  --color-stone-500: #a39c93; /* secondary text */
+  --color-stone-600: #bdb6ac; /* upcoming titles */
+  --color-stone-800: #d9d4cb; /* a filled button under the pointer */
+  --color-stone-900: #ece8e1; /* ink */
+  --color-amber-700: #e2a04a; /* the streak, "Six done.", carried */
+}
+
+/* The veil behind a sheet is ink at 20% on paper; on a dark ground it must darken, not lighten. */
+:root[data-theme="dark"] .scrim {
+  background-color: rgb(0 0 0 / 0.5);
+}
+
 html {
   background: var(--color-paper);
   color: var(--color-stone-900);

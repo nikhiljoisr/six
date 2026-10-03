@@ -92,9 +92,9 @@ pub fn run() {
                 Err(problem) => eprintln!("[six] backup skipped: {problem}"),
             }
             let device_id = tauri::async_runtime::block_on(db::ensure_device_id(&pool))?;
-            let shortcut = tauri::async_runtime::block_on(db::load_settings(&pool))
-                .map(|s| s.global_shortcut)
-                .unwrap_or_else(|_| "off".to_string());
+            let saved = tauri::async_runtime::block_on(db::load_settings(&pool)).unwrap_or_default();
+            let shortcut = saved.global_shortcut.clone();
+            commands::settings::apply_appearance(app.handle(), &saved.appearance);
             app.manage(commands::AppState::new(pool, device_id));
             scheduler::setup(app.handle(), notifications);
             if !notifications {

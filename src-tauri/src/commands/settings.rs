@@ -27,7 +27,17 @@ pub async fn set_setting(app: AppHandle, key: String, value: String) -> CmdResul
         }
     }
     db::save_setting(&state.pool, &key, value.trim(), chrono::Utc::now()).await?;
+    if key == "appearance" {
+        apply_appearance(&app, value.trim());
+    }
     super::publish(&app).await
+}
+
+/// The window frames follow the appearance: "dark" makes them dark whatever macOS is set
+/// to. "light" and "auto" leave them to macOS, as they have always been, so a Six that
+/// never touches this setting looks exactly as it did.
+pub fn apply_appearance(app: &AppHandle, appearance: &str) {
+    app.set_theme((appearance == "dark").then_some(tauri::Theme::Dark));
 }
 
 /// Whether Six opens when you log in. The answer lives with macOS (a launch agent in the

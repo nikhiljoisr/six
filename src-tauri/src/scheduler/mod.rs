@@ -93,6 +93,13 @@ pub fn setup(app: &AppHandle, notifications_available: bool) {
                         if changed || last.is_some_and(|k| k != key) {
                             // Something moved (a ring, a rollover, the evening hour): republish.
                             let _ = commands::publish(&app).await;
+                        } else if settings.tray_minutes {
+                            // The minutes in the menu bar move on their own. Nothing is
+                            // broadcast: the windows count their own seconds.
+                            #[cfg(target_os = "macos")]
+                            if let Ok(snap) = commands::snapshot::build(&state).await {
+                                crate::tray::sync(&app, &snap);
+                            }
                         }
                         Some((key, clock.now))
                     }

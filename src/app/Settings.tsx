@@ -3,6 +3,7 @@ import { Button, Label, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { hourLabel, tildePath } from "../lib/format";
 import { backFrom } from "../lib/nav";
+import { chime } from "../lib/sound";
 import type { AppInfo, DaySnapshot, GlobalShortcut, NotificationStatus, Settings as SettingsView } from "../lib/types";
 import { useStore } from "../store";
 
@@ -107,6 +108,38 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Sound when a pomodoro or break ends" hint="Off by default. Six is otherwise silent.">
           <Toggle value={s.sound_enabled} onChange={(v) => set("sound_enabled", v)} />
         </Row>
+        {s.sound_enabled && (
+          <Row label="Which sound" hint="Choosing one plays it.">
+            <span className="flex items-center gap-2">
+              <select
+                value={s.sound_style}
+                aria-label="Which sound"
+                onChange={(e) => {
+                  chime(e.target.value, s.sound_level);
+                  set("sound_style", e.target.value);
+                }}
+                className={SELECT}
+              >
+                <option value="two_note">Two notes</option>
+                <option value="bell">Bell</option>
+                <option value="knock">Knock</option>
+              </select>
+              <select
+                value={s.sound_level}
+                aria-label="How loud"
+                onChange={(e) => {
+                  chime(s.sound_style, e.target.value);
+                  set("sound_level", e.target.value);
+                }}
+                className={SELECT}
+              >
+                <option value="soft">Soft</option>
+                <option value="normal">Normal</option>
+                <option value="loud">Loud</option>
+              </select>
+            </span>
+          </Row>
+        )}
         <Row label="Line under the countdown" hint="A thin line showing what remains of the pomodoro, in the window and the menu bar panel.">
           <Toggle value={s.countdown_line} onChange={(v) => set("countdown_line", v)} />
         </Row>
@@ -144,6 +177,13 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Open Six at login" hint={loginProblem ?? (atLogin === null ? "Unavailable in this build." : "The list is in front of you when the day starts.")}>
           {atLogin !== null && <Toggle value={atLogin} onChange={(v) => void openAtLogin(v)} />}
         </Row>
+        <Row label="Appearance" hint="Light unless you choose otherwise.">
+          <select value={s.appearance} onChange={(e) => set("appearance", e.target.value)} className={SELECT}>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="auto">Follow macOS</option>
+          </select>
+        </Row>
       </Section>
 
       <Section title="Menu bar">
@@ -156,6 +196,9 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
             <option value="full">Task title</option>
             <option value="compact">Compact</option>
           </select>
+        </Row>
+        <Row label="Minutes left" hint="The minutes left of a pomodoro or a break, beside the position. Changes once a minute.">
+          <Toggle value={s.tray_minutes} onChange={(v) => set("tray_minutes", v)} />
         </Row>
       </Section>
 
@@ -197,6 +240,8 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
     </div>
   );
 }
+
+const SELECT = "h-7 rounded-control border border-stone-200 bg-white px-2 text-[13px] text-stone-900 focus:border-stone-400 focus:outline-none";
 
 const SHORTCUT_NAMES: Record<GlobalShortcut, string> = {
   off: "Off",

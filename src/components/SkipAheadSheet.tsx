@@ -114,7 +114,7 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
   const holdKey = (e: React.KeyboardEvent) => e.key === " " || e.key === "Enter";
 
   return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-stone-900/20" onClick={onCancel}>
+    <div className="scrim fixed inset-0 z-20 flex items-end justify-center bg-stone-900/20" onClick={onCancel}>
       <div
         ref={sheet}
         role="dialog"

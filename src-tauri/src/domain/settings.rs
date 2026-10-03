@@ -33,7 +33,21 @@ pub struct Settings {
     pub countdown_line: bool,
     /// A system-wide shortcut that summons Six, or "off". One of `GLOBAL_SHORTCUTS`.
     pub global_shortcut: String,
+    /// Show the minutes left of a pomodoro or a break in the menu bar. Off by default:
+    /// the menu bar then changes on state only (SPEC §4.11).
+    pub tray_minutes: bool,
+    /// Which sound plays when sound is on. One of `SOUND_STYLES`.
+    pub sound_style: String,
+    /// How loud it is. One of `SOUND_LEVELS`.
+    pub sound_level: String,
+    /// "light" (the default, as Six has always been), "dark", or "auto" (follow macOS).
+    pub appearance: String,
 }
+
+/// The sounds Six can make, all synthesised: nothing ships and nothing is loaded.
+pub const SOUND_STYLES: [&str; 3] = ["two_note", "bell", "knock"];
+pub const SOUND_LEVELS: [&str; 3] = ["soft", "normal", "loud"];
+pub const APPEARANCES: [&str; 3] = ["light", "dark", "auto"];
 
 /// The combinations offered for the global shortcut. A short list, not a recorder: every
 /// one is a combination macOS can register and that no system feature claims by default.
@@ -56,6 +70,10 @@ impl Default for Settings {
             nudge_style: "banner".to_string(),
             countdown_line: true,
             global_shortcut: "off".to_string(),
+            tray_minutes: false,
+            sound_style: "two_note".to_string(),
+            sound_level: "normal".to_string(),
+            appearance: "light".to_string(),
         }
     }
 }
@@ -73,7 +91,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 14] = [
+    pub const KEYS: [&'static str; 18] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -88,6 +106,10 @@ impl Settings {
         "nudge_style",
         "countdown_line",
         "global_shortcut",
+        "tray_minutes",
+        "sound_style",
+        "sound_level",
+        "appearance",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
@@ -118,6 +140,25 @@ impl Settings {
             self.global_shortcut = choice.to_string();
             return Ok(());
         }
+        // Settings that are one of a named few.
+        let choice_slot: Option<(&mut String, &'static str, &[&str])> = match key {
+            "sound_style" => Some((&mut self.sound_style, "sound_style", &SOUND_STYLES)),
+            "sound_level" => Some((&mut self.sound_level, "sound_level", &SOUND_LEVELS)),
+            "appearance" => Some((&mut self.appearance, "appearance", &APPEARANCES)),
+            _ => None,
+        };
+        if let Some((slot, name, options)) = choice_slot {
+            let choice = value.trim();
+            if !options.contains(&choice) {
+                return Err(SettingsError::OutOfRange {
+                    key: name,
+                    min: 0,
+                    max: u32::try_from(options.len() - 1).unwrap_or(0),
+                });
+            }
+            *slot = choice.to_string();
+            return Ok(());
+        }
         if key == "tray_style" {
             self.tray_style = match value.trim() {
                 "full" => "full".to_string(),
@@ -137,6 +178,7 @@ impl Settings {
             "sound_enabled" => Some((&mut self.sound_enabled, "sound_enabled")),
             "onboarded" => Some((&mut self.onboarded, "onboarded")),
             "countdown_line" => Some((&mut self.countdown_line, "countdown_line")),
+            "tray_minutes" => Some((&mut self.tray_minutes, "tray_minutes")),
             _ => None,
         };
         if let Some((slot, name)) = bool_slot {
@@ -252,6 +294,37 @@ mod tests {
         s.apply("nudge_style", "system").unwrap();
         assert_eq!(s.nudge_style, "system");
         assert!(s.apply("nudge_style", "carrier pigeon").is_err());
+    }
+
+    #[test]
+    fn tier_three_settings_default_to_how_six_has_always_been() {
+        let d = Settings::default();
+        assert!(!d.tray_minutes, "the menu bar changes on state only");
+        assert_eq!(d.appearance, "light");
+        assert_eq!((d.sound_style.as_str(), d.sound_level.as_str()), ("two_note", "normal"));
+        assert!(!d.sound_enabled, "and still silent");
+
+        let mut s = Settings::default();
+        s.apply("tray_minutes", "1").unwrap();
+        assert!(s.tray_minutes);
+        for a in APPEARANCES {
+            s.apply("appearance", a).unwrap();
+            assert_eq!(s.appearance, a);
+        }
+        assert!(s.apply("appearance", "sepia").is_err());
+        assert_eq!(s.appearance, "auto", "a refused value changes nothing");
+        for style in SOUND_STYLES {
+            s.apply("sound_style", style).unwrap();
+        }
+        for level in SOUND_LEVELS {
+            s.apply("sound_level", level).unwrap();
+        }
+        assert!(s.apply("sound_style", "airhorn").is_err());
+        assert!(s.apply("sound_level", "11").is_err());
+        assert_eq!((s.sound_style.as_str(), s.sound_level.as_str()), ("knock", "loud"));
+        for key in ["tray_minutes", "sound_style", "sound_level", "appearance"] {
+            assert!(Settings::KEYS.contains(&key));
+        }
     }
 
     #[test]

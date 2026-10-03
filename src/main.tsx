@@ -3,9 +3,11 @@ import ReactDOM from "react-dom/client";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import App from "./App";
 import { TrayPopover } from "./app/TrayPopover";
+import { installAppearance } from "./lib/appearance";
 import { bootstrap } from "./store";
 import "./styles.css";
 
+installAppearance();
 void bootstrap();
 
 // One bundle, two windows: the main window and the menu bar popover.

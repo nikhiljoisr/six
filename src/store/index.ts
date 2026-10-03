@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { api } from "../lib/api";
+import { applyAppearance } from "../lib/appearance";
 import { stillApplies } from "../lib/nudgeRules";
 import { chime } from "../lib/sound";
 import { isAppError, type AppError, type DaySnapshot, type Nudge } from "../lib/types";
@@ -78,7 +79,7 @@ export const useStore = create<AppStore>((set, get) => ({
       // On the day view the active card already holds the ring's three answers; a
       // banner would be the same group twice. The optional sound still plays.
       if (n.kind === "pomodoro_done" && s.view.name === "day") {
-        if (s.snapshot?.settings.sound_enabled) chime();
+        if (s.snapshot?.settings.sound_enabled) chime(s.snapshot.settings.sound_style, s.snapshot.settings.sound_level);
         return {};
       }
       return { nudges: [...s.nudges.filter((x) => x.kind !== n.kind), n] };
@@ -87,6 +88,7 @@ export const useStore = create<AppStore>((set, get) => ({
   apply: (snapshot) =>
     set((s) => {
       if (s.snapshot && snapshot.revision < s.snapshot.revision) return {};
+      if (snapshot.settings.appearance !== s.snapshot?.settings.appearance) applyAppearance(snapshot.settings.appearance);
       return { snapshot, nudges: s.nudges.filter((n) => stillApplies(n, snapshot)) };
     }),
   refresh: async () => {

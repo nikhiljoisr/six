@@ -1,28 +1,35 @@
 import { useEffect, useState } from "react";
-import { Button, Label, Rule } from "../components/ui";
+import { Button, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { duration, shiftDays, shortDate, tildePath, weekOf } from "../lib/format";
 import type { DaySnapshot, Stats as StatsView } from "../lib/types";
 import { useStore } from "../store";
 
-// Facts only (SPEC §4.8): this week, a 7-day trend without axes, the most carried task,
-// and an export to plain text and JSON.
+// Facts only (SPEC §4.8): this week, a 7-day trend without axes, how each position on the
+// list has fared over the last 30 days, the most carried task, and an export to plain
+// text and JSON.
 
 export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
   const week = weekOf(snapshot.today);
   const [stats, setStats] = useState<StatsView | null>(null);
   const [trend, setTrend] = useState<StatsView | null>(null);
+  const [month, setMonth] = useState<StatsView | null>(null);
   const [exported, setExported] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.getStats(week.from, week.to), api.getStats(shiftDays(snapshot.today, -6), snapshot.today)])
-      .then(([w, t]) => {
+    Promise.all([
+      api.getStats(week.from, week.to),
+      api.getStats(shiftDays(snapshot.today, -6), snapshot.today),
+      api.getStats(shiftDays(snapshot.today, -29), snapshot.today),
+    ])
+      .then(([w, t, m]) => {
         if (cancelled) return;
         setStats(w);
         setTrend(t);
+        setMonth(m);
       })
       .catch((e) => !cancelled && setProblem(e?.message ?? "Could not load stats."));
     return () => {
@@ -67,10 +74,9 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
             <Fact label="Top 3 done" value={pct(stats.top3_done, stats.top3_total)} sub={`${stats.top3_done} of ${stats.top3_total}`} />
             <Fact label="Tasks 4–6 done" value={pct(stats.rest_done, stats.rest_total)} sub={`${stats.rest_done} of ${stats.rest_total}`} />
             <Fact label="Focus" value={duration(stats.focus_seconds)} />
-            <Fact label="Pomodoros" value={String(stats.pomodoros)} />
-            <div className="col-span-2">
-              <Fact label="Overrides" value={String(stats.overrides)} />
-            </div>
+            <Fact label="Pomodoros" value={String(stats.pomodoros)} sub={stats.pomodoros_interrupted > 0 ? `${stats.pomodoros_interrupted} interrupted` : undefined} />
+            <Fact label="Overrides" value={String(stats.overrides)} />
+            <Fact label="Days reviewed" value={`${stats.days_reviewed} of ${stats.days_planned}`} />
           </dl>
 
           {trend && (
@@ -82,6 +88,30 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
               </div>
               <p className="mt-2 font-serif text-[12px] text-stone-400">
                 {shortDate(trend.from)} to {shortDate(trend.to)}
+              </p>
+            </section>
+          )}
+
+          {month && month.tasks_total > 0 && (
+            <section className="mt-6 border-t border-stone-200 pt-5">
+              <Label>Done by position</Label>
+              <ol className="mt-2">
+                {month.by_position
+                  .filter((p) => p.total > 0)
+                  .map((p) => (
+                    <li key={p.position} className="-ml-10 grid h-7 grid-cols-[2.5rem_minmax(0,1fr)_5rem] items-center" aria-label={`Task ${p.position}: done ${p.done} of ${p.total} times`}>
+                      <Numeral n={p.position} size="xxs" tone="muted" className="pr-3 text-right" />
+                      <div className="h-1 bg-stone-200" aria-hidden>
+                        <div className="h-full bg-stone-900" style={{ width: `${(p.done * 100) / p.total}%` }} />
+                      </div>
+                      <span className="text-right font-serif text-[12px] tabular-nums text-stone-500" aria-hidden>
+                        {p.done} of {p.total}
+                      </span>
+                    </li>
+                  ))}
+              </ol>
+              <p className="mt-2 font-serif text-[12px] text-stone-400">
+                Last 30 days, {shortDate(month.from)} to {shortDate(month.to)}
               </p>
             </section>
           )}
@@ -123,7 +153,7 @@ function Fact({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-/** A charcoal sparkline, no axes. */
+/** An ink sparkline, no axes. */
 function Spark({ label, values, format }: { label: string; values: number[]; format: (v: number) => string }) {
   const w = 160;
   const h = 40;
@@ -137,10 +167,10 @@ function Spark({ label, values, format }: { label: string; values: number[]; for
         <span className="text-[13px] text-stone-500">{label}</span>
         <span className="clock text-[13px] text-stone-900">{format(last)}</span>
       </div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-10 w-full" aria-label={`${label}: ${values.map(format).join(", ")}`}>
-        <polyline points={points} fill="none" stroke="#1c1917" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-10 w-full text-stone-900" aria-label={`${label}: ${values.map(format).join(", ")}`}>
+        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
         {values.map((v, i) => (
-          <circle key={i} cx={(i * step).toFixed(1)} cy={(h - (v / max) * (h - 4) - 2).toFixed(1)} r="1.6" fill="#1c1917" />
+          <circle key={i} cx={(i * step).toFixed(1)} cy={(h - (v / max) * (h - 4) - 2).toFixed(1)} r="1.6" fill="currentColor" />
         ))}
       </svg>
     </div>

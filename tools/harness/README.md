@@ -21,7 +21,7 @@ node tools/harness/shots.mjs --batch 2   # fewer at once, for a busy machine
 - Fades and transitions are switched off in the harness (`?motion=on` keeps them): an
   offscreen web view never advances an animation, so a render would catch a fade at its
   first, invisible frame.
-- A render is tried up to three times: WebKit's snapshot can fail outright when the
+- A render is tried up to eight times, with a pause between: WebKit's snapshot can fail outright when the
   machine is starved. A scene that leaves a text field focused can stall an offscreen
   web view on the system's spelling service, so scenes fill a field and leave it.
 - `render.swift` loads a URL in an offscreen WKWebView and writes a 2x PNG. It needs only

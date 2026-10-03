@@ -728,3 +728,47 @@ clicking through the new screens in the real window (the screen was locked durin
 step), which includes the login switch writing its LaunchAgent. That pass is owed before
 a release.
 
+## 2026-10-03 — Step 20 (Tier 3): facts, minutes, sounds, and a dark appearance
+
+Four things from the third tier. Each is either read-only over data Six already keeps or
+a setting that defaults to how Six has always been. Two of them amend the brief.
+
+- **Three facts the data already held.** Stats gains "Days reviewed" (of the days
+  planned), the pomodoros that were interrupted (under the count, only when there are
+  any; one finished early with its task is neither), and "Done by position": for each of
+  the six positions, how many times a task in that place got done over the last 30
+  days. That last one is the method's own question (do the lists stop at three?). All
+  three are computed in `domain/analytics.rs` and added to the text export. Still not
+  built: estimated against actual pomodoros and velocity trends (SPEC §2).
+- **Minutes left in the menu bar (amends SPEC §4.11).** §4.11 says the title changes on
+  state, never per second. That still holds by default. Settings → Menu bar → "Minutes
+  left" adds the whole minutes left of a running pomodoro (`2/6 · 18m · Draft…`, or
+  `2/6 · 18m` compact) or of a break (`Six · break 3m`). They sit beside the position,
+  where a crowded menu bar clips last, and are rounded up, so "1m" is the last minute.
+  The 15-second ticker brings the title in line without broadcasting anything; the title
+  is only set when it changes, so it changes once a minute. Never per second.
+- **Three sounds, three levels.** Sound stays off by default. Switched on, Settings
+  offers Two notes (the original), Bell and Knock, at Soft, Normal or Loud; choosing one
+  plays it. All are a few oscillators (`lib/soundPlan.ts`); nothing ships and nothing is
+  loaded, so custom sound files are still not offered. A test pins "Two notes, Normal" to
+  the exact numbers Six has always used.
+- **A dark appearance (amends SPEC §3).** Settings → This Mac → Appearance: Light (the
+  default), Dark, or Follow macOS. The palette is unchanged in role: `styles.css`
+  redefines the eleven colour variables under `data-theme="dark"` (paper #1b1917, ink
+  #ece8e1, secondary #a39c93 at 6.5:1, amber lifted to #e2a04a) and no component names a
+  dark colour. Two things had to change for it: the Stats sparkline took a hard-coded
+  ink and now takes the current colour, and the veil behind the skip-ahead sheet darkens
+  instead of lightening. Rust makes the window frames dark for "Dark"; for "Light" and
+  "Follow macOS" the frame is left to macOS as it always was, so a Six that never touches
+  the setting looks exactly as before (on a Mac set to dark that means a dark frame over
+  the light page, which is what it had). The last setting seen is remembered by the web
+  view so a window opens in the right appearance before Rust has answered.
+
+Verified: `cargo test` 149 passing (5 new); `pnpm typecheck` clean; `pnpm test` 28
+passing (4 new: the sound plan and the appearance rule). All 44 scenes rendered light and
+dark. Light: 37 are pixel-identical to step 19; Stats differs by its new facts. Dark:
+every screen read through on contact sheets (day, planner, review, history, stats,
+settings, first run, the sheet, the menu bar panel). Not verified natively: the frame
+following the setting, the menu bar minutes ticking, and the sounds by ear (the screen
+was locked); owed with the Tier 2 pass.
+
