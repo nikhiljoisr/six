@@ -8,7 +8,7 @@ test("today's review is the evening ritual and ends in tomorrow's planner", () =
   assert.deepEqual(reviewFlow(true, false, 0), { past: false, steps: 3, askCarry: true, endsIn: "planner" });
 });
 
-test("a past day that is still the latest list asks what carries, and plans nothing", () => {
+test("a past day an open planner still draws from asks what carries, and plans nothing", () => {
   assert.deepEqual(reviewFlow(false, true, 2), { past: true, steps: 2, askCarry: true, endsIn: "back" });
 });
 

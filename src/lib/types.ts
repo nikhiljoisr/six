@@ -106,7 +106,7 @@ export interface Settings {
   appearance: "light" | "dark" | "auto";
 }
 
-export type GlobalShortcut = "off" | "alt+cmd+6" | "ctrl+alt+6" | "ctrl+alt+space";
+export type GlobalShortcut = "off" | "alt+cmd+6" | "ctrl+alt+6" | "ctrl+cmd+6";
 
 /** The break the paused task is on. */
 export interface BreakView {
@@ -157,8 +157,8 @@ export interface ReviewView {
   overrides: number;
   idle_flags: IdleFlag[];
   unfinished: string[];
-  /** No later list is locked, so what carries from this day is what the next planner takes. */
-  is_latest_list: boolean;
+  /** What carries from this day still reaches a planner that is not locked yet. */
+  still_carries: boolean;
   jots: JotView[];
 }
 

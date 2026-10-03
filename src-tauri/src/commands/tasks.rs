@@ -147,8 +147,8 @@ pub async fn set_note(
 }
 
 /// The user interacted with the app: stamp the running session for idle detection.
-/// Quiet on purpose: no snapshot is broadcast, unless this is the user coming back from
-/// a long silence, which the view then offers to take out.
+/// Quiet on purpose: no snapshot is broadcast, unless this stamp is the one that recorded
+/// a long silence (the user coming back), which the view then offers to take out.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn touch(app: AppHandle) -> CmdResult<bool> {
     let state = app.state::<AppState>();
@@ -158,9 +158,11 @@ pub async fn touch(app: AppHandle) -> CmdResult<bool> {
         return Ok(false);
     };
     let ctx = clock.ctx(&state.device_id);
+    let recorded = |d: &crate::domain::Day| d.open_session().and_then(|s| s.idle_gap());
+    let before = recorded(&day);
     if day.touch(&ctx) {
         db::save_day(&state.pool, &mut day).await?;
-        if day.return_gap(clock.now).is_some() {
+        if recorded(&day) != before && day.return_gap(clock.now).is_some() {
             super::publish(&app).await?;
         }
         return Ok(true);

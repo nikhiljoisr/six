@@ -1,5 +1,7 @@
 //! The review that is owed: the last locked day, if it ended without one.
 
+use std::collections::BTreeSet;
+
 use chrono::NaiveDate;
 
 use super::model::Plan;
@@ -14,6 +16,21 @@ pub fn owed(last_locked: Option<&Plan>, today: NaiveDate) -> Option<(String, Nai
     let age = (today - plan.plan_date).num_days();
     let offered = plan.is_locked() && plan.reviewed_at.is_none() && (1..=OFFER_DAYS).contains(&age);
     offered.then(|| (plan.id.clone(), plan.plan_date))
+}
+
+/// Whether what carries from the list dated `date` still reaches a planner: today's or
+/// tomorrow's list is not locked yet, and `date` is the latest locked list before it,
+/// which is where that planner takes its carry-over from. Once every open planner
+/// draws from a later list, carrying or dropping here changes nothing.
+pub fn still_carries(
+    date: NaiveDate,
+    locked: &BTreeSet<NaiveDate>,
+    today: NaiveDate,
+    tomorrow: NaiveDate,
+) -> bool {
+    [today, tomorrow]
+        .into_iter()
+        .any(|target| !locked.contains(&target) && locked.range(..target).next_back() == Some(&date))
 }
 
 #[cfg(test)]
@@ -45,6 +62,25 @@ mod tests {
         assert_eq!(owed(Some(&plan(5, true, true)), date(7)), None, "already reviewed");
         assert_eq!(owed(Some(&plan(5, false, false)), date(7)), None, "a draft is not a day");
         assert_eq!(owed(None, date(7)), None);
+    }
+
+    #[test]
+    fn a_day_still_carries_while_an_open_planner_draws_from_it() {
+        let set = |days: &[u32]| days.iter().map(|d| date(*d)).collect::<BTreeSet<_>>();
+        let (today, tomorrow) = (date(7), date(8));
+        // Yesterday is the latest list; today is not planned: today's planner draws from it.
+        assert!(still_carries(date(6), &set(&[5, 6]), today, tomorrow));
+        // Tomorrow was planned first, today still is not: today's planner still draws from it.
+        assert!(still_carries(date(6), &set(&[6, 8]), today, tomorrow));
+        // Today is locked: tomorrow's planner draws from today, not from yesterday.
+        assert!(!still_carries(date(6), &set(&[6, 7]), today, tomorrow));
+        // Both are locked: nothing is left to draw from anything.
+        assert!(!still_carries(date(6), &set(&[6, 7, 8]), today, tomorrow));
+        // An older day, with a later list between it and today.
+        assert!(!still_carries(date(4), &set(&[4, 6]), today, tomorrow));
+        // Today's own list, reviewed in the evening: tomorrow draws from it until locked.
+        assert!(still_carries(today, &set(&[6, 7]), today, tomorrow));
+        assert!(!still_carries(today, &set(&[6, 7, 8]), today, tomorrow));
     }
 
     #[test]

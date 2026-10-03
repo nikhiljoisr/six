@@ -20,7 +20,8 @@ pub fn plugin() -> TauriPlugin<Wry> {
 }
 
 /// Bring the registered shortcut in line with the setting. `Err` carries a sentence for
-/// the user when the combination could not be taken (another app holds it).
+/// the user when the combination could not be registered. macOS rarely refuses: it
+/// accepts a combination another app also uses, which is why the list is a careful one.
 pub fn apply(app: &AppHandle, choice: &str) -> Result<(), String> {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
@@ -29,7 +30,7 @@ pub fn apply(app: &AppHandle, choice: &str) -> Result<(), String> {
     }
     shortcuts
         .register(choice)
-        .map_err(|e| format!("That shortcut could not be registered; another app may be using it. ({e})"))
+        .map_err(|e| format!("That shortcut could not be registered. ({e})"))
 }
 
 /// In front and focused: back to the menu bar. Anything else: show and focus.

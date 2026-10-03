@@ -380,6 +380,10 @@
       returnGap = null;
       return snapshot();
     },
+    trim_return_gap: ({ session_id }) => {
+      if (!returnGap || returnGap.session_id !== session_id) fail("invalid_trim", "there is no silence to take out");
+      return commands.trim_session({ session_id });
+    },
     get_autostart: () => atLogin,
     set_autostart: ({ enabled }) => (atLogin = !!enabled),
     get_elapsed: () => {
@@ -420,7 +424,7 @@
         overrides: p.overrides,
         idle_flags: p.idle_flags,
         unfinished: p.tasks.filter(isOpen).map((t) => t.id),
-        is_latest_list: lockedDates().pop() === p.date,
+        still_carries: [TODAY, TOMORROW].some((target) => !plans[target]?.locked_at && lockedDates(target).pop() === p.date),
         jots: jotViews(p),
       };
     },
@@ -809,6 +813,19 @@
     // The same day once today's list is locked: one screen, nothing to carry or drop.
     "review-later"() {
       yesterdayUnreviewed();
+      nav({ name: "review", planId: day2.id });
+    },
+    // Evening, tomorrow already planned, yesterday not reviewed: the tallest no-list screen.
+    "evening-planned-unreviewed"() {
+      delete plans[TODAY];
+      yesterdayUnreviewed();
+      tomorrowsSix();
+    },
+    // Tomorrow was planned first; today is not planned, so yesterday still feeds today's planner.
+    "review-past-tomorrow-set"() {
+      delete plans[TODAY];
+      yesterdayUnreviewed();
+      tomorrowsSix();
       nav({ name: "review", planId: day2.id });
     },
     "history-open"() {

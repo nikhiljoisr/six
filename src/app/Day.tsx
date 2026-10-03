@@ -200,16 +200,11 @@ function JotLine({ onClose }: { onClose: () => void }) {
   };
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-paper">
-      <form
-        className="mx-auto w-full max-w-md px-6 py-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
+      <div className="mx-auto w-full max-w-md px-6 py-3">
         <div className="pl-8">
           <input
             autoFocus
+            data-jot
             value={text}
             maxLength={200}
             aria-label="Park a thought for the evening review"
@@ -219,10 +214,18 @@ function JotLine({ onClose }: { onClose: () => void }) {
               setProblem(null);
             }}
             onKeyDown={(e) => {
-              if (e.key !== "Escape") return;
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+                return;
+              }
+              // Return keeps the line, with or without Cmd. A Return that commits text
+              // from an input method belongs to the input method (WebKit reports it
+              // after the composition has ended, as key code 229).
+              if (e.key !== "Enter" || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
               e.preventDefault();
-              e.stopPropagation();
-              onClose();
+              if (!e.repeat) void save();
             }}
             onBlur={() => {
               if (!text.trim()) onClose();
@@ -235,7 +238,7 @@ function JotLine({ onClose }: { onClose: () => void }) {
             </p>
           )}
         </div>
-      </form>
+      </div>
     </div>
   );
 }

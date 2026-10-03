@@ -25,6 +25,11 @@ fn notifications_available() -> bool {
     if !cfg!(target_os = "macos") {
         return false;
     }
+    in_app_bundle()
+}
+
+/// Whether this process is the executable of a .app bundle (not a `cargo` build run directly).
+fn in_app_bundle() -> bool {
     std::env::current_exe()
         .ok()
         .and_then(|exe| {
@@ -108,6 +113,18 @@ pub fn run() {
             if let Err(problem) = hotkey::apply(app.handle(), &shortcut) {
                 eprintln!("[six] global shortcut not registered: {problem}");
             }
+            // The login item records where Six was when the switch was set. If the switch
+            // is on and this is the app itself (not a development build), point it at
+            // where Six is now, so a moved app still opens at login.
+            {
+                use tauri_plugin_autostart::ManagerExt;
+                let launcher = app.autolaunch();
+                if in_app_bundle() && launcher.is_enabled().unwrap_or(false) {
+                    if let Err(problem) = launcher.enable() {
+                        eprintln!("[six] login item not refreshed: {problem}");
+                    }
+                }
+            }
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 scheduler::reconcile(&handle).await;
@@ -161,6 +178,7 @@ pub fn run() {
             commands::review::get_review,
             commands::review::trim_session,
             commands::review::keep_gap,
+            commands::review::trim_return_gap,
             commands::review::complete_review,
             commands::stats::get_streak,
             commands::stats::get_stats,

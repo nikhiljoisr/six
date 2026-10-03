@@ -343,16 +343,6 @@ pub async fn delete_jot(pool: &Pool, jot_id: &str) -> DbResult<bool> {
 
 // ----- lookups -------------------------------------------------------------------------
 
-/// The most recent locked plan of all, whatever its date.
-pub async fn latest_locked_date(pool: &Pool) -> DbResult<Option<NaiveDate>> {
-    let found: Option<String> = sqlx::query_scalar(
-        "SELECT plan_date FROM daily_plans WHERE locked_at IS NOT NULL ORDER BY plan_date DESC LIMIT 1",
-    )
-    .fetch_optional(pool)
-    .await?;
-    found.as_deref().map(parse_date).transpose()
-}
-
 /// The most recent locked plan before `date`: the source of carryover.
 pub async fn latest_locked_date_before(
     pool: &Pool,
@@ -710,23 +700,6 @@ mod tests {
         let later = Utc.with_ymd_and_hms(2026, 9, 3, 13, 30, 0).unwrap();
         assert!(loaded.return_gap(later).is_none(), "not offered twice");
         assert_eq!(loaded.idle_flags(later).len(), 1, "still there for the review");
-    }
-
-    #[tokio::test]
-    async fn the_latest_locked_list_is_found_with_or_without_a_bound() {
-        let pool = open_in_memory().await.unwrap();
-        assert_eq!(latest_locked_date(&pool).await.unwrap(), None);
-        for d in [3, 5] {
-            let c = ctx(d, 9, 0);
-            let mut day = Day::draft(date(d), inputs(&["One"]), &c).unwrap();
-            day.lock(&c).unwrap();
-            save_day(&pool, &mut day).await.unwrap();
-        }
-        let c = ctx(6, 9, 0);
-        let mut draft = Day::draft(date(6), inputs(&["One"]), &c).unwrap();
-        save_day(&pool, &mut draft).await.unwrap();
-        assert_eq!(latest_locked_date(&pool).await.unwrap(), Some(date(5)), "a draft is not a list");
-        assert_eq!(latest_locked_date_before(&pool, date(5)).await.unwrap(), Some(date(3)));
     }
 
     #[tokio::test]

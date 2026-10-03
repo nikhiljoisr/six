@@ -28,8 +28,11 @@ const STATUS_WORD: Record<TaskStatus, string> = {
 export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: string }) {
   const navigate = useStore((s) => s.navigate);
   const dispatch = useStore((s) => s.dispatch);
-  // Where the review was opened from, fixed at the first render (navigation moves on).
-  const [origin] = useState(() => (useStore.getState().previous?.name === "history" ? ({ name: "history" } as const) : ({ name: "day" } as const)));
+  // Known before the review loads: today's evening review, or a day that has ended.
+  const isToday = snapshot.today_plan?.id === planId;
+  // A past day's review returns to where it was opened from (fixed at the first render:
+  // navigation moves on). Today's goes to the day view, as it always has.
+  const [origin] = useState(() => (!isToday && useStore.getState().previous?.name === "history" ? ({ name: "history" } as const) : ({ name: "day" } as const)));
   const [review, setReview] = useState<ReviewView | null>(null);
   const [panel, setPanel] = useState(0);
   const [reflection, setReflection] = useState("");
@@ -67,7 +70,15 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
     setBusy(false);
   };
 
-  const flow = review ? reviewFlow(review.plan.is_today, review.is_latest_list, review.unfinished.length) : null;
+  const flow = review ? reviewFlow(isToday, review.still_carries, review.unfinished.length) : null;
+  const steps = isToday ? 3 : (flow?.steps ?? 1);
+
+  // "Keep as recorded" hides the block for this visit. When the silence is the one the
+  // day view is offering, it is also answered there, so it is not offered a second time.
+  const keep = (sessionId: string) => {
+    setKept((k) => [...k, sessionId]);
+    if (snapshot.return_gap?.session_id === sessionId) void dispatch(() => api.keepGap(sessionId));
+  };
 
   const commit = async () => {
     if (!review || !flow) return;
@@ -106,11 +117,11 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
   return (
     <div className="pb-16 pl-8 pr-0 pt-2" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
-        <h1 className="font-serif text-[15px] font-normal text-stone-900">{flow?.past ? "Review" : "Evening review"}</h1>
+        <h1 className="font-serif text-[15px] font-normal text-stone-900">{isToday ? "Evening review" : "Review"}</h1>
         <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
-          {flow && flow.steps > 1 && (
-            <span className="font-serif tabular-nums text-stone-400" aria-label={`Step ${panel + 1} of ${flow.steps}`}>
-              {panel + 1} of {flow.steps}
+          {steps > 1 && (
+            <span className="font-serif tabular-nums text-stone-400" aria-label={`Step ${panel + 1} of ${steps}`}>
+              {panel + 1} of {steps}
             </span>
           )}
           <button type="button" className="hover:text-stone-900" onClick={() => navigate(origin)}>
@@ -122,15 +133,19 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
 
       {review && flow && (
         <p className="mt-3 font-serif text-[12px] leading-5 text-stone-500">
-          {`${longDate(review.plan.date)}. ${
-            !flow.past
-              ? `What carries goes to ${longDate(snapshot.tomorrow)}.`
-              : flow.askCarry
+          {!flow.past ? (
+            <>
+              {longDate(review.plan.date)}. What carries goes to {longDate(snapshot.tomorrow)}.
+            </>
+          ) : (
+            `${longDate(review.plan.date)}. ${
+              flow.askCarry
                 ? "What carries goes to the next list you plan."
-                : review.is_latest_list
+                : review.still_carries
                   ? "Nothing was left unfinished."
                   : "A later list has been planned since, so nothing here changes it."
-          }`}
+            }`
+          )}
         </p>
       )}
       {problem && <p className="mt-8 text-[13px] text-stone-500">{problem}</p>}
@@ -146,7 +161,7 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
           reflection={reflection}
           onReflection={setReflection}
           onTrim={trim}
-          onKeep={(id) => setKept([...kept, id])}
+          onKeep={keep}
           onRemoveJot={(id) => void removeJot(id)}
           onNext={() => (flow.steps === 1 ? void commit() : setPanel(1))}
         />

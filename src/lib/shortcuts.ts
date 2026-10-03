@@ -33,6 +33,9 @@ export function installShortcuts(): () => void {
     const snap = store.snapshot;
     if (!snap) return;
     const meta = e.metaKey && !e.ctrlKey && !e.altKey;
+    // While a thought is being typed, the shortcuts that leave the page (and would drop
+    // it) and the one that completes the task wait: Esc or Return comes first.
+    if (meta && store.jotting && typing(e.target)) return;
 
     if (meta && e.key.toLowerCase() === "n") {
       e.preventDefault();
@@ -53,7 +56,7 @@ export function installShortcuts(): () => void {
     const dialogOpen = !!document.querySelector("[role='dialog']");
     // Not on a repeat (a held Cmd+Return that saved the planner must not go on to
     // complete a task on the day view it returns to), and never behind an open dialog.
-    if (meta && e.key === "Enter" && !e.repeat && !dialogOpen && store.view.name === "day") {
+    if (meta && e.key === "Enter" && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day") {
       const active = snap.today_plan?.tasks.find((t) => t.status === "active");
       if (!active) return;
       e.preventDefault();
@@ -78,7 +81,9 @@ export function installShortcuts(): () => void {
     if (bare && !e.shiftKey && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day" && e.key.toLowerCase() === "j") {
       if (!snap.today_plan?.locked_at) return;
       e.preventDefault();
-      store.setJotting(true);
+      // Already open (focus was clicked away with a line half-written): go back to it.
+      if (store.jotting) document.querySelector<HTMLInputElement>("[data-jot]")?.focus();
+      else store.setJotting(true);
       return;
     }
     if (e.key === " " && bare && !e.repeat && !dialogOpen && !spaceTakenBy(e.target) && store.view.name === "day") {

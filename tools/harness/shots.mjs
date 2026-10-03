@@ -37,6 +37,7 @@ export const SHOTS = [
   { name: "day-jot", query: "state=jot", wait: 2600 },
   { name: "day-morning-unreviewed", query: "state=morning-unreviewed" },
   { name: "day-evening-unreviewed", query: "state=morning-unreviewed&phase=evening" },
+  { name: "day-evening-planned-unreviewed", query: "state=evening-planned-unreviewed&phase=evening" },
   { name: "skip-1", query: "state=skip-1" },
   { name: "skip-2", query: "state=skip-2" },
   { name: "skip-3", query: "state=skip-3", wait: 3200 },

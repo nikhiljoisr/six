@@ -369,6 +369,15 @@ impl Day {
         Ok(())
     }
 
+    /// Take the silence that is on offer out of the running session, as it stands now.
+    pub fn trim_return_gap(&mut self, session_id: &str, ctx: &Ctx) -> Result<(), DomainError> {
+        let flag = self
+            .return_gap(ctx.now)
+            .filter(|f| f.session_id == session_id)
+            .ok_or(DomainError::InvalidTrim)?;
+        self.trim_idle(session_id, flag.gap_start, flag.gap_end, ctx)
+    }
+
     /// A parked thought for this day, checked and ready to store. The day must be a
     /// locked list; the thought is tied to the task in hand, if there is one.
     pub fn new_jot(&self, text: &str, ctx: &Ctx) -> Result<Jot, DomainError> {

@@ -13,12 +13,12 @@ export interface ReviewFlow {
 
 /**
  * Today's review is the evening ritual: three screens, ending in tomorrow's planner. A
- * past day's review never plans anything. It asks about what was left only while that
- * day is still the latest list (the next planner draws from it); once a later list is
- * locked, that list already took what carried, and there is nothing left to decide.
+ * past day's review never plans anything. It asks about what was left only while a
+ * planner that is still open draws its carry-over from that day (Rust's `still_carries`);
+ * once every open planner draws from a later list, there is nothing left to decide.
  */
-export function reviewFlow(isToday: boolean, isLatestList: boolean, unfinished: number): ReviewFlow {
+export function reviewFlow(isToday: boolean, stillCarries: boolean, unfinished: number): ReviewFlow {
   if (isToday) return { past: false, steps: 3, askCarry: true, endsIn: "planner" };
-  const askCarry = isLatestList && unfinished > 0;
+  const askCarry = stillCarries && unfinished > 0;
   return { past: true, steps: askCarry ? 2 : 1, askCarry, endsIn: "back" };
 }

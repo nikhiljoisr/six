@@ -1451,6 +1451,33 @@ fn a_silence_is_offered_before_the_first_touch_back_and_a_trim_answers_it() {
 }
 
 #[test]
+fn taking_the_offered_silence_out_uses_the_silence_as_it_stands_now() {
+    let (mut day, _) = locked_today(1);
+    day.touch(&ctx(3, 9, 5));
+    // A snapshot at 13:00 offered 09:05 to 13:00. The user comes back at 16:00 and the
+    // click's own stamp records 09:05 to 16:00 before the answer arrives.
+    let offered = day.return_gap(at(3, 13, 0)).unwrap();
+    assert_eq!(offered.gap_end, at(3, 13, 0));
+    day.touch(&ctx(3, 16, 0));
+    day.trim_return_gap(&offered.session_id, &ctx(3, 16, 0)).unwrap();
+    assert_eq!(day.sessions[0].ended_at, Some(at(3, 9, 5)));
+    assert_eq!(day.open_session().unwrap().started_at, at(3, 16, 0));
+    assert_eq!(day.focus_seconds(&id(&day, 1), at(3, 16, 10)), 15 * 60, "no silence left on the clock");
+    assert!(day.return_gap(at(3, 16, 10)).is_none());
+    // Nothing on offer: nothing is taken out.
+    let sid = day.open_session().unwrap().id.clone();
+    assert_eq!(
+        day.trim_return_gap(&sid, &ctx(3, 16, 20)).unwrap_err(),
+        DomainError::InvalidTrim
+    );
+    assert_eq!(
+        day.trim_return_gap("nope", &ctx(3, 16, 20)).unwrap_err(),
+        DomainError::InvalidTrim
+    );
+    ok(&day);
+}
+
+#[test]
 fn keeping_a_silence_that_was_never_stamped_records_it() {
     let (mut day, _) = locked_today(1);
     let sid = day.open_session().unwrap().id.clone();

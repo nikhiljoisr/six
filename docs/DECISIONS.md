@@ -772,3 +772,56 @@ settings, first run, the sheet, the menu bar panel). Not verified natively: the 
 following the setting, the menu bar minutes ticking, and the sounds by ear (the screen
 was locked); owed with the Tier 2 pass.
 
+## 2026-10-03 — Step 19b: what an independent review found in Tier 2
+
+A second reader went through step 19 looking for regressions. It found no fault in the
+Rust rules, the store, the migrations or the gate. It found eight things in the view and
+at the edges, and three changes the step 19 entry had not recorded. All are settled here.
+
+- **Cmd+Return in the Jot field completed the active task.** The day view had never had
+  a text field, so the shortcut had no guard for one. Now Return and Cmd+Return both
+  keep the thought, and while a thought is being typed the shortcuts that leave the page
+  (Cmd+N, Cmd+E, Cmd+,) wait, because they would drop it. A Return that commits text
+  from an input method is left to the input method.
+- **J did not return to an open field.** With a line half-written and the focus clicked
+  away, J was swallowed and the rest of the line was typed into the page's shortcuts (a P
+  started a pomodoro). J now goes back to the field.
+- **"Take out" used the banner's own bounds.** They can be older than the stamp the
+  click itself makes, leaving part of the silence on the clock with no record. The banner
+  now asks Rust to take out the silence as it stands, read under the gate
+  (`trim_return_gap`), the way "Keep as recorded" always did.
+- **A late review skipped carry-or-drop when only tomorrow was planned.** The rule was
+  "is this the latest list", which is false once tomorrow is locked, although today's
+  planner still draws from that day. The rule is now the real one,
+  `domain::review::still_carries`: some planner that is not locked yet takes its
+  carry-over from this day.
+- **Today's review had changed in two small ways.** Cancel followed where the review was
+  opened from, and the "1 of 3" counter waited for the review to load. Both are back as
+  they were: today's review cancels to the day view and shows its counter at once. Only
+  a past day's review returns to where it was opened. Its date line is also rendered
+  exactly as before (the renders are pixel-identical to step 18's).
+- **`touch` had stopped being quiet.** While a silence was unanswered every stamp
+  published a snapshot, once a minute. A stamp now publishes only when it is the one
+  that recorded the silence.
+- **The review's "Keep as recorded" did not answer the banner.** It hid the block for
+  that visit only, so the day view offered the same silence again. When the silence is
+  the one on offer, keeping it in the review now answers it there too.
+- **The login item could point at a Six that had moved.** It stores the path of the
+  app that set the switch. At startup, when the switch is on and Six is running from its
+  app bundle, the item is rewritten to where the app is now. A development build never
+  rewrites it.
+- **Control+Option+Space is no longer offered** as the shortcut from anywhere: on a Mac
+  with more than one input source it is macOS's own "next input source". Control+Cmd+6
+  takes its place. macOS registers a combination even when something else uses it, so
+  the refusal step 19 described will rarely be seen; the list is the safeguard.
+- **Recorded now, changed in step 19:** sessions in the JSON export carry `idle_ack`;
+  History shows "Not reviewed. Review this day" on an unreviewed past day where it used
+  to show "No reflection recorded."; the banner's first line reads "No interaction from
+  … to …" so that it stays on one line when a date is in it.
+
+Verified: `cargo test` 150 passing; `pnpm test` 28 passing; `pnpm typecheck` clean. In
+the browser against the harness: each keyboard case above, the tray's "Review today"
+opened over History and cancelled, a late review with tomorrow planned first, and the
+banner's take-out. 45 scenes rendered; today's review is pixel-identical to the renders
+from before Tier 2.
+

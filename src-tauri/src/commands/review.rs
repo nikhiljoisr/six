@@ -20,9 +20,9 @@ pub struct ReviewView {
     pub idle_flags: Vec<IdleFlag>,
     /// Ids of tasks still unfinished: the ones panel 2 asks about.
     pub unfinished: Vec<String>,
-    /// No later list has been locked, so what carries from this day is what the next
-    /// planner will pre-fill. False once a later list exists: it already took them.
-    pub is_latest_list: bool,
+    /// What carries from this day still reaches a planner (`domain::review::still_carries`).
+    /// False once every open planner draws from a later list: it already took them.
+    pub still_carries: bool,
     /// Thoughts parked during the day, read back here.
     pub jots: Vec<JotView>,
 }
@@ -40,7 +40,9 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
         (day, clock)
     };
     let events = db::events_for_plan(&state.pool, &plan_id).await?;
-    let is_latest_list = db::latest_locked_date(&state.pool).await? == Some(day.plan.plan_date);
+    let locked = db::locked_dates_until(&state.pool, clock.tomorrow()).await?;
+    let still_carries =
+        crate::domain::review::still_carries(day.plan.plan_date, &locked, clock.today, clock.tomorrow());
     let top = day
         .tasks
         .iter()
@@ -60,7 +62,7 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
             .filter(|t| t.status.is_open())
             .map(|t| t.id.clone())
             .collect(),
-        is_latest_list,
+        still_carries,
         jots: JotView::from_day(&day),
     })
 }
@@ -69,6 +71,13 @@ pub async fn get_review(app: AppHandle, plan_id: String) -> CmdResult<ReviewView
 #[tauri::command(rename_all = "snake_case")]
 pub async fn keep_gap(app: AppHandle, session_id: String) -> CmdResult<DaySnapshot> {
     mutate_by_session(&app, &session_id, |day, ctx| day.keep_gap(&session_id, ctx)).await
+}
+
+/// Take the silence offered on return out of the running session. The bounds are read
+/// here, under the gate: the banner's own may be older than the stamp its click made.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn trim_return_gap(app: AppHandle, session_id: String) -> CmdResult<DaySnapshot> {
+    mutate_by_session(&app, &session_id, |day, ctx| day.trim_return_gap(&session_id, ctx)).await
 }
 
 /// Take a silence out of a session: the bounds (RFC 3339) come from the review's flag.

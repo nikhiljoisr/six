@@ -247,7 +247,7 @@ const SHORTCUT_NAMES: Record<GlobalShortcut, string> = {
   off: "Off",
   "alt+cmd+6": "Option+Cmd+6",
   "ctrl+alt+6": "Control+Option+6",
-  "ctrl+alt+space": "Control+Option+Space",
+  "ctrl+cmd+6": "Control+Cmd+6",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

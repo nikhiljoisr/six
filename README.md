@@ -129,7 +129,7 @@ default.
 | Cmd+Q | Quit |
 
 One shortcut can work from any app: Settings → Keyboard → "From anywhere" offers
-Option+Cmd+6, Control+Option+6 or Control+Option+Space. It shows Six, or hides it when it
+Option+Cmd+6, Control+Option+6 or Control+Cmd+6. It shows Six, or hides it when it
 is already in front. It is off until you choose one.
 
 ## Privacy and data

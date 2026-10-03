@@ -49,9 +49,11 @@ pub const SOUND_STYLES: [&str; 3] = ["two_note", "bell", "knock"];
 pub const SOUND_LEVELS: [&str; 3] = ["soft", "normal", "loud"];
 pub const APPEARANCES: [&str; 3] = ["light", "dark", "auto"];
 
-/// The combinations offered for the global shortcut. A short list, not a recorder: every
-/// one is a combination macOS can register and that no system feature claims by default.
-pub const GLOBAL_SHORTCUTS: [&str; 4] = ["off", "alt+cmd+6", "ctrl+alt+6", "ctrl+alt+space"];
+/// The combinations offered for the global shortcut. A short list, not a recorder. macOS
+/// registers a combination even when something else already uses it, so the list is kept
+/// to ones no system feature claims by default (Control+Option+Space, for one, switches
+/// input sources on a Mac with more than one).
+pub const GLOBAL_SHORTCUTS: [&str; 4] = ["off", "alt+cmd+6", "ctrl+alt+6", "ctrl+cmd+6"];
 
 impl Default for Settings {
     fn default() -> Self {
@@ -337,7 +339,8 @@ mod tests {
         }
         assert!(s.apply("global_shortcut", "cmd+q").is_err());
         assert!(s.apply("global_shortcut", "").is_err());
-        assert_eq!(s.global_shortcut, "ctrl+alt+space", "a refused value changes nothing");
+        assert_eq!(s.global_shortcut, "ctrl+cmd+6", "a refused value changes nothing");
+        assert!(s.apply("global_shortcut", "ctrl+alt+space").is_err(), "the input-source switch is not offered");
         assert!(Settings::KEYS.contains(&"global_shortcut"));
     }
 

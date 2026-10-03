@@ -52,13 +52,13 @@ export function GapBanner({ flag }: { flag: IdleFlag }) {
   };
   return (
     <Frame
-      title={`No interaction in Six from ${clockOn(flag.gap_start, flag.gap_end)} to ${clockTime(flag.gap_end)}.`}
-      body={`${duration(flag.seconds)} is recorded on this task.`}
+      title={`No interaction from ${clockOn(flag.gap_start, flag.gap_end)} to ${clockTime(flag.gap_end)}.`}
+      body={`Six has ${duration(flag.seconds)} recorded on this task.`}
     >
       <Button
         variant="text"
         disabled={busy}
-        onClick={() => void answer(() => api.trimSession(flag.session_id, flag.gap_start, flag.gap_end), `Taken out. ${duration(flag.suggested_seconds)} kept.`)}
+        onClick={() => void answer(() => api.trimReturnGap(flag.session_id), "Taken out of the recorded time.")}
       >
         Take {duration(flag.gap_seconds)} out
       </Button>

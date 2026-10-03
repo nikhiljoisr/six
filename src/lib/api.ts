@@ -47,6 +47,8 @@ export const api = {
   getReview: (plan_id: string) => invoke<ReviewView>("get_review", { plan_id }),
   trimSession: (session_id: string, gap_start: string, gap_end: string) =>
     invoke<DaySnapshot>("trim_session", { session_id, gap_start, gap_end }),
+  /** Take the silence offered on return out of the running session, as it stands now. */
+  trimReturnGap: (session_id: string) => invoke<DaySnapshot>("trim_return_gap", { session_id }),
   /** The silence was seen and the time kept as recorded: do not offer it again. */
   keepGap: (session_id: string) => invoke<DaySnapshot>("keep_gap", { session_id }),
   completeReview: (plan_id: string, reflection: string | null, decisions: ReviewDecision[]) =>
