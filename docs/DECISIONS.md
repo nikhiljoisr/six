@@ -606,16 +606,22 @@ tiers of the enhancement plan, one at a time. This is the first.
   test runner (`pnpm test`; no new dependency) and by CI. This amends the working rule
   "Frontend: type-check only" to "type-check, plus tests for pure view logic".
 - **The planner takes the keyboard.** Return moves to the next row, Option+↑/↓ moves the
-  row and the focus with it, Cmd+Return saves or locks. A key a screen has handled is no
-  longer also a global shortcut: without that, one Cmd+Return could save the list and,
-  on the day view it returned to, complete the active task.
+  row and the focus with it (title or note, whichever held it), Cmd+Return saves or
+  locks from anywhere on the screen. A Return that commits text from an input method is
+  left to the input method. The day view's Cmd+Return (complete the active task) now
+  ignores a key another handler has taken, the repeats of a held key, and anything
+  pressed while a dialog is open: without those, one long Cmd+Return could save the list
+  and then complete the active task on the day view it returned to, and Cmd+Return on a
+  button of the skip-ahead sheet completed the task behind the sheet.
 - **Esc goes back** from History, Stats and Settings (never from the planner or the
   review, which hold unsaved input). **P starts a pomodoro** on the active task. Settings
   and the README list every shortcut, including Cmd+Return and Cmd+E, which were missing.
 - **A task changing state fades in** over 180 ms, the transition SPEC §3 asked for and
-  the list never had. A row is re-made when its state changes (pausing the current task
-  is not such a change). The fade is applied only while the page is on screen, so a row
-  made while the window is hidden cannot wait at zero opacity.
+  the list never had. The fade plays when a task takes the current slot or leaves it
+  (started, completed, deferred, dropped); pausing is not such a change, and an undo that
+  returns a row to the list keeps the row, so the keyboard focus stays on it. The fade is
+  applied only while the page is on screen, so a row made while the window is hidden
+  cannot wait at zero opacity.
 - **The ring state fits.** A rung pomodoro pushed the footer 12 points below the window's
   532; the list's two flexible spacers give those points back when the page is tight.
 - **Housekeeping.** Four unused exports are gone (`TimerLine`, `recordedClause`,
@@ -633,3 +639,6 @@ Verified: `cargo test` 127 passing; `pnpm typecheck` clean; `pnpm test` 21 passi
 harness scene rendered before and after; the keyboard paths driven in a browser against
 the harness (Return, Option+arrows, Cmd+Return in the planner without touching the active
 task; P, Space, Cmd+Return on the day view; Esc from Stats, Settings and History).
+
+An independent review of the step then found nine things, all in the keyboard paths; the
+ones that were faults are fixed in step 18b and the wording above describes the result.

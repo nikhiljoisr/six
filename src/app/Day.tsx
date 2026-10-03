@@ -52,7 +52,6 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
             {plan.tasks.map((task) => (
               <li key={task.id}>
                 <TaskCard
-                  key={stateGroup(task)}
                   task={task}
                   pomodoro={snapshot.pomodoro}
                   brk={snapshot.break}
@@ -133,16 +132,11 @@ function firstMinutes(plan: PlanView, snapshot: DaySnapshot): boolean {
   );
 }
 
-/** A row is re-made, and so fades in, when its state changes; pausing the current task is not such a change. */
-function stateGroup(t: TaskView): string {
-  return t.status === "active" || t.status === "paused" ? "current" : t.status;
-}
-
 /** The planning streak, the one counter Six keeps (SPEC §4.6): days in a row with a locked list. */
 function Streak({ days }: { days: number }) {
   const label = `Planning streak: ${days} ${days === 1 ? "day" : "days"} in a row with a locked list`;
   return (
-    <span className="whitespace-nowrap text-amber-700" role="img" title={label} aria-label={label}>
+    <span className="whitespace-nowrap text-amber-700" role="img" title="Planning streak" aria-label={label}>
       <FlameIcon className="mr-1 inline-block h-3 w-3 align-[-1px]" />
       {days}
     </span>

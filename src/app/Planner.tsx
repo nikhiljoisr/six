@@ -57,19 +57,31 @@ export function Planner({
   // Keyboard: Return moves to the next row, Option+arrow moves the row itself. Rows are
   // keyed by place, so after a move the focus follows the row to its new place.
   const titleRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const focusAfterRender = useRef<number | null>(null);
-  const focusTitle = (i: number) => {
-    const el = titleRefs.current[i];
+  const noteRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const focusAfterRender = useRef<{ row: number; note: boolean } | null>(null);
+  const focusField = (row: number, note = false) => {
+    const el = (note && noteRefs.current[row]) || titleRefs.current[row];
     if (!el) return;
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   };
   useEffect(() => {
     if (focusAfterRender.current === null) return;
-    const i = focusAfterRender.current;
+    const { row, note } = focusAfterRender.current;
     focusAfterRender.current = null;
-    focusTitle(i);
+    focusField(row, note);
   });
+  // Cmd+Return saves from anywhere on the screen, focused field or not.
+  const saveFromKey = useRef<() => void>(() => {});
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
+      e.preventDefault();
+      saveFromKey.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Pre-fill once: the existing list if there is one, otherwise the carryover.
   useEffect(() => {
@@ -202,30 +214,29 @@ export function Planner({
   };
 
   const canSave = dateIsPlannable && filled > 0 && !saving;
-  const onRowKey = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing || e.metaKey || e.ctrlKey) return;
-    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+  saveFromKey.current = () => {
+    if (canSave) void save();
+  };
+  const onRowKey = (i: number, note: boolean, e: React.KeyboardEvent<HTMLInputElement>) => {
+    // An input method composing text owns its keys, including the Return that commits
+    // (which WebKit reports after the composition has ended, as key code 229).
+    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229 || e.metaKey || e.ctrlKey) return;
+    if (e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       const to = e.key === "ArrowUp" ? i - 1 : i + 1;
       e.preventDefault();
       if (to < 0 || to >= rows.length) return;
       move(i, to);
-      focusAfterRender.current = to;
+      focusAfterRender.current = { row: to, note };
       return;
     }
     if (e.key === "Enter" && !e.altKey && !e.shiftKey) {
       e.preventDefault();
-      if (i + 1 < rows.length) focusTitle(i + 1);
-    }
-  };
-  const onPlannerKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && e.metaKey && !e.ctrlKey && !e.altKey) {
-      e.preventDefault();
-      if (canSave) void save();
+      if (i + 1 < rows.length) focusField(i + 1);
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2" onKeyDown={onPlannerKey}>
+    <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2">
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
         <h1 className="font-serif text-[15px] font-normal text-stone-600">{longDate(date)}</h1>
         <div className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
@@ -266,7 +277,7 @@ export function Planner({
                 aria-label={`Task ${i + 1}`}
                 placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
                 onChange={(e) => update(i, { title: e.target.value })}
-                onKeyDown={(e) => onRowKey(i, e)}
+                onKeyDown={(e) => onRowKey(i, false, e)}
                 className="w-full bg-transparent py-0 pr-28 text-[15px] leading-8 text-stone-900 placeholder:text-stone-400 focus:outline-none"
                 maxLength={140}
                 autoFocus={i === 0 && !row.title}
@@ -274,11 +285,14 @@ export function Planner({
               {row.carriedFrom && <div className="font-serif text-[12px] leading-5 text-amber-700">from {carriedFromLabel}</div>}
               {(row.showNote || row.note) && (
                 <input
+                  ref={(el) => {
+                    noteRefs.current[i] = el;
+                  }}
                   value={row.note}
                   aria-label={`Note for task ${i + 1}`}
                   placeholder="A one-line note"
                   onChange={(e) => update(i, { note: e.target.value })}
-                  onKeyDown={(e) => onRowKey(i, e)}
+                  onKeyDown={(e) => onRowKey(i, true, e)}
                   className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-400 focus:outline-none"
                   maxLength={200}
                   autoFocus={row.showNote && !row.note}

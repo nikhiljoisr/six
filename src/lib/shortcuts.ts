@@ -49,23 +49,25 @@ export function installShortcuts(): () => void {
       store.navigate({ name: "planner", date: snap.today });
       return;
     }
-    if (meta && e.key === "Enter" && store.view.name === "day") {
+    const dialogOpen = !!document.querySelector("[role='dialog']");
+    // Not on a repeat (a held Cmd+Return that saved the planner must not go on to
+    // complete a task on the day view it returns to), and never behind an open dialog.
+    if (meta && e.key === "Enter" && !e.repeat && !dialogOpen && store.view.name === "day") {
       const active = snap.today_plan?.tasks.find((t) => t.status === "active");
       if (!active) return;
       e.preventDefault();
       void store.dispatch(() => api.complete(active.id));
       return;
     }
-    const dialogOpen = !!document.querySelector("[role='dialog']");
     const bare = !e.metaKey && !e.ctrlKey && !e.altKey;
-    if (e.key === "Escape" && bare && !dialogOpen && !typing(e.target)) {
+    if (e.key === "Escape" && bare && !e.repeat && !dialogOpen && !typing(e.target)) {
       const back = backFrom(store.view, store.previous);
       if (!back) return;
       e.preventDefault();
       store.navigate(back);
       return;
     }
-    if (e.key.toLowerCase() === "p" && bare && !e.shiftKey && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day") {
+    if (bare && !e.shiftKey && !e.repeat && !dialogOpen && !typing(e.target) && store.view.name === "day" && e.key.toLowerCase() === "p") {
       const active = snap.today_plan?.tasks.find((t) => t.status === "active");
       if (!active || !snap.pomodoro.enabled || snap.pomodoro.phase === "running") return;
       e.preventDefault();

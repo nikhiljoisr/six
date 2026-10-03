@@ -43,9 +43,11 @@ const ROW = "-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline";
 const GUTTER = "pr-3 text-right";
 
 /**
- * A row fades in when it is made (a task changing state re-makes its row; SPEC §3). The
- * fade is chosen once, at that moment, and only while the page is on screen: a hidden
- * web view does not advance animations, and a row must never wait at zero opacity.
+ * A row fades in when it is made: a task taking the current slot, or leaving it, is a new
+ * row (SPEC §3). An undo that returns a row to the list keeps the row, and the keyboard
+ * focus on it. The fade is chosen once, at that moment, and only while the page is on
+ * screen: a hidden web view does not advance animations, and a row must never wait at
+ * zero opacity.
  */
 function useFadeIn(): string {
   const [fade] = useState(() => (typeof document !== "undefined" && !document.hidden ? "fade-in" : ""));
