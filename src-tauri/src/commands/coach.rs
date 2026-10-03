@@ -12,7 +12,8 @@ use crate::domain::MAX_TASKS;
 #[derive(Debug, Clone, Serialize)]
 pub struct CoachStatus {
     pub enabled: bool,
-    /// A TypeSafe key is in the Keychain. Six never reads it for this answer.
+    /// A TypeSafe key is in the Keychain. Six never reads it for this answer, and does
+    /// not look at all while the coach is off (then this is false).
     pub key_present: bool,
 }
 
@@ -20,9 +21,10 @@ pub struct CoachStatus {
 pub async fn coach_status(app: AppHandle) -> CmdResult<CoachStatus> {
     let state = app.state::<AppState>();
     let enabled = db::load_settings(&state.pool).await?.coach_enabled;
-    let key_present = tauri::async_runtime::spawn_blocking(crate::coach::key_present)
-        .await
-        .unwrap_or(false);
+    let key_present = enabled
+        && tauri::async_runtime::spawn_blocking(crate::coach::key_present)
+            .await
+            .unwrap_or(false);
     Ok(CoachStatus { enabled, key_present })
 }
 
@@ -49,7 +51,11 @@ pub async fn coach_plan(app: AppHandle, titles: Vec<String>) -> CmdResult<CoachV
     let count = titles.len();
     let answers = tauri::async_runtime::spawn_blocking(move || crate::coach::ask(&request))
         .await
-        .map_err(|e| AppError::new("coach_failed", e.to_string()))?
+        .map_err(|e| {
+            eprintln!("[coach] the check stopped: {e}");
+            let failed = crate::coach::CoachError::Failed(String::new());
+            AppError::new(failed.code(), failed.message())
+        })?
         .map_err(|e| {
             eprintln!("[coach] {}: {e:?}", e.code());
             AppError::new(e.code(), e.message())

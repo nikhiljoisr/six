@@ -5,6 +5,7 @@ mod db;
 mod domain;
 mod coach;
 mod hotkey;
+mod login_item;
 mod scheduler;
 mod tray;
 
@@ -59,7 +60,7 @@ pub fn run() {
         // for the bundle so it is recognisable in ~/Library/LaunchAgents.
         .plugin(
             tauri_plugin_autostart::Builder::new()
-                .app_name("com.nikhiljois.six")
+                .app_name(login_item::LABEL)
                 .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
                 .build(),
         )
@@ -114,15 +115,27 @@ pub fn run() {
             if let Err(problem) = hotkey::apply(app.handle(), &shortcut) {
                 eprintln!("[six] global shortcut not registered: {problem}");
             }
-            // The login item records where Six was when the switch was set. If the switch
-            // is on and this is the app itself (not a development build), point it at
-            // where Six is now, so a moved app still opens at login.
+            // The login item records where Six was when the switch was set. If the app
+            // it names is gone (moved, replaced), point it at the Six that is running.
             {
                 use tauri_plugin_autostart::ManagerExt;
                 let launcher = app.autolaunch();
-                if in_app_bundle() && launcher.is_enabled().unwrap_or(false) {
-                    if let Err(problem) = launcher.enable() {
-                        eprintln!("[six] login item not refreshed: {problem}");
+                if launcher.is_enabled().unwrap_or(false) {
+                    let recorded = app
+                        .path()
+                        .home_dir()
+                        .ok()
+                        .map(|home| home.join("Library/LaunchAgents").join(format!("{}.plist", login_item::LABEL)))
+                        .and_then(|plist| fs::read_to_string(plist).ok())
+                        .and_then(|text| login_item::recorded_program(&text));
+                    let exists = recorded.as_deref().is_some_and(|p| std::path::Path::new(p).exists());
+                    let here = std::env::current_exe()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default();
+                    if login_item::should_repoint(recorded.as_deref(), exists, &here, in_app_bundle()) {
+                        if let Err(problem) = launcher.enable() {
+                            eprintln!("[six] login item not refreshed: {problem}");
+                        }
                     }
                 }
             }

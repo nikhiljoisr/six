@@ -118,6 +118,9 @@ pub fn split_output(output: &str) -> Option<(u16, &str)> {
 
 fn call(config: &str) -> Result<(u16, String), CoachError> {
     let mut child = Command::new("/usr/bin/curl")
+        // Nothing inherited: a proxy or a certificate bundle named in Six's environment
+        // must not carry the key and the titles somewhere else.
+        .env_clear()
         // First, so no curlrc of the user's changes what this does.
         .arg("--disable")
         .args(["--silent", "--show-error", "--proto", "=https", "--max-time", TIMEOUT_SECS])
@@ -146,29 +149,22 @@ fn call(config: &str) -> Result<(u16, String), CoachError> {
     Ok((status, body.to_string()))
 }
 
-/// Ask TypeSafe. Blocking: call it off the async runtime's threads. Returns the `answers`
-/// map. Busy answers (429, 529) are tried once more after a pause.
+/// Ask TypeSafe, once. Blocking: call it off the async runtime's threads. Returns the
+/// `answers` map. Nothing is retried: one press sends the titles one time, and a busy
+/// service is reported so the user can press again.
 pub fn ask(request: &Value) -> Result<Value, CoachError> {
     let key = read_key()?;
     let config = curl_config(&key, &request.to_string());
     drop(key);
-    let mut attempt = 0;
-    loop {
-        attempt += 1;
-        let (status, body) = call(&config)?;
-        return match status {
-            200 => serde_json::from_str::<Value>(&body)
-                .ok()
-                .and_then(|v| v.get("answers").cloned())
-                .ok_or_else(|| CoachError::Failed("unreadable answer".to_string())),
-            401 | 403 => Err(CoachError::Refused),
-            429 | 529 if attempt < 2 => {
-                std::thread::sleep(std::time::Duration::from_millis(1500));
-                continue;
-            }
-            429 | 529 => Err(CoachError::Busy),
-            other => Err(CoachError::Failed(format!("HTTP {other}"))),
-        };
+    let (status, body) = call(&config)?;
+    match status {
+        200 => serde_json::from_str::<Value>(&body)
+            .ok()
+            .and_then(|v| v.get("answers").cloned())
+            .ok_or_else(|| CoachError::Failed("unreadable answer".to_string())),
+        401 | 403 => Err(CoachError::Refused),
+        429 | 529 => Err(CoachError::Busy),
+        other => Err(CoachError::Failed(format!("HTTP {other}"))),
     }
 }
 

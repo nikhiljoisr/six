@@ -889,3 +889,41 @@ typecheck` clean; the bench's self-test passing. Rendered light and dark. Not ve
 natively: pressing the link in the real window (the screen was locked), owed with the
 rest of the native pass.
 
+## 2026-10-03 — Step 21b: what an independent review found in Tier 3
+
+A third reader went through steps 20, 19b and 21. On the coach it looked for a task
+title that could break out of curl's configuration and inject an option, and for any way
+the key could reach a command line, a log or the page; it found neither, and found
+nothing sent with the switch off. It found eight smaller things. All are settled here.
+
+- **The login item could be taken over by any other copy of Six.** Step 19b rewrote it on
+  every launch from an app bundle, so trying a second build would have pointed login at
+  that build. It is now repointed only when the app it names no longer exists, and never
+  from the temporary path macOS runs a quarantined download from (`login_item.rs`).
+- **Settings looked in the Keychain with the coach off.** Opening Settings asked whether
+  a TypeSafe key exists, whatever the switch said. With the coach off Six no longer looks
+  at the Keychain at all.
+- **The planner's foot line went stale.** After a check it kept saying "2 rows have a
+  note" when those titles had been edited. It now belongs to the titles it was said
+  about: change one and the line returns to the count.
+- **"Days reviewed" counted days that cannot have a review yet.** Its denominator
+  included today's running list and tomorrow's. It is now the days that could have one:
+  every list before today, and today's once reviewed (`days_reviewable`).
+- **"Once" was not always once.** A busy answer (429, 529) made the coach send the
+  titles a second time. It no longer retries: one press, one request, and a busy service
+  is reported.
+- **curl inherited Six's environment.** A proxy or certificate bundle named there could
+  have carried the key and titles elsewhere. curl is now started with no environment.
+- **A failure inside the check could reach the page as raw text.** It now uses the same
+  fixed sentence as every other failure.
+- **Recorded now, changed in step 19b:** the return banner's second line reads "Six has
+  … recorded on this task." and its confirmation "Taken out of the recorded time."
+  (Rust now decides what is taken out, so the page no longer states what was kept). A
+  stored `ctrl+alt+space` shortcut would load as Off; no released build ever stored one.
+
+Verified: `cargo test` 161 passing; the two live tests again, through curl with an empty
+environment; `pnpm test` 34 passing; `pnpm typecheck` clean. In the browser against the
+harness: the foot line across an edit and back, and Settings asking nothing about the
+Keychain until the switch is on. 46 scenes rendered: 45 pixel-identical to step 21, and
+Stats differs by the one figure.
+

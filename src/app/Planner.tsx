@@ -59,7 +59,9 @@ export function Planner({
   const coachOn = snapshot.settings.coach_enabled;
   const [checked, setChecked] = useState<Checked | null>(null);
   const [checking, setChecking] = useState(false);
-  const [coachSays, setCoachSays] = useState<string | null>(null);
+  // What the foot line says after a check, and the titles it was said about: once a
+  // title changes, the line goes back to the count.
+  const [coachSays, setCoachSays] = useState<{ text: string; about: string } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const dragIndex = useRef<number | null>(null);
   // Keyboard: Return moves to the next row, Option+arrow moves the row itself. Rows are
@@ -162,21 +164,24 @@ export function Planner({
   const filled = rows.filter((r) => r.title.trim().length > 0).length;
   const label = isToday ? "Today's six" : "Tomorrow's six";
 
+  const titlesNow = rows.map((r) => r.title.trim()).filter((t) => t.length > 0);
+  const about = titlesNow.join("\n");
   const check = async () => {
-    const titles = rows.map((r) => r.title.trim()).filter((t) => t.length > 0);
+    const titles = titlesNow;
     if (titles.length === 0 || checking) return;
     setChecking(true);
     setCoachSays(null);
     try {
       const view = await api.coachPlan(titles);
       setChecked({ titles, hints: view.hints });
-      setCoachSays(checkSummary(view.hints));
+      setCoachSays({ text: checkSummary(view.hints), about });
     } catch (e) {
-      setCoachSays(isAppError(e) ? e.message : "The check did not work. The list is as you left it.");
+      setCoachSays({ text: isAppError(e) ? e.message : "The check did not work. The list is as you left it.", about });
     } finally {
       setChecking(false);
     }
   };
+  const footLine = coachSays && coachSays.about === about ? coachSays.text : null;
   const rowHints = coachOn ? hintsForRows(rows.map((r) => r.title), checked) : [];
 
   const save = async () => {
@@ -357,7 +362,7 @@ export function Planner({
         </Button>
         {coachOn ? (
           <p className="mt-2 flex items-baseline justify-between gap-4 font-serif text-[12px] leading-5 text-stone-500">
-            <span role="status">{coachSays ?? `Choose up to six. Fewer is fine.${filled > 0 ? ` ${filled} of 6.` : ""}`}</span>
+            <span role="status">{footLine ?? `Choose up to six. Fewer is fine.${filled > 0 ? ` ${filled} of 6.` : ""}`}</span>
             <button
               type="button"
               className="shrink-0 hover:text-stone-900 disabled:opacity-40"

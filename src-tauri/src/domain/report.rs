@@ -52,7 +52,7 @@ pub fn text_report(stats: &Stats, days: &[Day], now: DateTime<Utc>) -> String {
     out.push_str(&format!("Overrides: {}\n", stats.overrides));
     out.push_str(&format!(
         "Days reviewed: {} of {}\n",
-        stats.days_reviewed, stats.days_planned
+        stats.days_reviewed, stats.days_reviewable
     ));
     let positions: Vec<String> = stats
         .by_position
@@ -150,7 +150,7 @@ mod tests {
             &Ctx::new(at(18), date, "dev"),
         )
         .unwrap();
-        let s = stats(std::slice::from_ref(&day), &[], date, date, at(19));
+        let s = stats(std::slice::from_ref(&day), &[], date, date, at(19), date);
         let text = text_report(&s, std::slice::from_ref(&day), at(19));
         assert!(text.starts_with("Six — Thu 3 Sep 2026 to Thu 3 Sep 2026\n"));
         assert!(text.contains("Days planned: 1/1\n"));

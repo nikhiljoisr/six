@@ -76,7 +76,7 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
             <Fact label="Focus" value={duration(stats.focus_seconds)} />
             <Fact label="Pomodoros" value={String(stats.pomodoros)} sub={stats.pomodoros_interrupted > 0 ? `${stats.pomodoros_interrupted} interrupted` : undefined} />
             <Fact label="Overrides" value={String(stats.overrides)} />
-            <Fact label="Days reviewed" value={`${stats.days_reviewed} of ${stats.days_planned}`} />
+            <Fact label="Days reviewed" value={`${stats.days_reviewed} of ${stats.days_reviewable}`} />
           </dl>
 
           {trend && (

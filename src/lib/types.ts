@@ -251,6 +251,8 @@ export interface Stats {
   overrides: number;
   /** Planned days in range that ended with a review. */
   days_reviewed: number;
+  /** Planned days that could have one by now (not a day still running, nor tomorrow's list). */
+  days_reviewable: number;
   /** Positions 1 to 6, always all six. */
   by_position: { position: number; total: number; done: number }[];
   trend: DayStat[];

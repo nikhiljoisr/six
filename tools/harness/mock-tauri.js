@@ -385,7 +385,7 @@
       if (!returnGap || returnGap.session_id !== session_id) fail("invalid_trim", "there is no silence to take out");
       return commands.trim_session({ session_id });
     },
-    coach_status: () => ({ enabled: settings.coach_enabled, key_present: true }),
+    coach_status: () => ({ enabled: settings.coach_enabled, key_present: settings.coach_enabled }),
     // Keyword rules standing in for TypeSafe: enough to show every kind of hint.
     coach_plan: ({ titles }) => {
       if (!settings.coach_enabled) fail("coach_off", "the planning coach is switched off in Settings");
@@ -518,6 +518,7 @@
         pomodoros_interrupted: poms.filter((p) => p.outcome === "interrupted").length,
         overrides: inRange.reduce((sum, p) => sum + p.overrides, 0),
         days_reviewed: inRange.filter((p) => p.reviewed_at).length,
+        days_reviewable: inRange.filter((p) => p.date < TODAY || p.reviewed_at).length,
         by_position: [1, 2, 3, 4, 5, 6].map((position) => {
           const at = all.filter((t) => t.position === position);
           return { position, total: at.length, done: done(at) };

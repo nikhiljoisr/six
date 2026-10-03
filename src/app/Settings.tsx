@@ -29,8 +29,13 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
     api.getAppInfo().then(setInfo).catch(() => setInfo(null));
     api.getAutostart().then(setAtLogin).catch(() => setAtLogin(null));
   }, []);
-  // Whether a key is there is asked again when the switch moves.
+  // Whether a key is there is asked only while the coach is on: with it off, Six does
+  // not look at the Keychain at all.
   useEffect(() => {
+    if (!s.coach_enabled) {
+      setCoach(null);
+      return;
+    }
     api.coachStatus().then(setCoach).catch(() => setCoach(null));
   }, [s.coach_enabled]);
 

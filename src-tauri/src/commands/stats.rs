@@ -44,7 +44,7 @@ pub async fn get_stats(app: AppHandle, from: String, to: String) -> CmdResult<St
         ));
     }
     let (days, events) = load_with_lineage(&state, from, to).await?;
-    Ok(analytics::stats(&days, &events, from, to, clock.now))
+    Ok(analytics::stats(&days, &events, from, to, clock.now, clock.today))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -122,7 +122,7 @@ pub async fn export_range(
         ));
     }
     let (days, events) = load_with_lineage(&state, from, to).await?;
-    let stats = analytics::stats(&days, &events, from, to, clock.now);
+    let stats = analytics::stats(&days, &events, from, to, clock.now, clock.today);
     let in_range: Vec<&Day> = days
         .iter()
         .filter(|d| d.plan.plan_date >= from && d.plan.plan_date <= to)
@@ -172,7 +172,7 @@ pub async fn export_all(app: AppHandle) -> CmdResult<ExportResult> {
     let to = clock.tomorrow() + Duration::days(1);
     let days = db::load_days(&state.pool, from, to).await?;
     let events = db::events_between(&state.pool, from, to).await?;
-    let stats = analytics::stats(&days, &events, from, to, clock.now);
+    let stats = analytics::stats(&days, &events, from, to, clock.now, clock.today);
     let export = Export {
         exported_at: clock.now,
         from,

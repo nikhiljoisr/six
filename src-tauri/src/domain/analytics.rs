@@ -55,6 +55,9 @@ pub struct Stats {
     pub overrides: usize,
     /// Planned days in range that ended with a review.
     pub days_reviewed: usize,
+    /// Planned days in range that could have one by now: every list dated before today,
+    /// and today's once it has been reviewed. Tomorrow's list is not owed anything yet.
+    pub days_reviewable: usize,
     /// Positions 1 to 6, always all six, in order.
     pub by_position: Vec<PositionStat>,
     /// One entry per calendar day in the range, oldest first; unplanned days are zeros.
@@ -69,6 +72,7 @@ pub fn stats(
     from: NaiveDate,
     to: NaiveDate,
     now: DateTime<Utc>,
+    today: NaiveDate,
 ) -> Stats {
     let locked: Vec<&Day> = days
         .iter()
@@ -127,6 +131,10 @@ pub fn stats(
         pomodoros_interrupted: 0,
         overrides,
         days_reviewed: locked.iter().filter(|d| d.plan.reviewed_at.is_some()).count(),
+        days_reviewable: locked
+            .iter()
+            .filter(|d| d.plan.plan_date < today || d.plan.reviewed_at.is_some())
+            .count(),
         by_position: (1..=MAX_TASKS)
             .map(|p| PositionStat {
                 position: u8::try_from(p).unwrap_or(u8::MAX),
@@ -260,7 +268,7 @@ mod tests {
         d1.complete(&ids[3], &c3).unwrap();
         let events: Vec<Event> = d1.pending_events.clone();
         let d2 = day(2, &["E"], &[]);
-        let s = stats(&[d1, d2], &events, date(1), date(7), at(2, 10));
+        let s = stats(&[d1, d2], &events, date(1), date(7), at(2, 10), date(2));
         assert_eq!(s.days_in_range, 7);
         assert_eq!(s.days_planned, 2);
         assert_eq!((s.tasks_total, s.tasks_done), (5, 2));
@@ -300,7 +308,15 @@ mod tests {
         let e = d2.tasks[0].id.clone();
         d2.complete(&e, &Ctx::new(at(2, 10), date(2), "dev")).unwrap();
 
-        let s = stats(&[d1, d2], &[], date(1), date(7), at(2, 12));
+        let d3 = day(3, &["G"], &[]);
+        // Seen on day 2: day 1 is over and reviewed, day 2 is still running, day 3 is
+        // tomorrow's list. Only day 1 could have a review yet.
+        let s = stats(&[d1.clone(), d2.clone(), d3.clone()], &[], date(1), date(7), at(2, 12), date(2));
+        assert_eq!((s.days_planned, s.days_reviewed, s.days_reviewable), (3, 1, 1));
+        // Seen on day 4: all three are over; one was reviewed.
+        let later = stats(&[d1.clone(), d2.clone(), d3], &[], date(1), date(7), at(4, 12), date(4));
+        assert_eq!((later.days_reviewed, later.days_reviewable), (1, 3));
+        let s = stats(&[d1, d2], &[], date(1), date(7), at(2, 12), date(2));
         assert_eq!(s.days_planned, 2);
         assert_eq!(s.days_reviewed, 1);
         assert_eq!((s.pomodoros, s.pomodoros_interrupted), (1, 1), "finished early is neither");
@@ -315,10 +331,10 @@ mod tests {
 
     #[test]
     fn an_empty_range_still_has_six_positions() {
-        let s = stats(&[], &[], date(1), date(7), at(2, 12));
+        let s = stats(&[], &[], date(1), date(7), at(2, 12), date(2));
         assert_eq!(s.by_position.len(), 6);
         assert!(s.by_position.iter().all(|p| p.total == 0 && p.done == 0));
-        assert_eq!((s.days_reviewed, s.pomodoros_interrupted), (0, 0));
+        assert_eq!((s.days_reviewed, s.days_reviewable, s.pomodoros_interrupted), (0, 0, 0));
     }
 
     #[test]
