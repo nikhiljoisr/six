@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { hourLabel, tildePath } from "../lib/format";
 import { backFrom } from "../lib/nav";
 import { chime } from "../lib/sound";
-import type { AppInfo, DaySnapshot, GlobalShortcut, NotificationStatus, Settings as SettingsView } from "../lib/types";
+import type { AppInfo, CoachStatus, DaySnapshot, GlobalShortcut, NotificationStatus, Settings as SettingsView } from "../lib/types";
 import { useStore } from "../store";
 
 // A minimal screen (SPEC §4.9). Every value is saved as it changes; Rust validates.
@@ -22,12 +22,17 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
   // Opening at login is macOS's to remember, not Six's: asked for, never mirrored in settings.
   const [atLogin, setAtLogin] = useState<boolean | null>(null);
   const [loginProblem, setLoginProblem] = useState<string | null>(null);
+  const [coach, setCoach] = useState<CoachStatus | null>(null);
 
   useEffect(() => {
     api.notificationStatus().then(setNotif).catch(() => setNotif({ available: false, permission: "unavailable" }));
     api.getAppInfo().then(setInfo).catch(() => setInfo(null));
     api.getAutostart().then(setAtLogin).catch(() => setAtLogin(null));
   }, []);
+  // Whether a key is there is asked again when the switch moves.
+  useEffect(() => {
+    api.coachStatus().then(setCoach).catch(() => setCoach(null));
+  }, [s.coach_enabled]);
 
   const openAtLogin = async (on: boolean) => {
     try {
@@ -222,6 +227,26 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
             )}
           </Row>
         )}
+      </Section>
+
+      <Section title="Planning coach">
+        <Row
+          label="Check a list with TypeSafe"
+          hint={
+            !s.coach_enabled
+              ? "Off. Six makes no network request of any kind."
+              : coach && !coach.key_present
+                ? "On, but there is no TypeSafe key in your Keychain (typesafe-api-key), so nothing can be sent."
+                : "On. Nothing is sent until you press Check the list in the planner."
+          }
+        >
+          <Toggle value={s.coach_enabled} onChange={(v) => set("coach_enabled", v)} />
+        </Row>
+        <p className="py-2.5 text-[12px] leading-4 text-stone-500">
+          When this is on, the planner gains "Check the list". Pressing it sends the task titles of that one list to api.typesafe.ai (never notes, times or
+          history) and each row may get one remark, such as "Reads as two tasks." Nothing is sent at any other time. Six reads your key from the Keychain
+          and never stores it.
+        </p>
       </Section>
 
       <Section title="Data">

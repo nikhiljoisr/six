@@ -17,7 +17,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 // Starting points to evaluate on your own lists, not settled values.
-export const THRESHOLDS = { same: 0.8, compound: 0.8, noFinish: 0.25, big: 2.5, bigConfidence: 0.5 };
+// Evaluated on 42 labelled rows on 3 Oct 2026 (evaluate.mjs): no false alarms; "and"
+// traps reached 0.76 and real two-in-ones started at 0.91, hence 0.85.
+export const THRESHOLDS = { same: 0.8, compound: 0.85, noFinish: 0.25, big: 2.5, bigConfidence: 0.5 };
 // Size level (0-3) to a check-in interval in minutes. Six's default is 75.
 export const CHECK_IN = [25, 45, 75, 90];
 const AREAS = {
@@ -84,11 +86,29 @@ export function buildRequest(tasks, model) {
   return { state, model, questions };
 }
 
+/**
+ * The request Six itself sends (src-tauri/src/domain/coach.rs builds the same one): task
+ * titles only, no notes, and only the questions the four hints need.
+ */
+export function buildAppRequest(tasks, model) {
+  const full = buildRequest(
+    tasks.map((t) => ({ title: t.title })),
+    model,
+  );
+  const questions = {};
+  for (const [id, q] of Object.entries(full.questions)) {
+    if (id.startsWith("area_")) continue;
+    questions[id] = id.startsWith("size_") ? { ...q, instructions: q.instructions.replace(/ Use its note at `[^`]+` when present\./, "") } : q;
+  }
+  const state = { method: full.state.method, plan: { tasks: full.state.plan.tasks.map(({ position, title }) => ({ position, title })) } };
+  return { state, model, questions };
+}
+
 /** Code owns the policy: at most one hint per row, in a fixed order of usefulness. */
 export function compose(tasks, answers) {
   const rows = tasks.map((t, i) => {
     const size = answers[`size_${i}`];
-    const area = answers[`area_${i}`];
+    const area = answers[`area_${i}`] ?? { choice: "other", confidence: 0 };
     const compound = answers[`compound_${i}`].noul;
     const finish = answers[`finish_${i}`].noul;
     let twin = null;

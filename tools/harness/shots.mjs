@@ -46,6 +46,7 @@ export const SHOTS = [
   { name: "planner-empty", query: "state=planner-empty" },
   { name: "planner-error", query: "state=planner-error", wait: 3200 },
   { name: "planner-pending", query: "state=planner-pending", wait: 2800 },
+  { name: "planner-coach", query: "state=planner-coach", wait: 5000 },
   { name: "review-1", query: "state=review-1&phase=evening" },
   { name: "review-2", query: "state=review-2&phase=evening", wait: 3000 },
   { name: "review-jots", query: "state=review-jots&phase=evening" },

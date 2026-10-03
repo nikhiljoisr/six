@@ -13,7 +13,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - Silent by default. An optional sound on timer transitions is a Settings switch, off out of the box (three synthesised sounds, three levels); nothing else ever sounds.
 - Facts, not gamification. The only counter is the planning streak.
 - Timers measure, they don't nag. Pomodoro (Nikhil's addition, on by default) is a rhythm layer over sessions: a countdown on the active card, a silent ring answered by a tap; interruptions are recorded as facts, never penalised. Focus time exists for the evening reflection. A long silence in a session is recorded; Six offers to take it out when you come back and again in the review, and never subtracts time by itself.
-- Offline only. No accounts, no network, no telemetry.
+- Offline by default. No accounts, no telemetry, and no network unless the planning coach is switched on (Settings; off out of the box). With it on, the one request Six ever makes is the one the user asks for with "Check the list": that list's task titles to TypeSafe.
 - Boring technology. Solo maintainer; every choice must still make sense in a year.
 - When in doubt, remove rather than add.
 
@@ -37,6 +37,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - Parked thoughts (`jots`) are read with the `Day` and written by their own commands; `save_day` never touches them.
 - A copy of the database is written once per calendar day, at startup and by the ticker (`db/backup.rs`, `VACUUM INTO`, seven kept).
 - Tauri stays at 2.11.5: plugins are pinned to versions that do not pull a newer one.
+- The planning coach links no HTTP client: `src-tauri/src/coach.rs` runs the system's `curl` and reads the key with `security` from the Keychain, both through pipes. The webview's CSP is unchanged and the webview cannot reach the network. The questions and the policy are pure (`domain/coach.rs`) and pinned, with the bench in `tools/typesafe-eval`, to one request fixture.
 - "Today" is the local date at (now − day_start_hour). Rollover is checked on every state read.
 
 ## Working rules (SPEC §7)

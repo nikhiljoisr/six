@@ -825,3 +825,67 @@ opened over History and cancelled, a late review with tomorrow planned first, an
 banner's take-out. 45 scenes rendered; today's review is pixel-identical to the renders
 from before Tier 2.
 
+## 2026-10-03 — Step 21 (Tier 3): an optional planning coach (amends SPEC §2, "Offline only")
+
+The last item of the third tier, and the only one that reaches outside the Mac. It was
+built on a condition set in step 16: evaluate first, and do not build if the judgments
+are poor. They were not, so it is built, switched off.
+
+**What it is.** Settings → Planning coach → "Check a list with TypeSafe", off by default.
+With it on, the planner has a "Check the list" link. Pressing it sends the task titles on
+screen to TypeSafe's System One API, once, and each row may get one remark under its
+title: "Same work as row 5.", "Reads as two tasks.", "No clear finish.", or "Looks like
+most of a day." (in that order of precedence, one a row at most). A remark is tied to the
+title it was about: move the row and it follows; edit the title and it goes. Nothing
+blocks or changes saving.
+
+**The amendment.** SPEC §2 said "Offline only. No accounts, no network, no telemetry."
+It now reads: offline by default; no accounts and no telemetry ever; and no network
+unless the coach is switched on, in which case the one request Six makes is the one the
+user asks for by pressing the link. With the switch off Six makes no network request of
+any kind, as before. The README's privacy section says the same.
+
+**What is sent.** The titles of that one list and the fixed questions about them. Not
+notes (the bench sent them at first; the app never does, and the evaluation was re-run
+without them), not times, not history, not the date, nothing that identifies the Mac.
+
+**The evaluation.** 48 made-up rows with the remark a careful reader would expect, 42
+scored, four runs (`tools/typesafe-eval/evaluate.mjs`): 40 or 41 right, no false alarm in
+any run, one or two misses (always one duplicate worded differently), about 0.35 s and
+3,300 tokens a list. No false alarms is what decided it: a remark on a good row would be
+a nag, and "timers measure, they don't nag" applies to remarks too. The two-in-one
+threshold was raised from 0.80 to 0.85 on what the runs showed (traps for the word
+"and" reached 0.76; real ones started at 0.91).
+
+**How it is built.**
+- The questions and the policy are pure Rust (`domain/coach.rs`). The model answers
+  yes/no and how-much questions with probabilities; it never writes a word that is
+  shown. The request and the policy are the bench's, and both are pinned to one fixture
+  that the Rust tests and the bench's self-test read, so they cannot drift apart.
+- No HTTP client is linked into Six and no new crate was added. `coach.rs` runs the
+  `curl` that ships with macOS (`--proto =https`, the user's curlrc ignored, 20 s limit)
+  and reads the key with `/usr/bin/security` from the Keychain item `typesafe-api-key`.
+  The key and the body reach curl through a pipe: never on a command line, in a file or
+  in a log. Six never asks for the key and never stores it.
+- The webview is as closed as before: the CSP is unchanged, and the call is made by the
+  Rust core, outside the gate (it reads one setting and touches nothing of the day).
+- Off, no key, no network, a busy or refusing service: the planner is exactly as it
+  was, and the foot line says in one sentence that nothing changed. With the coach off
+  the planner renders pixel-identically to before.
+
+**Not taken from the bench.** A check-in interval per task from its size, and a weekly
+"kind of work" mix. Neither earns its explanation. No automatic checking as you type or
+on lock: the user asks, or nothing is sent.
+
+**Limits.** A duplicate worded very differently can be missed, and an answer near a
+threshold can differ between two presses. `jev-latest` will change over time; the
+evaluation is the thing to re-run when it does, and before touching a threshold.
+
+Verified: `cargo test` 159 passing (9 new), plus two live tests run by hand
+(`cargo test -- --ignored live_`): six made-up titles through the real path (Keychain,
+curl, TypeSafe) came back with exactly the remarks a reader would give, and a wrong key
+was refused with 401. `pnpm test` 34 passing (6 new, the remark-to-row rule); `pnpm
+typecheck` clean; the bench's self-test passing. Rendered light and dark. Not verified
+natively: pressing the link in the real window (the screen was locked), owed with the
+rest of the native pass.
+

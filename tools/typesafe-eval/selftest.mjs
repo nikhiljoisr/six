@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ask, buildRequest, compose, THRESHOLDS } from "./coach.mjs";
+import { ask, buildAppRequest, buildRequest, compose, THRESHOLDS } from "./coach.mjs";
 import { start } from "./mock-server.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +39,18 @@ try {
   assert.equal(rows[0].checkIn, 25);
   assert.equal(Object.values(mix).reduce((a, b) => a + b, 0), 6);
   assert.ok(THRESHOLDS.same > 0.5 && THRESHOLDS.compound > 0.5);
+
+  // 4b. The request Six itself sends is pinned to a fixture that the Rust tests read too
+  //     (src-tauri/src/domain/coach.rs), so the app and this bench ask the same thing.
+  //     Titles only: a note is never part of it.
+  const pinned = JSON.parse(readFileSync(join(here, "fixtures", "app-request.json"), "utf8"));
+  const app = buildAppRequest(
+    [{ title: "Send the Q3 numbers to Priya" }, { title: "Work on the website", note: "never sent" }, { title: "Ring the accountant re: tax filing" }],
+    "jev-latest",
+  );
+  assert.deepEqual(app, pinned);
+  assert.ok(!JSON.stringify(app).includes("never sent"));
+  assert.ok(!Object.keys(app.questions).some((id) => id.startsWith("area_")));
 
   // 5. A bad key and a malformed question surface the service's own status.
   await assert.rejects(ask(body, { key: "", base: url }), /401/);

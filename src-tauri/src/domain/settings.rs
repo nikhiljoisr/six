@@ -42,6 +42,9 @@ pub struct Settings {
     pub sound_level: String,
     /// "light" (the default, as Six has always been), "dark", or "auto" (follow macOS).
     pub appearance: String,
+    /// The planning coach: "Check the list" in the planner sends that list's titles to
+    /// TypeSafe. Off by default; with it off Six makes no network request of any kind.
+    pub coach_enabled: bool,
 }
 
 /// The sounds Six can make, all synthesised: nothing ships and nothing is loaded.
@@ -76,6 +79,7 @@ impl Default for Settings {
             sound_style: "two_note".to_string(),
             sound_level: "normal".to_string(),
             appearance: "light".to_string(),
+            coach_enabled: false,
         }
     }
 }
@@ -93,7 +97,7 @@ pub enum SettingsError {
 }
 
 impl Settings {
-    pub const KEYS: [&'static str; 18] = [
+    pub const KEYS: [&'static str; 19] = [
         "evening_hour",
         "checkin_minutes",
         "break_minutes",
@@ -112,6 +116,7 @@ impl Settings {
         "sound_style",
         "sound_level",
         "appearance",
+        "coach_enabled",
     ];
 
     /// Apply one key/value pair as stored in the settings table.
@@ -181,6 +186,7 @@ impl Settings {
             "onboarded" => Some((&mut self.onboarded, "onboarded")),
             "countdown_line" => Some((&mut self.countdown_line, "countdown_line")),
             "tray_minutes" => Some((&mut self.tray_minutes, "tray_minutes")),
+            "coach_enabled" => Some((&mut self.coach_enabled, "coach_enabled")),
             _ => None,
         };
         if let Some((slot, name)) = bool_slot {
@@ -305,6 +311,7 @@ mod tests {
         assert_eq!(d.appearance, "light");
         assert_eq!((d.sound_style.as_str(), d.sound_level.as_str()), ("two_note", "normal"));
         assert!(!d.sound_enabled, "and still silent");
+        assert!(!d.coach_enabled, "and still offline");
 
         let mut s = Settings::default();
         s.apply("tray_minutes", "1").unwrap();

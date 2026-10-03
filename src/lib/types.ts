@@ -104,6 +104,21 @@ export interface Settings {
   sound_level: "soft" | "normal" | "loud";
   /** Light unless chosen otherwise; "auto" follows macOS. */
   appearance: "light" | "dark" | "auto";
+  /** The planning coach. Off by default; with it off Six makes no network request. */
+  coach_enabled: boolean;
+}
+
+/** One quiet remark about a row of a list that was checked. `row` counts the titles sent, from 1. */
+export type CoachHint = { kind: "same_as"; row: number } | { kind: "two_tasks" } | { kind: "no_finish" } | { kind: "most_of_a_day" };
+
+export interface CoachView {
+  /** One entry per title sent, in order. */
+  hints: (CoachHint | null)[];
+}
+
+export interface CoachStatus {
+  enabled: boolean;
+  key_present: boolean;
 }
 
 export type GlobalShortcut = "off" | "alt+cmd+6" | "ctrl+alt+6" | "ctrl+cmd+6";

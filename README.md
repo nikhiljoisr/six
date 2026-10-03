@@ -137,11 +137,32 @@ is already in front. It is off until you choose one.
 All data is one SQLite file at
 `~/Library/Application Support/com.nikhiljois.six/six.db`. Once a day Six saves a
 copy of that file to `backups/` beside it and keeps the last seven. Exports go to
-`~/Six/exports/`. Six makes no network requests of any kind.
+`~/Six/exports/`. Six makes no network requests of any kind, unless you switch on the
+planning coach below, which is off by default.
 
 Settings → This Mac → "Open Six at login" is off by default. Switching it on writes one
 file, `~/Library/LaunchAgents/com.nikhiljois.six.plist`; switching it off removes it.
 Deleting the app, that file if it is there, and the data folder removes everything.
+
+## The planning coach (optional, off by default)
+
+Settings → Planning coach → "Check a list with TypeSafe". With it on, the planner gains a
+"Check the list" link. Pressing it sends the task titles of that one list to
+[TypeSafe](https://typesafe.ai) and each row may get one quiet remark: "Reads as two
+tasks.", "No clear finish.", "Looks like most of a day.", or "Same work as row 5." The
+remarks never block saving and go away when you edit the row.
+
+- **What is sent, and when:** the titles on screen, once, when you press the link.
+  Never notes, times, history or anything else, and never at any other time.
+- **The key:** Six does not ask for one and never stores one. It reads a Keychain item
+  named `typesafe-api-key`, which you create yourself:
+  `security add-generic-password -U -s typesafe-api-key -a "$USER" -w` (it asks for the
+  key). TypeSafe bills your account for each check, a small fraction of a cent.
+- **If it is off, or there is no key, or no network:** the planner works exactly as it
+  always has.
+
+The model only answers narrow yes/no and how-much questions; the words are Six's. How well
+it judges is measured in [`tools/typesafe-eval`](tools/typesafe-eval).
 
 ## Build from source
 

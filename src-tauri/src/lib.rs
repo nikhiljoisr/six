@@ -3,6 +3,7 @@
 mod commands;
 mod db;
 mod domain;
+mod coach;
 mod hotkey;
 mod scheduler;
 mod tray;
@@ -179,6 +180,8 @@ pub fn run() {
             commands::review::trim_session,
             commands::review::keep_gap,
             commands::review::trim_return_gap,
+            commands::coach::coach_status,
+            commands::coach::coach_plan,
             commands::review::complete_review,
             commands::stats::get_streak,
             commands::stats::get_stats,

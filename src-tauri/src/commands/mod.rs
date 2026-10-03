@@ -8,6 +8,7 @@
 //! Functions documented "gate held" never take the gate themselves (it is not
 //! re-entrant); their callers do.
 
+pub mod coach;
 pub mod nudges;
 pub mod plans;
 pub mod review;

@@ -49,6 +49,7 @@
     sound_style: "two_note",
     sound_level: "normal",
     appearance: "light",
+    coach_enabled: false,
   };
   let returnGap = null; // the unanswered silence on the running session, if a scene seeds one
   let atLogin = false;
@@ -253,7 +254,7 @@
     }
   }
   const publish = () => emit("state_changed", snapshot());
-  const BOOLEAN_SETTINGS = ["pomodoro_enabled", "sound_enabled", "onboarded", "countdown_line", "tray_minutes"];
+  const BOOLEAN_SETTINGS = ["pomodoro_enabled", "sound_enabled", "onboarded", "countdown_line", "tray_minutes", "coach_enabled"];
   const TEXT_SETTINGS = ["tray_style", "nudge_style", "global_shortcut", "sound_style", "sound_level", "appearance"];
 
   const commands = {
@@ -383,6 +384,22 @@
     trim_return_gap: ({ session_id }) => {
       if (!returnGap || returnGap.session_id !== session_id) fail("invalid_trim", "there is no silence to take out");
       return commands.trim_session({ session_id });
+    },
+    coach_status: () => ({ enabled: settings.coach_enabled, key_present: true }),
+    // Keyword rules standing in for TypeSafe: enough to show every kind of hint.
+    coach_plan: ({ titles }) => {
+      if (!settings.coach_enabled) fail("coach_off", "the planning coach is switched off in Settings");
+      harness.lastCoachTitles = titles;
+      return {
+        hints: titles.map((title, i) => {
+          const twin = titles.findIndex((other, j) => j < i && /accountant/i.test(other) && /accountant/i.test(title));
+          if (twin >= 0) return { kind: "same_as", row: twin + 1 };
+          if (/ and decide |;/.test(title)) return { kind: "two_tasks" };
+          if (/^(work on|think about|look into)/i.test(title)) return { kind: "no_finish" };
+          if (/end to end|rewrite|migrate/i.test(title)) return { kind: "most_of_a_day" };
+          return null;
+        }),
+      };
     },
     get_autostart: () => atLogin,
     set_autostart: ({ enabled }) => (atLogin = !!enabled),
@@ -543,6 +560,7 @@
     "plugin:event|unlisten": () => null,
   };
 
+  const inFlight = new Set();
   window.__TAURI_INTERNALS__ = {
     invoke: (cmd, args = {}) =>
       new Promise((resolve, reject) => {
@@ -551,8 +569,12 @@
         // Answer in a later task, as real IPC does (a microtask would let a whole save
         // finish between two listeners of one key event). A message channel, not a timer:
         // timers are throttled in a hidden page.
+        // The channel is held until it has delivered: WebKit may collect one that nothing
+        // refers to, and the answer would never come.
         const channel = new MessageChannel();
+        inFlight.add(channel);
         channel.port1.onmessage = () => {
+          inFlight.delete(channel);
           try {
             resolve(run(args));
           } catch (e) {
@@ -768,6 +790,21 @@
       harness.overrides.edit_plan = () => new Promise(() => {});
       nav({ name: "planner", date: TODAY });
       later(1200, () => click("Save changes"));
+    },
+    // The planning coach, switched on and asked: a list with one of each remark.
+    "planner-coach"() {
+      settings.coach_enabled = true;
+      const titles = [
+        "Send the Q3 numbers to Priya",
+        "Rewrite the onboarding flow end to end",
+        "Clean up the vendor list and decide whether to merge it with the CRM",
+        "Work on the website",
+        "Call the accountant about the filing",
+        "Ring the accountant re: tax filing",
+      ];
+      six.tasks.forEach((t, i) => Object.assign(t, { title: titles[i], note: null }));
+      nav({ name: "planner", date: TODAY });
+      later(1200, () => click("Check the list"));
     },
     // The review
     "review-1"() {

@@ -1,9 +1,42 @@
-# A planning coach, evaluated outside the app
+# The planning coach's bench
 
-Six is offline by principle and stays that way: nothing in this folder is bundled into the
-app, run by CI, or called by Six. This is a bench for answering one question before any
-product decision is made: **are TypeSafe's judgments about a day's six tasks good enough
-to be worth a quiet hint?**
+Six has an optional planning coach (Settings; off by default): "Check the list" in the
+planner sends that list's task titles to TypeSafe and each row may get one remark. This
+folder is where that was decided and where it is kept honest. Nothing here is bundled
+into the app or run by CI.
+
+- `coach.mjs` asks the questions for a list and prints every answer. Its
+  `buildAppRequest` is the request Six itself sends (titles only), and `compose` is the
+  policy Six applies; the Rust copies are in `src-tauri/src/domain/coach.rs`. Both are
+  pinned to `fixtures/app-request.json`, read by the Rust tests and by `selftest.mjs`.
+- `evaluate.mjs` scores the coach against `eval-set.json`: 48 made-up rows, each with
+  the remark a careful reader would expect.
+- `selftest.mjs` needs no key: it runs the tool against `mock-server.mjs`.
+
+## What the evaluation found (3 October 2026, jev-1.13.0)
+
+48 rows, 42 of them scored (6 are fair either way), four runs:
+
+| | |
+|---|---|
+| Right | 40 or 41 of 42 |
+| False alarms (a remark on a good row) | 0 in every run |
+| Missed | 1 or 2, always a duplicate worded differently |
+| Changed between runs | at most 1 row, that same duplicate |
+| Time | about 0.35 s a list |
+| Tokens | about 3,300 a list (a small fraction of a cent) |
+
+The number that decided it is the false alarms: a remark on a good row would be a nag,
+and there were none. A miss costs nothing: Six then behaves as it does with the coach
+off. Traps for the word "and" ("Research and book flights", 0.76) stayed under the
+two-in-one threshold of 0.85; real two-in-ones started at 0.91.
+
+Run it again before changing a threshold or a question, and when TypeSafe's model
+changes:
+
+```bash
+TYPESAFE_API_KEY=... node tools/typesafe-eval/evaluate.mjs --runs 2
+```
 
 ## What it asks
 
@@ -50,9 +83,8 @@ are yours to send or not; the tool never reads Six's database.
 - Does the size level match your sense of the task? It only ever moves a check-in.
 - Latency per list, and tokens per list, against how often a list is locked (once a day).
 
-## Before any of this could ship in Six
+## What Six did not take from here
 
-An amendment to SPEC §2 ("Offline only") and the README's privacy promise, recorded in
-`docs/DECISIONS.md`; a switch that is off by default; the key in the macOS Keychain; the
-call made from the Rust core, never the webview; and the app working exactly as it does
-today whenever the switch is off, the key is missing or the network is down.
+The bench also asks what kind of work each row is and turns its size into a check-in
+interval. Six uses neither: four remarks are enough, and a per-task interval or a weekly
+"mix" would be more to explain than they are worth. Notes are never sent by Six.

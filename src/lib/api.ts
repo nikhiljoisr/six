@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CarryoverPreview,
   AppInfo,
+  CoachStatus,
+  CoachView,
   DaySnapshot,
   Elapsed,
   ExportResult,
@@ -73,6 +75,9 @@ export const api = {
     invoke<ExportResult>("export_range", { from, to, format }),
   exportAll: () => invoke<ExportResult>("export_all"),
   getSettings: () => invoke<Settings>("get_settings"),
+  coachStatus: () => invoke<CoachStatus>("coach_status"),
+  /** Send these titles (and nothing else) to TypeSafe for one hint a row. Only on request. */
+  coachPlan: (titles: string[]) => invoke<CoachView>("coach_plan", { titles }),
   /** Whether macOS opens Six at login. The answer lives with macOS, not in Six's settings. */
   getAutostart: () => invoke<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) => invoke<boolean>("set_autostart", { enabled }),

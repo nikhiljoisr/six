@@ -3,6 +3,7 @@
 //! takes its inputs (including "now" and "today") explicitly so it can be tested.
 
 pub mod analytics;
+pub mod coach;
 pub mod day;
 pub mod jot;
 pub mod model;

@@ -1,0 +1,126 @@
+{
+  "state": {
+    "method": "The Ivy Lee method: each evening, write down at most six tasks for tomorrow, most important first. Each task should be one piece of work that can be finished before starting the next.",
+    "plan": {
+      "tasks": [
+        {
+          "position": 1,
+          "title": "Send the Q3 numbers to Priya"
+        },
+        {
+          "position": 2,
+          "title": "Work on the website"
+        },
+        {
+          "position": 3,
+          "title": "Ring the accountant re: tax filing"
+        }
+      ]
+    }
+  },
+  "model": "jev-latest",
+  "questions": {
+    "compound_0": {
+      "type": "noul",
+      "instructions": "Does the task at `plan.tasks[0].title` describe more than one distinct piece of work, each of which could be finished separately?",
+      "criteria": {
+        "true": "Two or more separable outcomes are joined, for example doing one thing and also deciding another.",
+        "false": "One outcome, even when a single action covers several objects, such as sending a list and its attachments."
+      }
+    },
+    "finish_0": {
+      "type": "noul",
+      "instructions": "Could an outside observer tell when the task at `plan.tasks[0].title` is finished?",
+      "criteria": {
+        "true": "It names a concrete outcome, deliverable or event: something sent, booked, drafted, decided, attended.",
+        "false": "It is an open-ended activity with no stated end, such as working on, thinking about or looking into something."
+      }
+    },
+    "size_0": {
+      "type": "score",
+      "instructions": "How much focused work does the task at `plan.tasks[0].title` most plausibly need?",
+      "criteria": [
+        "A few minutes: a quick message, call or booking",
+        "Under an hour of focused work",
+        "One to three hours of focused work",
+        "Most of a working day or more, or open-ended"
+      ]
+    },
+    "same_0_1": {
+      "type": "noul",
+      "instructions": "Do the tasks at `plan.tasks[0].title` and `plan.tasks[1].title` describe the same piece of work, so that finishing one finishes the other?",
+      "criteria": {
+        "true": "The same work in different words.",
+        "false": "Different work, even if it involves the same person, project or topic."
+      }
+    },
+    "same_0_2": {
+      "type": "noul",
+      "instructions": "Do the tasks at `plan.tasks[0].title` and `plan.tasks[2].title` describe the same piece of work, so that finishing one finishes the other?",
+      "criteria": {
+        "true": "The same work in different words.",
+        "false": "Different work, even if it involves the same person, project or topic."
+      }
+    },
+    "compound_1": {
+      "type": "noul",
+      "instructions": "Does the task at `plan.tasks[1].title` describe more than one distinct piece of work, each of which could be finished separately?",
+      "criteria": {
+        "true": "Two or more separable outcomes are joined, for example doing one thing and also deciding another.",
+        "false": "One outcome, even when a single action covers several objects, such as sending a list and its attachments."
+      }
+    },
+    "finish_1": {
+      "type": "noul",
+      "instructions": "Could an outside observer tell when the task at `plan.tasks[1].title` is finished?",
+      "criteria": {
+        "true": "It names a concrete outcome, deliverable or event: something sent, booked, drafted, decided, attended.",
+        "false": "It is an open-ended activity with no stated end, such as working on, thinking about or looking into something."
+      }
+    },
+    "size_1": {
+      "type": "score",
+      "instructions": "How much focused work does the task at `plan.tasks[1].title` most plausibly need?",
+      "criteria": [
+        "A few minutes: a quick message, call or booking",
+        "Under an hour of focused work",
+        "One to three hours of focused work",
+        "Most of a working day or more, or open-ended"
+      ]
+    },
+    "same_1_2": {
+      "type": "noul",
+      "instructions": "Do the tasks at `plan.tasks[1].title` and `plan.tasks[2].title` describe the same piece of work, so that finishing one finishes the other?",
+      "criteria": {
+        "true": "The same work in different words.",
+        "false": "Different work, even if it involves the same person, project or topic."
+      }
+    },
+    "compound_2": {
+      "type": "noul",
+      "instructions": "Does the task at `plan.tasks[2].title` describe more than one distinct piece of work, each of which could be finished separately?",
+      "criteria": {
+        "true": "Two or more separable outcomes are joined, for example doing one thing and also deciding another.",
+        "false": "One outcome, even when a single action covers several objects, such as sending a list and its attachments."
+      }
+    },
+    "finish_2": {
+      "type": "noul",
+      "instructions": "Could an outside observer tell when the task at `plan.tasks[2].title` is finished?",
+      "criteria": {
+        "true": "It names a concrete outcome, deliverable or event: something sent, booked, drafted, decided, attended.",
+        "false": "It is an open-ended activity with no stated end, such as working on, thinking about or looking into something."
+      }
+    },
+    "size_2": {
+      "type": "score",
+      "instructions": "How much focused work does the task at `plan.tasks[2].title` most plausibly need?",
+      "criteria": [
+        "A few minutes: a quick message, call or booking",
+        "Under an hour of focused work",
+        "One to three hours of focused work",
+        "Most of a working day or more, or open-ended"
+      ]
+    }
+  }
+}

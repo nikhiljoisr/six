@@ -1,0 +1,237 @@
+{
+  "note": "Synthetic lists with the hint a careful reader would expect. Nothing here is anyone's real task. \"any\" rows are fair either way and are not scored.",
+  "plans": [
+    {
+      "name": "Traps for the word and",
+      "tasks": [
+        {
+          "title": "Review and sign the lease",
+          "expect": "none"
+        },
+        {
+          "title": "Research and book flights to Mumbai",
+          "expect": "none"
+        },
+        {
+          "title": "Pack and ship the samples to Leo",
+          "expect": "none"
+        },
+        {
+          "title": "Fix the login bug and deploy the fix",
+          "expect": "none"
+        },
+        {
+          "title": "Finish the deck and start the hiring plan",
+          "expect": "two"
+        },
+        {
+          "title": "Update the CRM and write the Q4 forecast",
+          "expect": "two"
+        }
+      ]
+    },
+    {
+      "name": "Short and plain",
+      "tasks": [
+        {
+          "title": "Pay the electricity bill",
+          "expect": "none"
+        },
+        {
+          "title": "Email Raj the signed contract",
+          "expect": "none"
+        },
+        {
+          "title": "1:1 with Sam at 3",
+          "expect": "none"
+        },
+        {
+          "title": "Renew passport",
+          "expect": "none"
+        },
+        {
+          "title": "Order new business cards",
+          "expect": "none"
+        },
+        {
+          "title": "Submit the expense report for September",
+          "expect": "none"
+        }
+      ]
+    },
+    {
+      "name": "Vague ones",
+      "tasks": [
+        {
+          "title": "Catch up on email",
+          "expect": "any"
+        },
+        {
+          "title": "Look into the analytics tool",
+          "expect": "finish"
+        },
+        {
+          "title": "Follow up",
+          "expect": "finish"
+        },
+        {
+          "title": "Marketing",
+          "expect": "finish"
+        },
+        {
+          "title": "Website",
+          "expect": "finish"
+        },
+        {
+          "title": "Decide on the analytics vendor",
+          "expect": "none"
+        }
+      ]
+    },
+    {
+      "name": "Duplicates and near misses",
+      "tasks": [
+        {
+          "title": "Send the invoice to Acme",
+          "expect": "none"
+        },
+        {
+          "title": "Invoice Acme Corp",
+          "expect": "same"
+        },
+        {
+          "title": "Call Priya about pricing",
+          "expect": "none"
+        },
+        {
+          "title": "Email Priya the deck",
+          "expect": "none"
+        },
+        {
+          "title": "Prepare slides for Monday's board meeting",
+          "expect": "any"
+        },
+        {
+          "title": "Get the board deck ready for Monday",
+          "expect": "same"
+        }
+      ]
+    },
+    {
+      "name": "Big work",
+      "tasks": [
+        {
+          "title": "Write the Q4 board memo",
+          "expect": "any"
+        },
+        {
+          "title": "Migrate the database to Postgres",
+          "expect": "big"
+        },
+        {
+          "title": "Plan the whole offsite",
+          "expect": "any"
+        },
+        {
+          "title": "Read the 40-page vendor contract and mark it up",
+          "expect": "any"
+        },
+        {
+          "title": "Reply to Tom's text",
+          "expect": "none"
+        },
+        {
+          "title": "Record the product demo video",
+          "expect": "none"
+        }
+      ]
+    },
+    {
+      "name": "Ordinary working day",
+      "tasks": [
+        {
+          "title": "Prepare for the 2pm call with the Delhi team",
+          "expect": "none"
+        },
+        {
+          "title": "Draft the job description for the senior AE role",
+          "expect": "none"
+        },
+        {
+          "title": "Send the weekly update to investors",
+          "expect": "none"
+        },
+        {
+          "title": "Clear the review queue",
+          "expect": "any"
+        },
+        {
+          "title": "Book the car service; pick up dry cleaning",
+          "expect": "two"
+        },
+        {
+          "title": "Think through pricing tiers and email the proposal to finance",
+          "expect": "two"
+        }
+      ]
+    },
+    {
+      "name": "A mixed list",
+      "tasks": [
+        {
+          "title": "Send the Q3 numbers to Priya",
+          "expect": "none"
+        },
+        {
+          "title": "Draft the opening section of the deck",
+          "expect": "none"
+        },
+        {
+          "title": "Clean up the vendor list and decide whether to merge it with the CRM",
+          "expect": "two"
+        },
+        {
+          "title": "Work on the website",
+          "expect": "finish"
+        },
+        {
+          "title": "Call the accountant about the filing",
+          "expect": "none"
+        },
+        {
+          "title": "Ring the accountant re: tax filing",
+          "expect": "same"
+        }
+      ]
+    },
+    {
+      "name": "Big, small and vague",
+      "tasks": [
+        {
+          "title": "Rewrite the onboarding flow end to end",
+          "expect": "big"
+        },
+        {
+          "title": "Book the dentist",
+          "expect": "none"
+        },
+        {
+          "title": "Reply to the hiring thread",
+          "expect": "none"
+        },
+        {
+          "title": "Send Maya the accounts list and the statements",
+          "expect": "none"
+        },
+        {
+          "title": "Think about pricing",
+          "expect": "finish"
+        },
+        {
+          "title": "Gym",
+          "expect": "none"
+        }
+      ]
+    }
+  ]
+}

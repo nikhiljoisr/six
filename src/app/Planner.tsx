@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Chevron, Cross, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
+import { checkSummary, hintsForRows, type Checked } from "../lib/coachHints";
 import { longDate } from "../lib/format";
-import type { DaySnapshot, PlanView, TaskInput } from "../lib/types";
+import { isAppError, type DaySnapshot, type PlanView, type TaskInput } from "../lib/types";
 import { useStore } from "../store";
 
 // The planner: six rows, most important at the top. Rows carried from an earlier day
@@ -52,6 +53,13 @@ export function Planner({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
+  // The planning coach (Settings; off by default). Nothing is sent until "Check the list"
+  // is pressed; then the titles on screen go to TypeSafe once, and each row may get one
+  // remark. It never blocks or changes saving.
+  const coachOn = snapshot.settings.coach_enabled;
+  const [checked, setChecked] = useState<Checked | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [coachSays, setCoachSays] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const dragIndex = useRef<number | null>(null);
   // Keyboard: Return moves to the next row, Option+arrow moves the row itself. Rows are
@@ -153,6 +161,23 @@ export function Planner({
 
   const filled = rows.filter((r) => r.title.trim().length > 0).length;
   const label = isToday ? "Today's six" : "Tomorrow's six";
+
+  const check = async () => {
+    const titles = rows.map((r) => r.title.trim()).filter((t) => t.length > 0);
+    if (titles.length === 0 || checking) return;
+    setChecking(true);
+    setCoachSays(null);
+    try {
+      const view = await api.coachPlan(titles);
+      setChecked({ titles, hints: view.hints });
+      setCoachSays(checkSummary(view.hints));
+    } catch (e) {
+      setCoachSays(isAppError(e) ? e.message : "The check did not work. The list is as you left it.");
+    } finally {
+      setChecking(false);
+    }
+  };
+  const rowHints = coachOn ? hintsForRows(rows.map((r) => r.title), checked) : [];
 
   const save = async () => {
     setSaveError(null);
@@ -283,6 +308,7 @@ export function Planner({
                 autoFocus={i === 0 && !row.title}
               />
               {row.carriedFrom && <div className="font-serif text-[12px] leading-5 text-amber-700">from {carriedFromLabel}</div>}
+              {rowHints[i] && <div className="font-serif text-[12px] leading-5 text-stone-500">{rowHints[i]}</div>}
               {(row.showNote || row.note) && (
                 <input
                   ref={(el) => {
@@ -329,9 +355,24 @@ export function Planner({
         <Button full disabled={!canSave} title="⌘↩" onClick={() => void save()}>
           {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
         </Button>
-        <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
-          Choose up to six. Fewer is fine.{filled > 0 && ` ${filled} of 6.`}
-        </p>
+        {coachOn ? (
+          <p className="mt-2 flex items-baseline justify-between gap-4 font-serif text-[12px] leading-5 text-stone-500">
+            <span role="status">{coachSays ?? `Choose up to six. Fewer is fine.${filled > 0 ? ` ${filled} of 6.` : ""}`}</span>
+            <button
+              type="button"
+              className="shrink-0 hover:text-stone-900 disabled:opacity-40"
+              disabled={checking || filled === 0}
+              title="Sends these task titles to TypeSafe, once"
+              onClick={() => void check()}
+            >
+              {checking ? "Checking…" : "Check the list"}
+            </button>
+          </p>
+        ) : (
+          <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
+            Choose up to six. Fewer is fine.{filled > 0 && ` ${filled} of 6.`}
+          </p>
+        )}
       </div>
     </div>
   );
