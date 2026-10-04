@@ -758,10 +758,11 @@ a setting that defaults to how Six has always been. Two of them amend the brief.
   #ece8e1, secondary #a39c93 at 6.5:1, amber lifted to #e2a04a) and no component names a
   dark colour. Two things had to change for it: the Stats sparkline took a hard-coded
   ink and now takes the current colour, and the veil behind the skip-ahead sheet darkens
-  instead of lightening. Rust makes the window frames dark for "Dark"; for "Light" and
-  "Follow macOS" the frame is left to macOS as it always was, so a Six that never touches
-  the setting looks exactly as before (on a Mac set to dark that means a dark frame over
-  the light page, which is what it had). The last setting seen is remembered by the web
+  instead of lightening. Rust tells macOS the app is dark for "Dark"; for "Light" and
+  "Follow macOS" it sets nothing, as before, so a Six that never touches the setting
+  looks exactly as it did. (This entry first guessed that a Mac set to dark showed a dark
+  frame over the light page. The native pass in step 22 showed otherwise: the frame is
+  light with Light, and dark with Dark and Follow macOS.) The last setting seen is remembered by the web
   view so a window opens in the right appearance before Rust has answered.
 
 Verified: `cargo test` 149 passing (5 new); `pnpm typecheck` clean; `pnpm test` 28
@@ -926,4 +927,57 @@ environment; `pnpm test` 34 passing; `pnpm typecheck` clean. In the browser agai
 harness: the foot line across an edit and back, and Settings asking nothing about the
 Keychain until the switch is on. 46 scenes rendered: 45 pixel-identical to step 21, and
 Stats differs by the one figure.
+
+## 2026-10-04 — Step 22: the native pass
+
+Steps 19 to 21 each ended with the same debt: the new screens had been clicked through
+only in the browser harness, because the screen was locked. This is that pass, on the
+real build (8b2871f), run as a scratch copy under its own home folder with a seeded
+database. The installed Six, its database, the real login items and the real Keychain
+were not touched.
+
+What was done in the real window, and what it showed:
+
+- **A late review from the morning screen.** "Yesterday was not reviewed. Review it"
+  opened a two-step review: the possible gap (22 h 55 min recorded, trimmed to 15 min),
+  a reflection, carry or drop. After saving, the day view read "3 tasks from yesterday
+  will carry over" where it had read 4, and the database held the review, three tasks
+  carried and one dropped.
+- **The planner by keyboard.** Return moved to the next row; Cmd+Return locked the list
+  and did not complete task 1 on the day view it returned to.
+- **Jot.** J opened the field without typing a "j"; Return kept the line; History showed
+  it under today ("parked 3:30 PM"); the row in `jots` carries the task in hand.
+- **Coming back.** With the running session backdated in the scratch database, the next
+  click showed "No interaction from 10:40 AM to 3:31 PM. Six has 5 h 1 min recorded on
+  this task." "Take 4 h 51 min out" left 10 min on the clock.
+- **Open at login.** The switch wrote `Library/LaunchAgents/com.nikhiljois.six.plist`
+  in the scratch home, naming the scratch app; switching it off removed the file. The
+  real home never had one.
+- **Appearance.** Dark and Follow macOS turned the frame and the page dark at once (the
+  Mac is set to Dark); Light turned both light again. This corrected a wrong guess in
+  step 20's entry about the frame.
+- **The shortcut from anywhere.** With Option+Cmd+6 chosen, pressing it hid the window
+  and returned to the app behind; pressing it again from that app brought Six back.
+- **History and a second late review.** An older unreviewed day showed its parked
+  thought and "Not reviewed. Review this day", which opened the one-screen review ("A
+  later list has been planned since…") and returned to History when saved.
+- **Stats.** "Days reviewed 2 of 2" with today's running list left out of the count, and
+  the done-by-position rows.
+- **P** started a pomodoro.
+- **The coach, without a key.** The scratch home cannot see the login Keychain, so
+  Settings said "On, but there is no TypeSafe key in your Keychain" and "Check the list"
+  answered "No TypeSafe key in the Keychain. Nothing was sent."; the planner was
+  unaffected. The path with a key is covered by the live Rust tests of step 21.
+
+Still not verified in the real window, and why:
+
+- **Esc.** The automation's Esc never reached the page (two unrelated Esc handlers saw
+  nothing, while J, P, Cmd+, Cmd+E and Cmd+Return all arrived), so "Esc goes back" and
+  "Esc closes the Jot field" are verified in the browser harness only.
+- **The minutes in the menu bar.** On this MacBook the notch hides Six's menu bar item,
+  as it has since step 14b. The title is covered by unit tests.
+- **The sounds, by ear.**
+- **"Check the list" answering with remarks inside the app.** See above.
+
+No fault was found in the pass. One documentation error was corrected (the frame).
 

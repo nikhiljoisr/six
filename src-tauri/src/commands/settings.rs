@@ -33,9 +33,10 @@ pub async fn set_setting(app: AppHandle, key: String, value: String) -> CmdResul
     super::publish(&app).await
 }
 
-/// The window frames follow the appearance: "dark" makes them dark whatever macOS is set
-/// to. "light" and "auto" leave them to macOS, as they have always been, so a Six that
-/// never touches this setting looks exactly as it did.
+/// "dark" tells macOS the app is dark, so the frame and the native menus are dark whatever
+/// macOS is set to. For "light" and "auto" nothing is set, exactly as before this setting
+/// existed. Seen in the real window on a Mac set to Dark: the frame is light with Light
+/// (as it always was), and dark with Dark and with Follow macOS.
 pub fn apply_appearance(app: &AppHandle, appearance: &str) {
     app.set_theme((appearance == "dark").then_some(tauri::Theme::Dark));
 }
