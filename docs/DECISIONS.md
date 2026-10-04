@@ -981,3 +981,14 @@ Still not verified in the real window, and why:
 
 No fault was found in the pass. One documentation error was corrected (the frame).
 
+## 2026-10-04 — Step 23: released as 1.6.0
+
+On Nikhil's "go", steps 18 to 22 are released together as 1.6.0: the three tiers of the
+audit's enhancement plan, the fixes from three independent reviews, and the native pass.
+Every new switch is off until chosen (open at login, the shortcut from anywhere, minutes
+in the menu bar, dark appearance, the planning coach), so a Six that touches none of
+them behaves as 1.5.1 did, plus the streak, the planner's keys, Jot, the late review,
+the return banner, the daily copy of the database and the new facts in Stats. The
+database gains two migrations (0005, 0006); nothing in an existing database is changed
+by them.
+
