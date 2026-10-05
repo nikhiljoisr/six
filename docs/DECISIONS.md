@@ -1031,3 +1031,9 @@ beside the installed Six, which was not touched): a 117-character title typed in
 planner wrapped to four lines with all of it in view, Cmd+Return locked the list, and
 the day view showed that title and another long one in full.
 
+## 2026-10-05 — Step 25: released as 1.6.1
+
+On Nikhil's "go", step 24 is released as 1.6.1: a long title wraps wherever it appears,
+and the planner's title and note fields wrap and grow as you type. Nothing else changed;
+no migration.
+
