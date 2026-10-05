@@ -24,6 +24,7 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - `amber-700` only for: streak flame + count, "Six done." headline, "Complete" badge on 6/6 days, "↑ from yesterday" tag. Never on buttons or the active task.
 - No green, red, blue or indigo. The serif is the app's own voice (date, numerals 1–6, footer, navigation, headings); the system sans is the user's words and the controls. Weights 400/500 only; the day view is 400 throughout.
 - Single column, max-width 28rem, centred, on the paper ground (`--color-paper`). 6px card radius, 4px controls. 150–200ms fades, no springs.
+- The window is a card that can grow (360×520 to 720×1140). Up to 480 wide the page reflows at its normal size; past that the whole page is drawn larger in proportion, to 1.5×, by the web view's page zoom, set from Rust on resize (`domain/window.rs`). No layout is designed for a wider column, so none is needed. The green button zooms to the largest size and back; it never enters full screen. The size is remembered.
 - Dark appearance (Settings; light is the default) is the same roles remapped: `src/styles.css` redefines the colour variables under `data-theme="dark"`. Components never name a dark colour and there are no `dark:` variants; a colour that is not one of the variables (a hex in a component) breaks it.
 
 ## Architecture decisions (SPEC §5.1) — decided, do not revisit

@@ -43,6 +43,13 @@ A two-screen guide explains the method and takes you straight to your first six.
 to allow and nothing to sign in to. Six never makes a sound unless you switch one on in
 Settings.
 
+## The window
+
+Six opens as a small card. Drag an edge, or click the green button, to make it bigger:
+past its normal width everything on the page grows with the window, up to one and a half
+times the size. The green button takes it to its largest size and back; it never goes
+full screen. Six reopens at the size you left it.
+
 ## Appearance and sound
 
 Six is light, as it has always been, unless you choose otherwise: Settings → This Mac →

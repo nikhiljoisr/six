@@ -16,6 +16,7 @@ pub mod settings;
 pub mod streak;
 pub mod timing;
 pub mod tray;
+pub mod window;
 
 #[cfg(test)]
 mod tests;

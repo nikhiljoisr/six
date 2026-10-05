@@ -3437,6 +3437,7 @@ name = "six"
 version = "1.6.1"
 dependencies = [
  "chrono",
+ "objc2-app-kit",
  "serde",
  "serde_json",
  "sqlx",

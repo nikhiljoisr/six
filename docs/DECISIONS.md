@@ -1037,3 +1037,43 @@ On Nikhil's "go", step 24 is released as 1.6.1: a long title wraps wherever it a
 and the planner's title and note fields wrap and grow as you type. Nothing else changed;
 no migration.
 
+## 2026-10-05 — Step 26: the window can grow (amends step 13)
+
+Nikhil, on 1.6.1: not being able to maximise at all "is a bit weird"; his complaint in
+September had been that a maximised Six looked odd, and step 13 answered it by taking the
+green button away entirely. He asked for a middle ground and for the norm to be checked.
+
+What the norm is: Apple's zoom has always meant "the best size for the content", not the
+whole screen, and its full-screen guidance is for immersive work (games, media, deep
+focus), with the advice to "adjust proportions of the interface without changing which
+items appear". iA Writer changes its text size with the window's width, "zooming in and
+out without reflowing the text", for the reason Six needs: one fixed size looks wrong in a
+bigger window. The other common answer, a capped column centred in a large window, is the
+look that was odd in the first place.
+
+So step 13 is amended. The window is still a card; it can now grow.
+
+- **A bigger window is a bigger Six.** Up to its normal width (480) the page reflows at
+  its normal size, as before. Past that, the whole page is drawn larger in proportion to
+  the width, to at most 1.5× at 720 wide (`domain::window::page_scale`). It is the web
+  view's own page zoom, set from Rust on every resize, so the page is always laid out as
+  it is at 480 and nothing was redesigned: no view code changed. Nikhil chose 1.5×.
+- **The green button is back, as zoom.** It takes the window to its largest size that
+  fits the screen (720 wide, up to 1140 tall) and back to the size it had. It never
+  enters macOS full screen: left to itself it did (a 720-wide column on a black field,
+  seen on screen), so the window is marked as not full-screen-capable. That is one
+  AppKit call Tauri does not expose; `objc2-app-kit`, already in the tree through tao, is
+  named as a direct dependency for it, with no new package.
+- **The size is remembered** (a row in `settings`, saved once a resize has settled) and
+  restored at launch, fitted to the screen it opens on. Until a size has been chosen Six
+  opens at 480×560 exactly as before.
+
+Verified: `cargo test` 164 passing (3 new: the scale, the remembered size, the fit to a
+screen); view tests and type-check unchanged and passing. On screen, in a labelled test
+copy beside the installed app: the page drawn at 1.5× in a 720-wide window, and the green
+button entering full screen before the fix. After the fix, from the app's own log (the
+screen had locked): the window refuses full screen, zoom takes 480×560 to 720×866 on
+this display and back, a remembered 600×700 reopens as 600×700 on two launches running,
+and a remembered 720×1140 opens as 720×865 here. Still to be seen on screen: the green
+button itself doing the zoom, and how a drag feels.
+
