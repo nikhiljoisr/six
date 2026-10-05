@@ -380,9 +380,9 @@ function PlanPreview({ plan, onEdit }: { plan: PlanView; onEdit: () => void }) {
     <div className="mt-2">
       <ol>
         {plan.tasks.map((t) => (
-          <li key={t.id} className="-ml-10 grid h-6 grid-cols-[2.5rem_minmax(0,1fr)] items-baseline text-[13px] leading-6 text-stone-600">
+          <li key={t.id} className="-ml-10 grid min-h-6 grid-cols-[2.5rem_minmax(0,1fr)] items-baseline text-[13px] leading-6 text-stone-600">
             <Numeral n={t.position} size="xxs" tone="dim" className="pr-3 text-right leading-6" />
-            <span className="truncate">{t.title}</span>
+            <span className="min-w-0 py-0.5 leading-5 [overflow-wrap:anywhere]">{t.title}</span>
           </li>
         ))}
       </ol>

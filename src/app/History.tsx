@@ -79,10 +79,10 @@ export function History({ snapshot }: { snapshot: DaySnapshot }) {
               </button>
               <ol className="mt-2">
                 {day.tasks.map((t) => (
-                  <li key={t.id} className="-ml-10 grid h-7 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
+                  <li key={t.id} className="-ml-10 grid min-h-7 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
                     <Numeral n={t.position} size="xxs" tone={t.status === "done" ? "muted" : "dim"} className="pr-3 text-right leading-7" />
-                    <span className={`min-w-0 truncate text-[14px] leading-7 ${t.status === "done" ? "text-stone-600" : "text-stone-500"}`}>{t.title}</span>
-                    <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-7 tabular-nums text-stone-500">
+                    <span className={`min-w-0 py-1 text-[14px] leading-5 [overflow-wrap:anywhere] ${t.status === "done" ? "text-stone-600" : "text-stone-500"}`}>{t.title}</span>
+                    <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-6 tabular-nums text-stone-500">
                       {[t.status === "done" ? "" : STATUS_WORD[t.status], t.focus_seconds >= 60 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
                     </span>
                   </li>

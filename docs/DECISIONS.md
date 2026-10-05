@@ -992,3 +992,42 @@ the return banner, the daily copy of the database and the new facts in Stats. Th
 database gains two migrations (0005, 0006); nothing in an existing database is changed
 by them.
 
+## 2026-10-05 — Step 24: a long title is never cut
+
+Nikhil, using 1.6.0: "I am unable to see longer tasks and unable to maximise screen".
+Two different things.
+
+- **The window does not maximise, on purpose.** That is step 13's decision (7 September,
+  his choice at the time): the window is a card, 360×520 to 560×760, because a maximised
+  Six was a narrow column in an empty screen. It still resizes by its edges. Unchanged.
+- **Long titles were cut, and that was a flaw.** Every list held a title to one line and
+  ended it with "…": the day view's rows (all but the current task), tomorrow's preview,
+  both review lists and History. Worse, the planner's field did not wrap, so past about
+  35 characters you could not see what you were typing, and widening the window did not
+  help because the text column has a fixed width. None of this was new in 1.6.0.
+
+Now a title wraps wherever it appears, and its row grows with it. Nothing is ever
+replaced by "…". In the planner the title and the note are fields that wrap and grow as
+you type (two layers in one grid cell: an unseen copy of the text gives the height and
+the baseline, the field lies over it); Return still moves to the next row, and a pasted
+line break becomes a space, so a title is still one line of text however long it runs.
+
+The rule for this change was that a list of short titles must not move by a pixel. Rows
+had a fixed height; they now have that as a minimum. The first attempt made every row a
+pixel taller, because the right-hand cell (the time, "start", the status) shares the
+title's baseline and sits a pixel lower, which a fixed height had been hiding. Its line
+is now slightly shorter than the row, and the planner's note stays an inline box on the
+row's own line as the field it replaced was.
+
+Verified: 47 scenes rendered; the 40 that hold no long title are pixel-identical to
+1.6.0, and the other six (the day view with a long row, History, two review screens, the
+planner with the coach's sample list) differ only where a title now wraps; one new scene,
+the planner with long titles. In the browser against the harness: a 131-character title
+grows the field to four lines with all of it in view, Return and Option+arrows behave as
+before, a pasted line break becomes a space, a long note wraps, Cmd+Return saves, and the
+day view shows the whole title. `pnpm test` 34 passing; `pnpm typecheck` clean. No Rust
+changed. In the real window (a test copy with its own home, window title and position,
+beside the installed Six, which was not touched): a 117-character title typed into the
+planner wrapped to four lines with all of it in view, Cmd+Return locked the list, and
+the day view showed that title and another long one in full.
+

@@ -7,7 +7,10 @@ import { Clocks, RingAnswers, SecondaryActions } from "./Pomodoro";
 import { Button, Numeral } from "./ui";
 
 // The list is a table of contents: one column of serif numerals, one column of titles,
-// one right edge for the row's action. The page is the surface; state is carried by
+// one right edge for the row's action. A title is never cut: a long one wraps, and its
+// row grows (a one-line row is 32pt, as it always was). The three cells share a baseline;
+// the right-hand cell's line is a little shorter than the row so that, sitting a pixel
+// lower than the title as it does, it cannot make a one-line row taller. The page is the surface; state is carried by
 // type. The current task is the one row that is set apart, by air and a pair of
 // hairlines, with its clocks and its actions inside it.
 
@@ -109,10 +112,10 @@ function Row({
   const title = tone === "upcoming" ? "text-stone-600" : "text-stone-500";
   const fade = useFadeIn();
   return (
-    <div className={`${fade} group ${ROW} h-8`}>
+    <div className={`${fade} group ${ROW} min-h-8`}>
       <Numeral n={task.position} size="xs" tone={tone === "upcoming" ? "muted" : "dim"} className={`${GUTTER} leading-8`} />
-      <div className={`min-w-0 truncate text-[15px] leading-8 ${title}`}>{task.title}</div>
-      <div className="flex items-baseline justify-end gap-4 leading-8">
+      <div className={`min-w-0 py-1 text-[15px] leading-6 [overflow-wrap:anywhere] ${title}`}>{task.title}</div>
+      <div className="flex items-baseline justify-end gap-4 pl-4 leading-7">
         {tag && <span className="clock text-[12px] text-stone-500">{tag}</span>}
         {children}
       </div>

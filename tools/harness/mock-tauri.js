@@ -649,7 +649,8 @@
   const type = (selector, text) => {
     const input = document.querySelector(selector);
     if (!input) return;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, text);
+    const kind = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
+    Object.getOwnPropertyDescriptor(kind.prototype, "value").set.call(input, text);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   };
   const startPom = (agoMs) => poms.push({ task_id: second.id, started: nowMs() - agoMs, planned: 1500, ended: null, outcome: null, ack: null });
@@ -784,13 +785,19 @@
     "planner-error"() {
       harness.overrides.edit_plan = () => fail("db", "could not write six.db: disk full");
       nav({ name: "planner", date: TODAY });
-      later(1200, () => type('input[aria-label="Task 3"]', "Call the accountant, then the bank"));
+      later(1200, () => type('[aria-label="Task 3"]', "Call the accountant, then the bank"));
       later(1600, () => click("Save changes"));
     },
     "planner-pending"() {
       harness.overrides.edit_plan = () => new Promise(() => {});
       nav({ name: "planner", date: TODAY });
       later(1200, () => click("Save changes"));
+    },
+    // Long titles in the planner: every one is in view, wrapped.
+    "planner-long"() {
+      STATES.long();
+      poms.length = 0;
+      nav({ name: "planner", date: TODAY });
     },
     // The planning coach, switched on and asked: a list with one of each remark.
     "planner-coach"() {

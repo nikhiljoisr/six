@@ -228,10 +228,10 @@ function WhatHappened({
 
       <ol className="mt-5">
         {plan.tasks.map((t) => (
-          <li key={t.id} className="-ml-10 grid h-8 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
+          <li key={t.id} className="-ml-10 grid min-h-8 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
             <Numeral n={t.position} size="xs" tone={t.status === "done" ? "muted" : "dim"} className="pr-3 text-right leading-8" />
-            <span className={`min-w-0 truncate text-[15px] leading-8 ${t.status === "done" ? "text-stone-900" : "text-stone-500"}`}>{t.title}</span>
-            <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-8 tabular-nums text-stone-500">
+            <span className={`min-w-0 py-1 text-[15px] leading-6 [overflow-wrap:anywhere] ${t.status === "done" ? "text-stone-900" : "text-stone-500"}`}>{t.title}</span>
+            <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-7 tabular-nums text-stone-500">
               {[STATUS_WORD[t.status], t.focus_seconds >= 60 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
             </span>
           </li>
@@ -354,7 +354,7 @@ function Unfinished({
             <li key={t.id} className="py-3">
               <div className="-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
                 <Numeral n={t.position} size="xs" tone="muted" className="pr-3 text-right leading-6" />
-                <span className="min-w-0 truncate text-[15px] leading-6 text-stone-900">{t.title}</span>
+                <span className="min-w-0 text-[15px] leading-6 text-stone-900 [overflow-wrap:anywhere]">{t.title}</span>
               </div>
               {already ? (
                 <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500">Already on tomorrow's list.</p>

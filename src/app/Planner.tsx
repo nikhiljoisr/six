@@ -20,6 +20,19 @@ interface Row {
 
 const EMPTY: Row = { id: null, title: "", note: "", carriedFrom: null, showNote: false };
 
+// The title field wraps. Two layers share one grid cell: an unseen copy of the text that
+// gives the row its height and its first baseline, and the field itself stretched over
+// it. A one-line title is 32pt, as it always was. The right margin is kept for the row's
+// controls, which appear over it.
+const TITLE_FIELD = "col-start-1 row-start-1 w-full min-w-0 py-1 pr-28 text-[15px] leading-6 whitespace-pre-wrap [overflow-wrap:anywhere]";
+
+// The note wraps the same way. Its grid is inline, as the one-line field it replaced
+// was, so it sits on the row's own line and a one-line note is exactly where it was.
+const NOTE_FIELD = "col-start-1 row-start-1 w-full min-w-0 text-[12px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]";
+
+/** A title is one line of text however long it runs: a pasted line break becomes a space. */
+const oneLine = (text: string) => text.replace(/\s*[\r\n]+\s*/g, " ");
+
 function sixRows(rows: Row[]): Row[] {
   return Array.from({ length: 6 }, (_, i) => rows[i] ?? { ...EMPTY });
 }
@@ -66,8 +79,8 @@ export function Planner({
   const dragIndex = useRef<number | null>(null);
   // Keyboard: Return moves to the next row, Option+arrow moves the row itself. Rows are
   // keyed by place, so after a move the focus follows the row to its new place.
-  const titleRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const noteRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const titleRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const noteRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const focusAfterRender = useRef<{ row: number; note: boolean } | null>(null);
   const focusField = (row: number, note = false) => {
     const el = (note && noteRefs.current[row]) || titleRefs.current[row];
@@ -247,7 +260,7 @@ export function Planner({
   saveFromKey.current = () => {
     if (canSave) void save();
   };
-  const onRowKey = (i: number, note: boolean, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onRowKey = (i: number, note: boolean, e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     // An input method composing text owns its keys, including the Return that commits
     // (which WebKit reports after the composition has ended, as key code 229).
     if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229 || e.metaKey || e.ctrlKey) return;
@@ -299,35 +312,49 @@ export function Planner({
               <Numeral n={i + 1} size="xs" tone={row.title.trim() ? "ink" : "dim"} className="leading-8" />
             </span>
             <div className="min-w-0 border-b border-stone-200 pb-0.5 focus-within:border-stone-400">
-              <input
-                ref={(el) => {
-                  titleRefs.current[i] = el;
-                }}
-                value={row.title}
-                aria-label={`Task ${i + 1}`}
-                placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
-                onChange={(e) => update(i, { title: e.target.value })}
-                onKeyDown={(e) => onRowKey(i, false, e)}
-                className="w-full bg-transparent py-0 pr-28 text-[15px] leading-8 text-stone-900 placeholder:text-stone-400 focus:outline-none"
-                maxLength={140}
-                autoFocus={i === 0 && !row.title}
-              />
+              <div className="grid">
+                <div aria-hidden className={`${TITLE_FIELD} invisible`}>
+                  {row.title}
+                  {"\u200b"}
+                </div>
+                <textarea
+                  ref={(el) => {
+                    titleRefs.current[i] = el;
+                  }}
+                  rows={1}
+                  value={row.title}
+                  aria-label={`Task ${i + 1}`}
+                  placeholder={i === 0 ? "e.g. Draft the opening section" : ""}
+                  onChange={(e) => update(i, { title: oneLine(e.target.value) })}
+                  onKeyDown={(e) => onRowKey(i, false, e)}
+                  className={`${TITLE_FIELD} resize-none overflow-hidden bg-transparent text-stone-900 placeholder:text-stone-400 focus:outline-none`}
+                  maxLength={140}
+                  autoFocus={i === 0 && !row.title}
+                />
+              </div>
               {row.carriedFrom && <div className="font-serif text-[12px] leading-5 text-amber-700">from {carriedFromLabel}</div>}
               {rowHints[i] && <div className="font-serif text-[12px] leading-5 text-stone-500">{rowHints[i]}</div>}
               {(row.showNote || row.note) && (
-                <input
-                  ref={(el) => {
-                    noteRefs.current[i] = el;
-                  }}
-                  value={row.note}
-                  aria-label={`Note for task ${i + 1}`}
-                  placeholder="A one-line note"
-                  onChange={(e) => update(i, { note: e.target.value })}
-                  onKeyDown={(e) => onRowKey(i, true, e)}
-                  className="w-full bg-transparent text-[12px] leading-5 text-stone-500 placeholder:text-stone-400 focus:outline-none"
-                  maxLength={200}
-                  autoFocus={row.showNote && !row.note}
-                />
+                <div className="inline-grid w-full">
+                  <div aria-hidden className={`${NOTE_FIELD} invisible`}>
+                    {row.note}
+                    {"\u200b"}
+                  </div>
+                  <textarea
+                    ref={(el) => {
+                      noteRefs.current[i] = el;
+                    }}
+                    rows={1}
+                    value={row.note}
+                    aria-label={`Note for task ${i + 1}`}
+                    placeholder="A one-line note"
+                    onChange={(e) => update(i, { note: oneLine(e.target.value) })}
+                    onKeyDown={(e) => onRowKey(i, true, e)}
+                    className={`${NOTE_FIELD} resize-none overflow-hidden bg-transparent text-stone-500 placeholder:text-stone-400 focus:outline-none`}
+                    maxLength={200}
+                    autoFocus={row.showNote && !row.note}
+                  />
+                </div>
               )}
             </div>
             <div className="absolute top-1 right-0 flex items-baseline gap-x-3 pl-4 text-[12px] leading-8 text-stone-400 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
