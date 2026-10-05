@@ -1077,3 +1077,11 @@ this display and back, a remembered 600×700 reopens as 600×700 on two launches
 and a remembered 720×1140 opens as 720×865 here. Still to be seen on screen: the green
 button itself doing the zoom, and how a drag feels.
 
+## 2026-10-05 — Step 27: released as 1.7.0
+
+Nikhil tried step 26 himself in the labelled test copy (the green button, dragging an
+edge) and answered "This is perfect - let's ship it". That settles the two things step 26
+had left unseen on screen. Released as 1.7.0: the window can grow, the page grows with
+it to 1.5×, the green button zooms and never goes full screen, and the size is
+remembered. No migration.
+
