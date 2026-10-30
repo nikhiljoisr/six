@@ -1085,3 +1085,54 @@ had left unseen on screen. Released as 1.7.0: the window can grow, the page grow
 it to 1.5×, the green button zooms and never goes full screen, and the size is
 remembered. No migration.
 
+
+## 2026-10-30 — Step 28: the design review
+
+A studio-standard review of every screen, light and dark, by fresh reviewers who saw only
+screenshots, scored Six 6/10 and read it as "a ruled-paper daybook in the spirit of Ivy
+Lee's index card", which is the intent. It named nine gaps and a short list. Nikhil
+approved all of them ("I like all of these fixes, go for it and fix them all and keep
+streak flame as is"). The streak flame is unchanged.
+
+- **One filled button, really.** In the evening, when "Review today" is the screen's
+  filled button, the current task's "Done" is set as an ink text button (`quietPrimary`).
+- **Finished rows are struck through** (done and dropped), keeping the time they were
+  done. Before, done and not-yet were two near shades of grey.
+- **The rule is the timer.** The ink rule over the current task shortens while a
+  pomodoro or a break runs; the separate thin line under the clocks is gone. In the menu
+  bar panel the line under the clocks is drawn the same way. The rule has its own colour
+  variable (`--color-rule`): ink in light, softened in dark, where it had been the
+  brightest thing on the screen. The setting is now "Countdown in the rule" (the key is
+  still `countdown_line`).
+- **When a pomodoro rings, its answers take the action row's place** (Another, Break,
+  Keep going, Done), so nothing below moves; the tally dots are gone.
+- **The review is shorter.** A one-line summary with a quieter line of facts under it;
+  the possible-gap offer moved above the list, since it is the one thing there that asks
+  for a decision; step 2's copy is short and at note size; the list of tomorrow's titles
+  is gone; and when tomorrow is already full the choice reads "Carried / Dropped" rather
+  than offering to carry a task where nothing can join.
+- **Labels are sentence case** (serif, 12px), and most are cut: "No list yet", "Evening
+  ritual", "Possible gap", the planner's "Today's six" beside the date (it is the
+  planner's title now, with the date under it), the welcome screens' labels, and the
+  review's label over the thought field (now its placeholder).
+- **Navigation is serif everywhere**, as SPEC §3 already said: History, Stats, Settings,
+  Review and Planner headers. Units in Settings are sans, beside the sans fields.
+- **The morning is six numbered lines** where the list will stand, with what carries over
+  already in its place and tagged "from yesterday". A line opens the planner; the button
+  under them is the same action for the keyboard. The evening ritual uses the same lines
+  for tomorrow.
+- **Stats leads with one fact**: "Top 3 done: 7 of 9". Then two lines of supporting
+  facts, a quieter line for overrides and reviews, any fact that is zero left out, and
+  every count as "n of m". The week is a 7 × 6 grid of dots (ink done, a ring not done)
+  in place of the two sparklines.
+- **Mac habits**: the skip-ahead sheet hangs from the title bar and fades in, with
+  "Step n of 3" and buttons that fit their words at the right, the default (staying)
+  rightmost. Full-width buttons are gone: the planner's, review's and welcome's buttons
+  fit their label and sit at the right.
+- **Small**: the planner's doubled line above its button is gone (the last row's line
+  closes the list); long titles balance their lines (`text-wrap: pretty`); the window and
+  the panel both say "Done" (also the check-in banner's action, which said "Mark
+  complete").
+
+SPEC §3 and §4 still describe a "Mark complete" button and a separate countdown line;
+this entry amends them.

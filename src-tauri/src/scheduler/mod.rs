@@ -278,7 +278,7 @@ fn action_types(settings: &Settings) -> Vec<tauri_plugin_notifications::ActionTy
             {"id": "plan", "title": "Plan", "foreground": true},
             {"id": "later", "title": "Later"}]}),
         json!({"id": "check_in", "actions": [
-            {"id": "done", "title": "Mark complete"},
+            {"id": "done", "title": "Done"},
             {"id": "keep_going", "title": "Continue"},
             {"id": "take_break", "title": short}]}),
         json!({"id": "break_over", "actions": [

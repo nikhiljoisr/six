@@ -201,7 +201,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                         title: format!("Still on {}?", task.title),
                         body: format!("{} recorded so far.", timing::describe(elapsed)),
                         actions: vec![
-                            act("done", "Mark complete"),
+                            act("done", "Done"),
                             act("keep_going", "Continue"),
                             act("take_break", break_label(break_minutes)),
                         ],

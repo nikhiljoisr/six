@@ -6,9 +6,12 @@ import { Button } from "./ui";
 // three times with rising insistence and the last answer is a press-and-hold, so the
 // method is broken on purpose or not at all. Nothing is logged until the hold completes.
 // The sheet owns the keyboard while it is open: Escape leaves, Tab stays inside, and the
-// last answer can be held with Space or Enter for the same second and a half.
+// last answer can be held with Space or Enter for the same second and a half. A Mac sheet:
+// it hangs from the title bar, and its buttons fit their words at the right, the default
+// (staying) rightmost.
 
 const HOLD_MS = 1500;
+const OUTLINE = "h-[30px] rounded-control border border-stone-300 px-4 text-[13px] font-medium text-stone-900 hover:border-stone-400";
 
 interface Props {
   target: TaskView;
@@ -114,13 +117,13 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
   const holdKey = (e: React.KeyboardEvent) => e.key === " " || e.key === "Enter";
 
   return (
-    <div className="scrim fixed inset-0 z-20 flex items-end justify-center bg-stone-900/20" onClick={onCancel}>
+    <div className="scrim fixed inset-0 z-20 flex items-start justify-center bg-stone-900/20" onClick={onCancel}>
       <div
         ref={sheet}
         role="dialog"
         aria-modal
         aria-labelledby="skip-ahead-title"
-        className="w-full max-w-md rounded-t-[8px] border-t-2 border-stone-900 bg-paper px-6 pb-8 pt-5"
+        className="fade-in w-full max-w-md rounded-b-[8px] border-x border-b border-stone-300 bg-paper px-6 pb-5 pt-4 shadow-lg"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -128,20 +131,17 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
           <h2 id="skip-ahead-title" className="font-serif text-[20px] leading-7 font-normal text-stone-900">
             {s.title}
           </h2>
-          <span className="font-serif text-[12px] tabular-nums text-stone-400" aria-hidden>
-            {stage + 1} of {stages.length}
+          <span className="font-serif text-[12px] tabular-nums text-stone-500" aria-hidden>
+            Step {stage + 1} of {stages.length}
           </span>
         </div>
         <p className="mt-2 text-[15px] leading-6 text-stone-500">{s.body}</p>
-        <div className="mt-5 space-y-2">
-          <Button full onClick={onCancel} autoFocus>
-            {s.stay}
-          </Button>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
           {last ? (
             <button
               ref={holdButton}
               type="button"
-              className="relative h-[30px] w-full overflow-hidden rounded-control border border-stone-300 px-4 text-[13px] font-medium text-stone-900 select-none focus:outline-none focus-visible:border-stone-900"
+              className={`${OUTLINE} relative min-w-[10.5rem] overflow-hidden select-none focus:outline-none focus-visible:border-stone-900`}
               style={{ touchAction: "none" }}
               aria-label={`${s.go}: hold for one and a half seconds`}
               onPointerDown={(e) => {
@@ -176,10 +176,13 @@ export function SkipAheadSheet({ target, blocking, onCancel, onConfirm }: Props)
               <span className="relative">{progress > 0 && progress < 1 ? "Keep holding…" : s.go}</span>
             </button>
           ) : (
-            <Button full variant="secondary" className="h-[30px] text-center" onClick={() => setStage(stage + 1)}>
+            <button type="button" className={OUTLINE} onClick={() => setStage(stage + 1)}>
               {s.go}
-            </Button>
+            </button>
           )}
+          <Button className="px-4" onClick={onCancel} autoFocus>
+            {s.stay}
+          </Button>
         </div>
       </div>
     </div>

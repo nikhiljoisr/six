@@ -10,6 +10,8 @@
   --radius-control: 4px;
   /* The page ground: paper, one step warmer than stone-50, so the stone greys read as ink. */
   --color-paper: #f6f3ee;
+  /* The rule over the task in hand, which is also its countdown. Ink on paper. */
+  --color-rule: #1c1917;
 }
 
 /* Dark appearance (Settings → This Mac; off unless chosen). The same roles, remapped: every
@@ -29,6 +31,9 @@
   --color-stone-800: #d9d4cb; /* a filled button under the pointer */
   --color-stone-900: #ece8e1; /* ink */
   --color-amber-700: #e2a04a; /* the streak, "Six done.", carried */
+  /* The current task's rule is quieter than the ink: on a dark ground a full-strength
+     light line would be the brightest thing on the screen, louder than the title. */
+  --color-rule: #8f887f;
 }
 
 /* The veil behind a sheet is ink at 20% on paper; on a dark ground it must darken, not lighten. */
@@ -43,6 +48,8 @@ html {
 
 body {
   margin: 0;
+  /* No word left alone on a last line ("the / deck"); headings balance their lines. */
+  text-wrap: pretty;
   font-family: var(--font-sans);
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
@@ -79,12 +86,17 @@ textarea {
   border-radius: 4px;
 }
 
-/* Small uppercase section labels: "TOMORROW", "EVENING RITUAL". */
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+/* Small section labels, in the app's own voice and in sentence case: "Tomorrow",
+   "Possible gap". (They were tracked capitals until the 26 Oct 2026 design review.) */
 @utility label {
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  line-height: 1.25;
   color: var(--color-stone-500);
 }
 

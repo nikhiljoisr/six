@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Chevron, Cross, Label, Numeral, Rule } from "../components/ui";
+import { Button, Chevron, Cross, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
 import { checkSummary, hintsForRows, type Checked } from "../lib/coachHints";
 import { longDate } from "../lib/format";
@@ -281,15 +281,14 @@ export function Planner({
   return (
     <div className="flex min-h-screen flex-col pl-8 pr-0 pt-2">
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
-        <h1 className="font-serif text-[15px] font-normal text-stone-600">{longDate(date)}</h1>
-        <div className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
-          <Label>{label}</Label>
+        <h1 className="font-serif text-[15px] font-normal text-stone-900">{label}</h1>
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-serif text-[12px] text-stone-500">
           <button type="button" className="hover:text-stone-900" onClick={finish}>
             Cancel
           </button>
-        </div>
+        </nav>
       </header>
-      <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500">Most important at the top.</p>
+      <p className="mt-1 font-serif text-[12px] leading-5 text-stone-500">{longDate(date)}. Most important at the top.</p>
       <Rule className="mt-3" />
 
       {/* Six rows in the day view's own shape: a hanging numeral (the drag handle), the
@@ -377,34 +376,32 @@ export function Planner({
         ))}
       </div>
 
-      <div className="sticky bottom-0 mt-auto -ml-14 -mr-6 bg-paper pl-14 pr-6 pb-8 pt-3">
-        <Rule className="mb-3" />
+      {/* The last row's own line closes the list; the foot adds none of its own. */}
+      <div className="sticky bottom-0 mt-auto -ml-14 -mr-6 bg-paper pl-14 pr-6 pb-8 pt-4">
         {(!dateIsPlannable || saveError) && (
           <p role="alert" className="mb-3 text-sm text-stone-500">
             {saveError ?? "This date is no longer today or tomorrow. Check the Mac's clock; the rows are still here."}
           </p>
         )}
-        <Button full disabled={!canSave} title="⌘↩" onClick={() => void save()}>
-          {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
-        </Button>
-        {coachOn ? (
-          <p className="mt-2 flex items-baseline justify-between gap-4 font-serif text-[12px] leading-5 text-stone-500">
-            <span role="status">{footLine ?? `Choose up to six. Fewer is fine.${filled > 0 ? ` ${filled} of 6.` : ""}`}</span>
+        <p role="status" className="font-serif text-[12px] leading-5 text-stone-500">
+          {(coachOn && footLine) || `Choose up to six. Fewer is fine.${filled > 0 ? ` ${filled} of 6.` : ""}`}
+        </p>
+        <div className="mt-3 flex items-center justify-end gap-5">
+          {coachOn && (
             <button
               type="button"
-              className="shrink-0 hover:text-stone-900 disabled:opacity-40"
+              className="font-serif text-[12px] leading-5 text-stone-500 hover:text-stone-900 disabled:opacity-40"
               disabled={checking || filled === 0}
               title="Sends these task titles to TypeSafe, once"
               onClick={() => void check()}
             >
               {checking ? "Checking…" : "Check the list"}
             </button>
-          </p>
-        ) : (
-          <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
-            Choose up to six. Fewer is fine.{filled > 0 && ` ${filled} of 6.`}
-          </p>
-        )}
+          )}
+          <Button className="px-4" disabled={!canSave} title="⌘↩" onClick={() => void save()}>
+            {editing ? "Save changes" : isToday ? "Lock today's list" : "Lock tomorrow's list"}
+          </Button>
+        </div>
       </div>
     </div>
   );

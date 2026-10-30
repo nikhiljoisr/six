@@ -23,12 +23,10 @@ export interface ClockFacts {
   quiet: boolean;
   /** What remains of the running countdown, 0 to 1; 0 once it has ended; null when there is none. */
   fraction: number | null;
-  /** Pomodoros completed on this task. */
-  dots: number;
 }
 
 /** The two clocks as facts: what task time is doing, and what the pomodoro (or break) is doing. */
-export function clockFacts(task: TaskView, pomodoro: PomodoroView, brk: BreakView | null, live: Live, paused: boolean): ClockFacts {
+export function clockFacts(pomodoro: PomodoroView, brk: BreakView | null, live: Live, paused: boolean): ClockFacts {
   const recorded = duration(live.seconds);
   let spoken: string;
   let taskFact: string;
@@ -74,7 +72,7 @@ export function clockFacts(task: TaskView, pomodoro: PomodoroView, brk: BreakVie
       quiet = true;
     }
   }
-  return { spoken, taskFact, label, fact, quiet, fraction, dots: task.pomodoros_completed };
+  return { spoken, taskFact, label, fact, quiet, fraction };
 }
 
 /** The live values the clock hook starts from, taken from the snapshot. */

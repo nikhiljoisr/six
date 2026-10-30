@@ -118,10 +118,10 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
     <div className="pb-16 pl-8 pr-0 pt-2" onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
         <h1 className="font-serif text-[15px] font-normal text-stone-900">{isToday ? "Evening review" : "Review"}</h1>
-        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-serif text-[12px] text-stone-500">
           {steps > 1 && (
-            <span className="font-serif tabular-nums text-stone-400" aria-label={`Step ${panel + 1} of ${steps}`}>
-              {panel + 1} of {steps}
+            <span className="tabular-nums" aria-label={`Step ${panel + 1} of ${steps}`}>
+              Step {panel + 1} of {steps}
             </span>
           )}
           <button type="button" className="hover:text-stone-900" onClick={() => navigate(origin)}>
@@ -133,19 +133,11 @@ export function Review({ snapshot, planId }: { snapshot: DaySnapshot; planId: st
 
       {review && flow && (
         <p className="mt-3 font-serif text-[12px] leading-5 text-stone-500">
-          {!flow.past ? (
-            <>
-              {longDate(review.plan.date)}. What carries goes to {longDate(snapshot.tomorrow)}.
-            </>
-          ) : (
-            `${longDate(review.plan.date)}. ${
-              flow.askCarry
-                ? "What carries goes to the next list you plan."
-                : review.still_carries
-                  ? "Nothing was left unfinished."
-                  : "A later list has been planned since, so nothing here changes it."
-            }`
-          )}
+          {!flow.past
+            ? longDate(review.plan.date)
+            : `${longDate(review.plan.date)}. ${
+                flow.askCarry ? "What carries goes to the next list you plan." : review.still_carries ? "Nothing was left unfinished." : "A later list is already planned."
+              }`}
         </p>
       )}
       {problem && <p className="mt-8 text-[13px] text-stone-500">{problem}</p>}
@@ -212,38 +204,29 @@ function WhatHappened({
   const plan = review.plan;
   const topN = Math.min(3, plan.task_count);
   const topDone = plan.tasks.filter((t) => t.position <= 3 && t.status === "done").length;
-  const top = review.top_three_done ? `Top ${topN} complete.` : `${topDone} of the top ${topN} done.`;
-  const overrides =
-    review.overrides > 0 ? ` ${review.overrides} ${review.overrides === 1 ? "override" : "overrides"}.` : "";
+  const top = review.top_three_done ? `top ${topN} complete` : `${topDone} of the top ${topN}`;
+  const also = [
+    `${duration(plan.total_focus_seconds)} focused`,
+    plan.pomodoros_completed > 0 ? `${plan.pomodoros_completed} ${plan.pomodoros_completed === 1 ? "pomodoro" : "pomodoros"}` : "",
+    review.overrides > 0 ? `${review.overrides} ${review.overrides === 1 ? "override" : "overrides"}` : "",
+  ].filter(Boolean);
   const flags = review.idle_flags.filter((f) => !kept.includes(f.session_id));
   const titleOf = (id: string) => plan.tasks.find((t) => t.id === id)?.title ?? "a task";
+  const thought = past ? "One thought about that day" : "One thought about today";
 
   return (
     <section>
       <h2 className="mt-6 font-serif text-[20px] leading-7 font-normal text-stone-900">What happened</h2>
       <p className="mt-2 text-[15px] leading-6 text-stone-900">
-        {plan.done_count} of {plan.task_count} done. {top} {duration(plan.total_focus_seconds)} focused.{overrides}
-        {plan.pomodoros_completed > 0 && ` ${plan.pomodoros_completed} ${plan.pomodoros_completed === 1 ? "pomodoro" : "pomodoros"}.`}
+        {plan.done_count} of {plan.task_count} done · {top}
       </p>
+      <p className="font-serif text-[12px] leading-5 tabular-nums text-stone-500">{also.join(" · ")}</p>
 
-      <ol className="mt-5">
-        {plan.tasks.map((t) => (
-          <li key={t.id} className="-ml-10 grid min-h-8 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
-            <Numeral n={t.position} size="xs" tone={t.status === "done" ? "muted" : "dim"} className="pr-3 text-right leading-8" />
-            <span className={`min-w-0 py-1 text-[15px] leading-6 [overflow-wrap:anywhere] ${t.status === "done" ? "text-stone-900" : "text-stone-500"}`}>{t.title}</span>
-            <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-7 tabular-nums text-stone-500">
-              {[STATUS_WORD[t.status], t.focus_seconds >= 60 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
-            </span>
-          </li>
-        ))}
-      </ol>
-
+      {/* The one thing here that asks for a decision comes before the record. */}
       {flags.map((f) => (
-        <div key={f.session_id} className="-ml-10 mt-6 border-t border-b border-t-stone-900 border-b-stone-200 py-4 pl-10">
-          <Label>Possible gap</Label>
-          <p className="mt-2 text-[15px] leading-6 text-stone-900">
-            No interaction was recorded in Six from {clockOn(f.gap_start, f.started_at)} to {clockOn(f.gap_end, f.started_at)}. You may have been working
-            elsewhere.
+        <div key={f.session_id} className="-ml-10 mt-5 border-t border-b border-t-rule border-b-stone-200 py-4 pl-10">
+          <p className="text-[15px] leading-6 text-stone-900">
+            No interaction with Six from {clockOn(f.gap_start, f.started_at)} to {clockOn(f.gap_end, f.started_at)}.
           </p>
           <p className="mt-1 text-[13px] leading-5 text-stone-500">
             {titleOf(f.task_id)}: {duration(f.seconds)} recorded. Trimming keeps {duration(f.suggested_seconds)}.
@@ -259,6 +242,18 @@ function WhatHappened({
           </div>
         </div>
       ))}
+
+      <ol className="mt-5">
+        {plan.tasks.map((t) => (
+          <li key={t.id} className="-ml-10 grid min-h-8 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline">
+            <Numeral n={t.position} size="xs" tone={t.status === "done" ? "muted" : "dim"} className="pr-3 text-right leading-8" />
+            <span className={`min-w-0 py-1 text-[15px] leading-6 [overflow-wrap:anywhere] ${t.status === "done" ? "text-stone-900" : "text-stone-500"}`}>{t.title}</span>
+            <span className="whitespace-nowrap pl-4 text-right font-serif text-[12px] leading-7 tabular-nums text-stone-500">
+              {[STATUS_WORD[t.status], t.focus_seconds >= 60 ? duration(t.focus_seconds) : ""].filter(Boolean).join(" · ")}
+            </span>
+          </li>
+        ))}
+      </ol>
 
       {review.jots.length > 0 && (
         <>
@@ -279,23 +274,24 @@ function WhatHappened({
               </li>
             ))}
           </ul>
-          <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">They stay with this day. What matters next goes on a list by your own hand.</p>
+          <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">They stay with this day. A list is written by hand.</p>
         </>
       )}
 
-      <Label className="mt-8">{past ? "One thought about that day" : "One thought about today"}</Label>
       <input
         value={reflection}
-        aria-label={past ? "One thought about that day" : "One thought about today"}
+        aria-label={thought}
         onChange={(e) => onReflection(e.target.value)}
-        placeholder="Optional"
+        placeholder={`${thought} (optional)`}
         maxLength={200}
-        className="mt-2 w-full rounded-control border border-stone-200 bg-white px-3 py-2 text-[15px] text-stone-900 placeholder:text-stone-300 focus:border-stone-400 focus:outline-none"
+        className="mt-8 w-full rounded-control border border-stone-200 bg-white px-3 py-2 text-[15px] text-stone-900 placeholder:text-stone-400 focus:border-stone-400 focus:outline-none"
       />
 
-      <Button full className="mt-8" disabled={last && busy} onClick={onNext}>
-        {last ? "Save review" : "Next"}
-      </Button>
+      <div className="mt-8 flex justify-end">
+        <Button className="px-5" disabled={last && busy} onClick={onNext}>
+          {last ? "Save review" : "Next"}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -326,27 +322,23 @@ function Unfinished({
   const locked = !!tomorrow?.locked_at;
   const onTomorrow = new Set((tomorrow?.tasks ?? []).map((t) => t.carried_from).filter(Boolean));
   const free = locked && tomorrow ? Math.max(0, 6 - tomorrow.task_count) : 6;
+  // With tomorrow full, carrying only records the task as carried: say so on the choice.
+  const full = locked && free === 0;
   const intro =
     tasks.length === 0
       ? "Everything on the list is finished."
       : past
-        ? "Carry them to the next list you plan, or drop them for good."
+        ? "Carry each to the next list you plan, or drop it."
         : !locked
-        ? "Carry them to tomorrow, or drop them for good."
-        : free > 0
-          ? `Tomorrow's six are already set; ${free} empty ${free === 1 ? "row" : "rows"} can take what carries. Or drop them for good.`
-          : "Tomorrow's six are already set and full, so nothing more can join them. Carry keeps a task in history; drop lets it go.";
-  const existing = locked && tomorrow ? tomorrow.tasks.map((t) => t.title) : [];
+          ? "Carry each to tomorrow, or drop it."
+          : free > 0
+            ? `Tomorrow is set, with ${free} free ${free === 1 ? "row" : "rows"} for what carries.`
+            : "Tomorrow's six are full. Each is kept as carried, or dropped.";
   return (
     <section>
       <h2 className="mt-6 font-serif text-[20px] leading-7 font-normal text-stone-900">Unfinished tasks</h2>
-      <p className="mt-2 text-[15px] leading-6 text-stone-500">{intro}</p>
-      {existing.length > 0 && (
-        <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">
-          Tomorrow already has {existing.length} of 6: {existing.join(" · ")}
-        </p>
-      )}
-      <ol className="mt-5 divide-y divide-stone-200">
+      <p className="mt-1 text-[13px] leading-5 text-stone-500">{intro}</p>
+      <ol className="mt-4 divide-y divide-stone-200">
         {tasks.map((t) => {
           const d = decisions[t.id] ?? "carry";
           const already = onTomorrow.has(t.id);
@@ -361,10 +353,10 @@ function Unfinished({
               ) : (
                 <div className="mt-2 inline-flex rounded-control border border-stone-300" role="group" aria-label={`What happens to task ${t.position}`}>
                   <Toggle selected={d === "carry"} onClick={() => onDecide(t.id, "carry")}>
-                    {past ? "Carry forward" : "Carry to tomorrow"}
+                    {full ? "Carried" : past ? "Carry forward" : "Carry to tomorrow"}
                   </Toggle>
                   <Toggle selected={d === "drop"} onClick={() => onDecide(t.id, "drop")}>
-                    Drop
+                    {full ? "Dropped" : "Drop"}
                   </Toggle>
                 </div>
               )}
@@ -373,15 +365,15 @@ function Unfinished({
         })}
       </ol>
       <Rule className="mt-6" />
-      <Button full className="mt-6" disabled={busy} onClick={onNext}>
-        {past ? "Save review" : <>Save review &amp; plan tomorrow</>}
-      </Button>
-      {!past && <p className="mt-2 font-serif text-[12px] leading-5 text-stone-500">The review is saved first. Cancelling the planner keeps it.</p>}
-      <div className="mt-3">
+      <div className="mt-6 flex items-center justify-end gap-5">
         <Button variant="link" onClick={onBack}>
           Back
         </Button>
+        <Button className="px-5" disabled={busy} onClick={onNext}>
+          {past ? "Save review" : <>Save review &amp; plan tomorrow</>}
+        </Button>
       </div>
+      {!past && <p className="mt-2 text-right font-serif text-[12px] leading-5 text-stone-500">Saved before the planner opens.</p>}
     </section>
   );
 }

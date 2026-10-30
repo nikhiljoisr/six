@@ -122,7 +122,7 @@ default.
 | Keys | Does |
 |---|---|
 | Space | Pause the active task for a break, or resume it (not while a dialog is open) |
-| Cmd+Return | Complete the active task; in the planner, save the list |
+| Cmd+Return | Mark the active task done; in the planner, save the list |
 | P | Start a pomodoro on the active task |
 | J | Park a thought for the evening review (a thought, not a task) |
 | Space or Return, held | The last step of skipping ahead, same as holding the button |

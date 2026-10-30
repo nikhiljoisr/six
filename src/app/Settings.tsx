@@ -79,7 +79,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
     <div className="pb-16 pl-8 pr-0 pt-2">
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
         <h1 className="font-serif text-[15px] font-normal text-stone-900">Settings</h1>
-        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-serif text-[12px] text-stone-500">
           <button type="button" className="hover:text-stone-900" onClick={() => navigate(back)}>
             Back
           </button>
@@ -150,7 +150,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
             </span>
           </Row>
         )}
-        <Row label="Line under the countdown" hint="A thin line showing what remains of the pomodoro, in the window and the menu bar panel.">
+        <Row label="Countdown in the rule" hint="The line over the task in hand shortens as a pomodoro or a break runs, in the window and the menu bar panel.">
           <Toggle value={s.countdown_line} onChange={(v) => set("countdown_line", v)} />
         </Row>
       </Section>
@@ -170,7 +170,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
           </select>
         </Row>
         <Row label="Space" hint="Take a break, or resume." />
-        <Row label="Cmd+Return" hint="Complete the active task. In the planner, save the list." />
+        <Row label="Cmd+Return" hint="Mark the active task done. In the planner, save the list." />
         <Row label="P" hint="Start a pomodoro on the active task." />
         <Row label="J" hint="Park a thought for the evening review. A thought, not a task." />
         <Row label="Space or Return, held" hint="The last step of skipping ahead." />
@@ -346,7 +346,7 @@ function NumberField({ value, min, max, onChange, suffix, ...named }: { value: n
         onKeyDown={(e) => e.key === "Enter" && commit()}
         className="h-7 w-14 rounded-control border border-stone-200 bg-white px-2 text-right text-[13px] tabular-nums text-stone-900 focus:border-stone-400 focus:outline-none"
       />
-      {suffix && <span className="font-serif text-[12px] text-stone-500">{suffix}</span>}
+      {suffix && <span className="text-[13px] text-stone-500">{suffix}</span>}
     </span>
   );
 }

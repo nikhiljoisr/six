@@ -60,6 +60,7 @@ export function Day({ snapshot }: { snapshot: DaySnapshot }) {
                   brk={snapshot.break}
                   now={snapshot.now}
                   countdownLine={snapshot.settings.countdown_line}
+                  quietPrimary={evening && !plan.reviewed_at && !plan.all_done}
                   isToday={plan.is_today}
                   isAhead={plan.tasks.some((t) => t.position < task.position && isOpen(t))}
                   onStart={start}
@@ -268,21 +269,44 @@ function SixDone() {
 
 function NoListYet({ snapshot }: { snapshot: DaySnapshot }) {
   const navigate = useStore((s) => s.navigate);
-  const carry = snapshot.carryover_preview;
+  const open = () => navigate({ name: "planner", date: snapshot.today });
   return (
-    <section className="mt-10">
-      <Label>No list yet</Label>
-      <h2 className="mt-2 font-serif text-[22px] leading-7 font-normal text-stone-900">What are today's six?</h2>
-      <p className="mt-2 max-w-xs text-[15px] leading-6 text-stone-500">Six tasks, most important first. Work on the first until it is done.</p>
-      <Button className="mt-6 px-5" onClick={() => navigate({ name: "planner", date: snapshot.today })}>
+    <section className="mt-8 mb-6">
+      <h2 className="font-serif text-[22px] leading-7 font-normal text-stone-900">What are today's six?</h2>
+      <p className="mt-1 text-[13px] leading-5 text-stone-500">Most important first. Work on the first until it is done.</p>
+      <BlankSix plan={snapshot.today_plan} snapshot={snapshot} onOpen={open} />
+      <Button className="mt-6 px-5" onClick={open}>
         Plan today's six
       </Button>
-      {carry && carry.tasks.length > 0 && (
-        <p className="mt-5 text-[13px] leading-5 text-amber-700">
-          {carry.tasks.length} {carry.tasks.length === 1 ? "task" : "tasks"} from {sourceLabel(carry.from_date, snapshot.today)} will carry over.
-        </p>
-      )}
     </section>
+  );
+}
+
+/**
+ * Six numbered lines where the list will stand, with whatever is already chosen (a
+ * saved draft, or what carries over) in its place. A line opens the planner; the button
+ * below is the same action for the keyboard and for a screen reader, so the lines are
+ * hidden from it.
+ */
+function BlankSix({ plan, snapshot, onOpen }: { plan: PlanView | null; snapshot: DaySnapshot; onOpen: () => void }) {
+  const carry = snapshot.carryover_preview;
+  const lines = plan?.tasks.length
+    ? plan.tasks.map((t) => ({ title: t.title, carried: !!t.carried_from }))
+    : (carry?.tasks ?? []).map((t) => ({ title: t.title, carried: true }));
+  const from = carry ? sourceLabel(carry.from_date, snapshot.today) : "yesterday";
+  return (
+    <ol className="mt-5" aria-hidden onClick={onOpen}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <li key={i} className="group -ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
+          <Numeral n={i + 1} size="xs" tone="dim" className="pr-3 text-right leading-8" />
+          <div className="flex min-h-8 min-w-0 items-baseline justify-between gap-4 border-b border-stone-200 py-1 transition-colors duration-150 group-hover:border-stone-400">
+            {/* An empty line still has a baseline for its numeral to sit on. */}
+            <span className="min-w-0 text-[15px] leading-6 text-stone-600 [overflow-wrap:anywhere]">{lines[i]?.title || "\u200b"}</span>
+            {lines[i]?.carried && <span className="shrink-0 font-serif text-[12px] leading-6 text-amber-700">from {from}</span>}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -299,15 +323,18 @@ function EveningRitual({ snapshot }: { snapshot: DaySnapshot }) {
       </section>
     );
   }
+  const open = () => navigate({ name: "planner", date: snapshot.tomorrow });
   return (
-    <section className="mt-10">
-      <Label>Evening ritual</Label>
-      <h2 className="mt-2 font-serif text-[22px] leading-7 font-normal text-stone-900">Set tomorrow's six.</h2>
-      <p className="mt-2 text-[15px] leading-6 text-stone-500">Plan it now so morning starts clear.</p>
-      <Button className="mt-6 px-5" onClick={() => navigate({ name: "planner", date: snapshot.tomorrow })}>
-        Plan tomorrow's six
-      </Button>
-      <PlanTodayInstead date={snapshot.today} className="mt-5 block" />
+    <section className="mt-8 mb-6">
+      <h2 className="font-serif text-[22px] leading-7 font-normal text-stone-900">Set tomorrow's six.</h2>
+      <p className="mt-1 text-[13px] leading-5 text-stone-500">Plan it now so morning starts clear.</p>
+      <BlankSix plan={tomorrow} snapshot={snapshot} onOpen={open} />
+      <div className="mt-6 flex items-baseline gap-5">
+        <Button className="px-5" onClick={open}>
+          Plan tomorrow's six
+        </Button>
+        <PlanTodayInstead date={snapshot.today} />
+      </div>
     </section>
   );
 }

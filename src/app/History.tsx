@@ -39,7 +39,7 @@ export function History({ snapshot }: { snapshot: DaySnapshot }) {
     <div className="pb-16 pl-8 pr-0 pt-2">
       <header className="flex h-5 items-baseline justify-between gap-6 leading-5">
         <h1 className="font-serif text-[15px] font-normal text-stone-900">Last 30 days</h1>
-        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-sans text-[12px] text-stone-500">
+        <nav className="flex shrink-0 items-baseline gap-4 whitespace-nowrap font-serif text-[12px] text-stone-500">
           <button type="button" className="hover:text-stone-900" onClick={() => navigate({ name: "day" })}>
             Day
           </button>

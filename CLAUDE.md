@@ -18,12 +18,13 @@ Six is a personal, single-user Ivy Lee Method app for macOS (Tauri v2). The full
 - When in doubt, remove rather than add.
 
 ## Palette and type (SPEC §3) — exact, do not add colours
-- Ground `--color-paper`. No cards on the day, planner, review, history or settings screens: groups are `stone-200` hairline-separated; the current task and the review's gap block are bounded by a `stone-900` rule above and a hairline below. Text fields stay white with a hairline at radius 4.
-- Ink `stone-900`: the current task's top rule, the active numeral, every filled button (one per surface), headings, the live clock value.
+- Ground `--color-paper`. No cards on the day, planner, review, history or settings screens: groups are `stone-200` hairline-separated; the current task and the review's gap block are bounded by an ink rule above (`--color-rule`) and a hairline below. Text fields stay white with a hairline at radius 4.
+- Ink `stone-900`: the active numeral, every filled button (one per surface: when a screen's filled button is elsewhere, the current task's is an ink text button), headings, the live clock value. The current task's top rule is `--color-rule` (ink in light, softened in dark), and it is also the countdown: it shortens while a pomodoro or break runs.
 - Secondary `stone-500` (also status words, tags, completion times); decoration only `stone-400`, `stone-300` for decoration and struck-through text only. Anything clickable reads at `stone-500` or darker (a 2.5:1 hint is not a control). Destructive actions are `stone-500` text, never red.
 - `amber-700` only for: streak flame + count, "Six done." headline, "Complete" badge on 6/6 days, "↑ from yesterday" tag. Never on buttons or the active task.
 - No green, red, blue or indigo. The serif is the app's own voice (date, numerals 1–6, footer, navigation, headings); the system sans is the user's words and the controls. Weights 400/500 only; the day view is 400 throughout.
 - Single column, max-width 28rem, centred, on the paper ground (`--color-paper`). 6px card radius, 4px controls. 150–200ms fades, no springs.
+- Labels are sentence case (serif 12px) and rare: a heading or the content usually says it. Finished rows are struck through. Buttons fit their words; a page's committing button sits at the right, Mac-style, and sheets hang from the title bar. Counts read "n of m".
 - The window is a card that can grow (360×520 to 720×1140). Up to 480 wide the page reflows at its normal size; past that the whole page is drawn larger in proportion, to 1.5×, by the web view's page zoom, set from Rust on resize (`domain/window.rs`). No layout is designed for a wider column, so none is needed. The green button zooms to the largest size and back; it never enters full screen. The size is remembered.
 - Dark appearance (Settings; light is the default) is the same roles remapped: `src/styles.css` redefines the colour variables under `data-theme="dark"`. Components never name a dark colour and there are no `dark:` variants; a colour that is not one of the variables (a hex in a component) breaks it.
 

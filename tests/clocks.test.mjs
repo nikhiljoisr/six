@@ -7,49 +7,47 @@ const pomodoro = { enabled: true, minutes: 25, break_minutes: 5, long_break_minu
 const live = { seconds: 2700, pomodoro: "running", remaining: 727, onBreak: false, breakRemaining: 0 };
 
 test("a running pomodoro names both clocks and what remains", () => {
-  const f = clockFacts(task, pomodoro, null, live, false);
+  const f = clockFacts(pomodoro, null, live, false);
   assert.equal(f.taskFact, "45 min");
   assert.equal(f.label, "Pomodoro");
   assert.equal(f.fact, "12:07 left");
   assert.equal(f.quiet, false);
   assert.ok(Math.abs(f.fraction - 727 / 1500) < 1e-9);
-  assert.equal(f.dots, 2);
   assert.equal(f.spoken, "Pomodoro running.");
 });
 
 test("a rung pomodoro says finished and leaves the track empty", () => {
-  const f = clockFacts(task, { ...pomodoro, phase: "done" }, null, { ...live, pomodoro: "done", remaining: 0 }, false);
+  const f = clockFacts({ ...pomodoro, phase: "done" }, null, { ...live, pomodoro: "done", remaining: 0 }, false);
   assert.equal(f.fact, "finished");
   assert.equal(f.fraction, 0);
   assert.match(f.spoken, /still recording/);
 });
 
 test("no timer is said quietly, with no track", () => {
-  const f = clockFacts(task, { ...pomodoro, phase: "idle" }, null, { ...live, pomodoro: "idle", remaining: 0 }, false);
+  const f = clockFacts({ ...pomodoro, phase: "idle" }, null, { ...live, pomodoro: "idle", remaining: 0 }, false);
   assert.deepEqual([f.label, f.fact, f.quiet, f.fraction], ["Pomodoro", "not running", true, null]);
 });
 
 test("with pomodoros switched off there is no second clock", () => {
-  const f = clockFacts(task, { ...pomodoro, enabled: false }, null, { ...live, pomodoro: "idle" }, false);
+  const f = clockFacts({ ...pomodoro, enabled: false }, null, { ...live, pomodoro: "idle" }, false);
   assert.deepEqual([f.label, f.fact, f.fraction], ["", "", null]);
-  assert.equal(f.dots, 2, "completed pomodoros still count");
 });
 
 test("a break counts down, then is over; task time reads paused throughout", () => {
   const brk = { started_at: "2026-09-03T05:00:00Z", ends_at: "2026-09-03T05:05:00Z", minutes: 5, long: false };
-  const on = clockFacts(task, pomodoro, brk, { ...live, onBreak: true, breakRemaining: 192 }, true);
+  const on = clockFacts(pomodoro, brk, { ...live, onBreak: true, breakRemaining: 192 }, true);
   assert.deepEqual([on.taskFact, on.label, on.fact], ["45 min · paused", "Break", "3:12 left"]);
   assert.ok(Math.abs(on.fraction - 192 / 300) < 1e-9);
-  const over = clockFacts(task, pomodoro, brk, { ...live, onBreak: true, breakRemaining: 0 }, true);
+  const over = clockFacts(pomodoro, brk, { ...live, onBreak: true, breakRemaining: 0 }, true);
   assert.deepEqual([over.fact, over.fraction], ["over", 0]);
-  const plain = clockFacts(task, pomodoro, null, live, true);
+  const plain = clockFacts(pomodoro, null, live, true);
   assert.deepEqual([plain.taskFact, plain.label, plain.fraction], ["45 min · paused", "", null]);
 });
 
 test("the track never leaves 0..1, whatever the poll reports", () => {
   const brk = { started_at: "2026-09-03T05:00:00Z", ends_at: "2026-09-03T05:05:00Z", minutes: 5, long: false };
-  assert.equal(clockFacts(task, pomodoro, brk, { ...live, breakRemaining: 9999 }, true).fraction, 1);
-  assert.equal(clockFacts(task, pomodoro, null, { ...live, remaining: 99999 }, false).fraction, 1);
+  assert.equal(clockFacts(pomodoro, brk, { ...live, breakRemaining: 9999 }, true).fraction, 1);
+  assert.equal(clockFacts(pomodoro, null, { ...live, remaining: 99999 }, false).fraction, 1);
 });
 
 test("the break offered is the long one once a set is complete", () => {

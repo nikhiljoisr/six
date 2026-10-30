@@ -2,8 +2,8 @@ import { useState } from "react";
 import { clockTime } from "../lib/format";
 import type { BreakView, PomodoroView, TaskView } from "../lib/types";
 import { useElapsed } from "../lib/useElapsed";
-import { initialLive } from "../lib/clocks";
-import { Clocks, RingAnswers, SecondaryActions } from "./Pomodoro";
+import { clockFacts, initialLive } from "../lib/clocks";
+import { Clocks, RingRow, SecondaryActions, TimerRule } from "./Pomodoro";
 import { Button, Numeral } from "./ui";
 
 // The list is a table of contents: one column of serif numerals, one column of titles,
@@ -36,6 +36,9 @@ interface Props extends Actions {
   isAhead: boolean;
   /** Undo and starting are only offered on today's list. */
   isToday: boolean;
+  /** The screen's one filled button is elsewhere (the evening's "Review today"): the
+   *  current task's main action is set as an ink text button instead. */
+  quietPrimary?: boolean;
 }
 
 /**
@@ -57,16 +60,16 @@ function useFadeIn(): string {
   return fade;
 }
 
-export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdownLine = true, ...on }: Props) {
+export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdownLine = true, quietPrimary = false, ...on }: Props) {
   switch (task.status) {
     case "active":
     case "paused":
-      return <CurrentRow task={task} pomodoro={pomodoro} brk={brk} now={now} line={countdownLine} {...on} />;
+      return <CurrentRow task={task} pomodoro={pomodoro} brk={brk} now={now} line={countdownLine} quiet={quietPrimary} {...on} />;
     case "done": {
       // A done row keeps its numeral and carries the time it was finished, in the serif's figures.
       const at = task.completed_at ? clockTime(task.completed_at) : undefined;
       return (
-        <Row task={task} tone="done">
+        <Row task={task} tone="done" struck>
           {isToday && on.onUndo ? (
             <RowAction tag={at} onClick={() => on.onUndo?.(task)}>
               undo
@@ -85,7 +88,7 @@ export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdown
       );
     case "skipped":
       return (
-        <Row task={task} tone="done">
+        <Row task={task} tone="done" struck>
           {isToday && on.onUndo ? <RowAction tag="dropped" onClick={() => on.onUndo?.(task)}>undo</RowAction> : <span className="clock text-[12px] text-stone-500">dropped</span>}
         </Row>
       );
@@ -101,15 +104,18 @@ export function TaskCard({ task, pomodoro, brk, now, isAhead, isToday, countdown
 function Row({
   task,
   tone,
+  struck = false,
   tag,
   children,
 }: {
   task: TaskView;
   tone: "done" | "dim" | "upcoming";
+  /** Finished (done or dropped): a thin line through the title. */
+  struck?: boolean;
   tag?: string;
   children?: React.ReactNode;
 }) {
-  const title = tone === "upcoming" ? "text-stone-600" : "text-stone-500";
+  const title = `${tone === "upcoming" ? "text-stone-600" : "text-stone-500"}${struck ? " line-through decoration-stone-400" : ""}`;
   const fade = useFadeIn();
   return (
     <div className={`${fade} group ${ROW} min-h-8`}>
@@ -137,8 +143,11 @@ function RowAction({ onClick, tag, children }: { onClick: () => void; tag?: stri
 
 /**
  * The current task: the one block the page sets apart, bounded by an ink rule above and a
- * hairline below across the whole column, numeral included. The title is the largest text
- * on the page, the two clocks are named, and one filled button is the primary action.
+ * hairline below across the whole column, numeral included. The rule is also the
+ * countdown: it shortens while a pomodoro or a break runs. The title is the largest text
+ * on the page, the two clocks are named, and one filled button is the primary action
+ * (unless the screen's filled button is elsewhere). When a pomodoro rings, its answers
+ * take the action row's place, so nothing below moves.
  */
 function CurrentRow({
   task,
@@ -150,40 +159,43 @@ function CurrentRow({
   onResume,
   onDefer,
   line,
-}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean } & Actions) {
+  quiet,
+}: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; now: string; line: boolean; quiet: boolean } & Actions) {
   const paused = task.status === "paused";
   const live = useElapsed(task.id, initialLive(task, pomodoro, brk, now), !paused || !!brk);
   const fade = useFadeIn();
   const note = task.note ?? "";
+  // Settings → "Countdown in the rule": off leaves the rule a plain ink line.
+  const fraction = line ? clockFacts(pomodoro, brk, live, paused).fraction : null;
+  const filled = quiet ? ({ variant: "text" } as const) : ({ size: "sm" } as const);
   const primary = paused ? (
-    <Button size="sm" title="Space" aria-label="Resume (Space); task time records again" onClick={() => onResume?.(task)}>
+    <Button {...filled} title="Space" aria-label="Resume (Space); task time records again" onClick={() => onResume?.(task)}>
       Resume
     </Button>
   ) : (
-    <Button size="sm" title="⌘↩" aria-label="Complete (⌘↩)" onClick={() => onComplete?.(task)}>
-      Complete
+    <Button {...filled} title="⌘↩" aria-label="Done (⌘↩)" onClick={() => onComplete?.(task)}>
+      Done
     </Button>
   );
   const ringing = !paused && live.pomodoro === "done";
-  const secondary = (
-    <SecondaryActions task={task} pomodoro={pomodoro} live={live} paused={paused} withRing={false} onTakeFive={() => onTakeFive?.(task)} onDefer={() => onDefer?.(task)} />
-  );
   return (
-    <div className={`${fade} -ml-10 my-3 border-t border-b border-t-stone-900 border-b-stone-200 pt-4 pb-4`}>
-      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline">
+    <div className={`${fade} -ml-10 my-3 border-b border-b-stone-200 pb-4`}>
+      <TimerRule fraction={fraction} />
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline pt-4">
         <Numeral n={task.position} size="xs" tone="ink" className="pr-3 text-right leading-7" />
         <div className="min-w-0">
           <div className="text-[20px] leading-7 text-stone-900">{task.title}</div>
           {note && <div className="mt-1 text-[13px] leading-5 text-stone-500">{note}</div>}
-          <Clocks task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} line={line} />
-          {ringing && (
-            <div className="mt-1 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
-              <RingAnswers task={task} pomodoro={pomodoro} />
-            </div>
-          )}
+          <Clocks pomodoro={pomodoro} brk={brk} live={live} paused={paused} />
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-            {primary}
-            {secondary}
+            {ringing ? (
+              <RingRow task={task} pomodoro={pomodoro} quiet={quiet} onTakeFive={() => onTakeFive?.(task)} onDone={() => onComplete?.(task)} />
+            ) : (
+              <>
+                {primary}
+                <SecondaryActions task={task} pomodoro={pomodoro} live={live} paused={paused} onTakeFive={() => onTakeFive?.(task)} onDefer={() => onDefer?.(task)} />
+              </>
+            )}
           </div>
         </div>
       </div>

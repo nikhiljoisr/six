@@ -6,20 +6,9 @@ import { useStore } from "../store";
 import { Button } from "./ui";
 
 // The second clock. Task time is recorded from timestamps whenever the task is active;
-// the pomodoro is an optional countdown laid over it. The running countdown is the one
-// live number on the screen, so it is set large; everything else about the clocks is
-// one small line of facts. Every button says what it will do.
-
-export function Dots({ count }: { count: number }) {
-  if (count <= 0) return null;
-  return (
-    <span className="ml-2 inline-flex items-center gap-1 align-middle" aria-label={`${count} pomodoros done on this task`}>
-      {Array.from({ length: Math.min(count, 12) }).map((_, i) => (
-        <span key={i} className="h-1.5 w-1.5 rounded-full bg-stone-400" />
-      ))}
-    </span>
-  );
-}
+// the pomodoro is an optional countdown laid over it. The clocks are one small line of
+// facts; the countdown itself is drawn by the rule above the current task (TimerRule),
+// which shortens as the time runs. Every button says what it will do.
 
 /** Spoken on a change of state only; the ticking numbers stay out of it. */
 function Spoken({ children }: { children: string }) {
@@ -31,30 +20,37 @@ function Spoken({ children }: { children: string }) {
 }
 
 /**
- * The current task's clocks, in the main window. Two labelled facts on one line ("Task
- * time 45 min" at the text edge, "Pomodoro 12:07 left" at the margin) and, while a
- * countdown runs, a full-measure hairline under them whose dark part, anchored under the
- * clock it measures, is what remains; a timer that has ended leaves the empty track. A
- * screen reader hears the state sentence on a change and never the ticking numbers.
+ * The rule over the current task, which is also its countdown. With no countdown running
+ * it is one ink line: "you are here". While a pomodoro or a break runs, the ink is what
+ * remains, shortening from the right over a hairline track; a timer that has ended leaves
+ * only the track. `fraction` null means no countdown to show.
+ */
+export function TimerRule({ fraction }: { fraction: number | null }) {
+  if (fraction === null) return <div className="h-px w-full bg-rule" aria-hidden />;
+  return (
+    <div className="h-px w-full bg-stone-200" aria-hidden>
+      <div className="h-full bg-rule" style={{ width: `${fraction * 100}%`, transition: "width 200ms linear" }} />
+    </div>
+  );
+}
+
+/**
+ * The current task's clocks, in the main window: two labelled facts on one line ("Task
+ * time 45 min" at the text edge, "Pomodoro 12:07 left" at the margin). A screen reader
+ * hears the state sentence on a change and never the ticking numbers.
  */
 export function Clocks({
-  task,
   pomodoro,
   brk,
   live,
   paused,
-  line = true,
 }: {
-  task: TaskView;
   pomodoro: PomodoroView;
   brk: BreakView | null;
   live: Live;
   paused: boolean;
-  /** Settings → "Line under the countdown": the track under the clocks, on by default. */
-  line?: boolean;
 }) {
-  const f = clockFacts(task, pomodoro, brk, live, paused);
-  if (!line) f.fraction = null;
+  const f = clockFacts(pomodoro, brk, live, paused);
   return (
     <div className="mt-2 text-[13px] leading-5">
       <Spoken>{f.spoken}</Spoken>
@@ -70,28 +66,52 @@ export function Clocks({
               <span className={`tabular-nums ${f.quiet ? "text-stone-500" : "font-medium text-stone-900"}`}>{f.fact}</span>
             </>
           )}
-          <Dots count={f.dots} />
         </span>
       </div>
-      {f.fraction !== null && (
-        <div className="mt-1.5 h-px w-full bg-stone-300" aria-hidden>
-          <div className="ml-auto h-full bg-stone-900" style={{ width: `${f.fraction * 100}%`, transition: "width 200ms linear" }} />
-        </div>
-      )}
     </div>
   );
 }
 
-/** A rung pomodoro's two answers: the next one, or none. */
-export function RingAnswers({ task, pomodoro }: { task: TaskView; pomodoro: PomodoroView }) {
+/**
+ * A rung pomodoro's answers, in the card's own action row, so nothing moves: another one
+ * (the main answer, unless `quiet`), a break, or carry on without a timer. Done stays
+ * beside them as a quiet action.
+ */
+export function RingRow({
+  task,
+  pomodoro,
+  quiet,
+  onTakeFive,
+  onDone,
+}: {
+  task: TaskView;
+  pomodoro: PomodoroView;
+  /** Another surface holds this screen's one filled button. */
+  quiet: boolean;
+  onTakeFive: () => void;
+  onDone: () => void;
+}) {
   const dispatch = useStore((s) => s.dispatch);
+  const bm = breakMinutes(pomodoro);
   return (
     <>
-      <Button variant="link" aria-label={`Start another ${pomodoro.minutes}-minute pomodoro`} onClick={() => void dispatch(() => api.startPomodoro(task.id))}>
+      <Button
+        variant={quiet ? "text" : "primary"}
+        size="sm"
+        className={quiet ? "" : "px-3"}
+        aria-label={`Start another ${pomodoro.minutes}-minute pomodoro`}
+        onClick={() => void dispatch(() => api.startPomodoro(task.id))}
+      >
         Another {pomodoro.minutes} min
       </Button>
-      <Button variant="link" aria-label="Continue without a timer; task time keeps recording" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
-        Continue without timer
+      <Button variant="link" aria-label={`Take a ${bm}-minute break; task time pauses`} onClick={onTakeFive}>
+        Break {bm} min
+      </Button>
+      <Button variant="link" aria-label="Keep going without a timer; task time keeps recording" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
+        Keep going
+      </Button>
+      <Button variant="link" title="⌘↩" aria-label="Done (⌘↩)" onClick={onDone}>
+        Done
       </Button>
     </>
   );
@@ -105,7 +125,6 @@ export function SecondaryActions({
   paused,
   onTakeFive,
   onDefer,
-  withRing = true,
 }: {
   task: TaskView;
   pomodoro: PomodoroView;
@@ -113,15 +132,11 @@ export function SecondaryActions({
   paused: boolean;
   onTakeFive: () => void;
   onDefer: () => void;
-  /** Include the ring's two answers here; false when the surface sets them on their own line. */
-  withRing?: boolean;
 }) {
   const dispatch = useStore((s) => s.dispatch);
   const bm = breakMinutes(pomodoro);
-  const ringing = !paused && live.pomodoro === "done";
   return (
     <div className="contents">
-      {ringing && withRing && <RingAnswers task={task} pomodoro={pomodoro} />}
       {!paused && pomodoro.enabled && live.pomodoro === "idle" && (
         <Button variant="link" title={`${pomodoro.minutes} minutes`} aria-label={`Start a ${pomodoro.minutes}-minute pomodoro`} onClick={() => void dispatch(() => api.startPomodoro(task.id))}>
           Start a pomodoro

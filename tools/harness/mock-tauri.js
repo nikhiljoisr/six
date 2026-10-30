@@ -755,7 +755,7 @@
             title: "Still on Draft the opening section of the deck?",
             body: "1 h 15 min recorded so far.",
             actions: [
-              { id: "done", label: "Mark complete" },
+              { id: "done", label: "Done" },
               { id: "keep_going", label: "Continue" },
               { id: "take_break", label: "Break 5 min" },
             ],

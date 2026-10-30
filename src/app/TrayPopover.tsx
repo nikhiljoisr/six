@@ -6,7 +6,7 @@ import { chime } from "../lib/sound";
 import { installInteractionStamps } from "../lib/touch";
 import { useElapsed, type Live } from "../lib/useElapsed";
 import type { BreakView, DaySnapshot, Nudge, PlanView, PomodoroView, TaskView } from "../lib/types";
-import { Dots, RingAnswers, SecondaryActions } from "../components/Pomodoro";
+import { RingRow, SecondaryActions, TimerRule } from "../components/Pomodoro";
 import { clockFacts, initialLive } from "../lib/clocks";
 import { useStore, type View } from "../store";
 
@@ -116,7 +116,7 @@ export function TrayPopover() {
 
 /** The task and its two clocks, the same in every state of the panel. */
 function TaskFacts({ task, pomodoro, brk, live, paused, line }: { task: TaskView; pomodoro: PomodoroView; brk: BreakView | null; live: Live; paused: boolean; line: boolean }) {
-  const f = clockFacts(task, pomodoro, brk, live, paused);
+  const f = clockFacts(pomodoro, brk, live, paused);
   if (!line) f.fraction = null;
   return (
     <div>
@@ -135,20 +135,12 @@ function TaskFacts({ task, pomodoro, brk, live, paused, line }: { task: TaskView
         {f.label && (
           <div className="flex items-baseline justify-between gap-4">
             <span className="text-stone-500">{f.label}</span>
-            <span className={`tabular-nums ${f.quiet ? "text-stone-500" : "font-medium text-stone-900"}`}>
-              {f.fact}
-              <Dots count={f.dots} />
-            </span>
-          </div>
-        )}
-        {!f.label && f.dots > 0 && (
-          <div className="text-right">
-            <Dots count={f.dots} />
+            <span className={`tabular-nums ${f.quiet ? "text-stone-500" : "font-medium text-stone-900"}`}>{f.fact}</span>
           </div>
         )}
         {f.fraction !== null && (
-          <div className="mt-1.5 h-px w-full bg-stone-300" aria-hidden>
-            <div className="ml-auto h-full bg-stone-900" style={{ width: `${f.fraction * 100}%`, transition: "width 200ms linear" }} />
+          <div className="mt-1.5">
+            <TimerRule fraction={f.fraction} />
           </div>
         )}
       </div>
@@ -163,29 +155,35 @@ function Current({ task, pomodoro, brk, now, line }: { task: TaskView; pomodoro:
   return (
     <div>
       <TaskFacts task={task} pomodoro={pomodoro} brk={brk} live={live} paused={paused} line={line} />
-      {!paused && live.pomodoro === "done" && (
-        <div className="mt-1.5 flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px]">
-          <RingAnswers task={task} pomodoro={pomodoro} />
-        </div>
-      )}
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5">
-        <Button size="sm" className="px-3" onClick={() => void dispatch(() => api.complete(task.id))}>
-          Done
-        </Button>
-        {paused && (
-          <Button variant="link" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
-            Resume
-          </Button>
+        {!paused && live.pomodoro === "done" ? (
+          <RingRow
+            task={task}
+            pomodoro={pomodoro}
+            quiet={false}
+            onTakeFive={() => void dispatch(() => api.pause(task.id, "break"))}
+            onDone={() => void dispatch(() => api.complete(task.id))}
+          />
+        ) : (
+          <>
+            <Button size="sm" className="px-3" onClick={() => void dispatch(() => api.complete(task.id))}>
+              Done
+            </Button>
+            {paused && (
+              <Button variant="link" aria-label="Resume; task time records again" onClick={() => void dispatch(() => api.resume(task.id))}>
+                Resume
+              </Button>
+            )}
+            <SecondaryActions
+              task={task}
+              pomodoro={pomodoro}
+              live={live}
+              paused={paused}
+              onTakeFive={() => void dispatch(() => api.pause(task.id, "break"))}
+              onDefer={() => void dispatch(() => api.defer(task.id))}
+            />
+          </>
         )}
-        <SecondaryActions
-          task={task}
-          pomodoro={pomodoro}
-          live={live}
-          paused={paused}
-          withRing={false}
-          onTakeFive={() => void dispatch(() => api.pause(task.id, "break"))}
-          onDefer={() => void dispatch(() => api.defer(task.id))}
-        />
       </div>
     </div>
   );
