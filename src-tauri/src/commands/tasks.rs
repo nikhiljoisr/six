@@ -77,7 +77,7 @@ pub async fn start_pomodoro(app: AppHandle, task_id: String) -> CmdResult<DaySna
     .await
 }
 
-/// "Keep going": answer the ring without a break or another pomodoro.
+/// "No timer": answer the ring without a break or another pomodoro.
 #[tauri::command(rename_all = "snake_case")]
 pub async fn acknowledge_pomodoro(app: AppHandle, task_id: String) -> CmdResult<DaySnapshot> {
     mutate_by_task(&app, &task_id, |day, ctx| {

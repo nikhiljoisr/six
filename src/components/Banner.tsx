@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
-import { clockOn, clockTime, duration } from "../lib/format";
+import { duration, idleSpan } from "../lib/format";
 import { chime } from "../lib/sound";
 import type { IdleFlag, Nudge } from "../lib/types";
 import { useStore } from "../store";
@@ -52,7 +52,7 @@ export function GapBanner({ flag }: { flag: IdleFlag }) {
   };
   return (
     <Frame
-      title={`No interaction from ${clockOn(flag.gap_start, flag.gap_end)} to ${clockTime(flag.gap_end)}.`}
+      title={`Six sat idle ${idleSpan(flag.gap_start, flag.gap_end)}.`}
       body={`Six has ${duration(flag.seconds)} recorded on this task.`}
     >
       <Button

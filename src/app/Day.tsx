@@ -262,7 +262,6 @@ function SixDone() {
   return (
     <div className="mt-8">
       <h2 className="font-serif text-[20px] leading-7 font-normal text-amber-700">Six done.</h2>
-      <p className="mt-1 text-[13px] leading-5 text-stone-500">Today's list is complete.</p>
     </div>
   );
 }
@@ -327,7 +326,6 @@ function EveningRitual({ snapshot }: { snapshot: DaySnapshot }) {
   return (
     <section className="mt-8 mb-6">
       <h2 className="font-serif text-[22px] leading-7 font-normal text-stone-900">Set tomorrow's six.</h2>
-      <p className="mt-1 text-[13px] leading-5 text-stone-500">Plan it now so morning starts clear.</p>
       <BlankSix plan={tomorrow} snapshot={snapshot} onOpen={open} />
       <div className="mt-6 flex items-baseline gap-5">
         <Button className="px-5" onClick={open}>

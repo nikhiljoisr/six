@@ -16,10 +16,10 @@ test("a running pomodoro names both clocks and what remains", () => {
   assert.equal(f.spoken, "Pomodoro running.");
 });
 
-test("a rung pomodoro says finished and leaves the track empty", () => {
+test("a rung pomodoro says finished and the rule is whole again", () => {
   const f = clockFacts({ ...pomodoro, phase: "done" }, null, { ...live, pomodoro: "done", remaining: 0 }, false);
   assert.equal(f.fact, "finished");
-  assert.equal(f.fraction, 0);
+  assert.equal(f.fraction, null);
   assert.match(f.spoken, /still recording/);
 });
 
@@ -39,7 +39,7 @@ test("a break counts down, then is over; task time reads paused throughout", () 
   assert.deepEqual([on.taskFact, on.label, on.fact], ["45 min · paused", "Break", "3:12 left"]);
   assert.ok(Math.abs(on.fraction - 192 / 300) < 1e-9);
   const over = clockFacts(pomodoro, brk, { ...live, onBreak: true, breakRemaining: 0 }, true);
-  assert.deepEqual([over.fact, over.fraction], ["over", 0]);
+  assert.deepEqual([over.fact, over.fraction], ["over", null]);
   const plain = clockFacts(pomodoro, null, live, true);
   assert.deepEqual([plain.taskFact, plain.label, plain.fraction], ["45 min · paused", "", null]);
 });

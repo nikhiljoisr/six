@@ -887,7 +887,7 @@ impl Day {
         rang
     }
 
-    /// "Keep going": answer the ring without a break or another pomodoro.
+    /// "No timer": answer the ring without a break or another pomodoro.
     pub fn acknowledge_pomodoro(&mut self, task_id: &str, ctx: &Ctx) -> Result<(), DomainError> {
         self.index_of(task_id)?;
         self.settle_pomodoros(ctx);

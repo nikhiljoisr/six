@@ -21,7 +21,7 @@ export interface ClockFacts {
   fact: string;
   /** The second clock is not doing anything; show it quietly. */
   quiet: boolean;
-  /** What remains of the running countdown, 0 to 1; 0 once it has ended; null when there is none. */
+  /** What remains of the running countdown, 0 to 1; null when none is running, ended ones included. */
   fraction: number | null;
 }
 
@@ -45,7 +45,6 @@ export function clockFacts(pomodoro: PomodoroView, brk: BreakView | null, live: 
       spoken = "Break over. Task time is paused until you resume.";
       label = "Break";
       fact = "over";
-      fraction = 0;
     } else {
       spoken = "Paused. Task time paused.";
     }
@@ -64,7 +63,6 @@ export function clockFacts(pomodoro: PomodoroView, brk: BreakView | null, live: 
       spoken = "Pomodoro finished. Task time is still recording.";
       label = "Pomodoro";
       fact = "finished";
-      fraction = 0;
     } else {
       spoken = "No timer running.";
       label = "Pomodoro";

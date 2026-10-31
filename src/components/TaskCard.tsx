@@ -143,11 +143,12 @@ function RowAction({ onClick, tag, children }: { onClick: () => void; tag?: stri
 
 /**
  * The current task: the one block the page sets apart, bounded by an ink rule above and a
- * hairline below across the whole column, numeral included. The rule is also the
- * countdown: it shortens while a pomodoro or a break runs. The title is the largest text
- * on the page, the two clocks are named, and one filled button is the primary action
- * (unless the screen's filled button is elsewhere). When a pomodoro rings, its answers
- * take the action row's place, so nothing below moves.
+ * hairline below across the text column, like every other rule; its numeral hangs in the
+ * margin like every other numeral. The rule is also the countdown: it shortens while a
+ * pomodoro or a break runs. The title is the largest text on the page, the two clocks are
+ * named, and one filled button is the primary action (unless the screen's filled button is
+ * elsewhere). When a pomodoro rings, its answers take the action row's place, so nothing
+ * below moves.
  */
 function CurrentRow({
   task,
@@ -179,9 +180,9 @@ function CurrentRow({
   );
   const ringing = !paused && live.pomodoro === "done";
   return (
-    <div className={`${fade} -ml-10 my-3 border-b border-b-stone-200 pb-4`}>
+    <div className={`${fade} my-3 border-b border-b-stone-200 pb-4`}>
       <TimerRule fraction={fraction} />
-      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline pt-4">
+      <div className="-ml-10 grid grid-cols-[2.5rem_minmax(0,1fr)] items-baseline pt-4">
         <Numeral n={task.position} size="xs" tone="ink" className="pr-3 text-right leading-7" />
         <div className="min-w-0">
           <div className="text-[20px] leading-7 text-stone-900">{task.title}</div>

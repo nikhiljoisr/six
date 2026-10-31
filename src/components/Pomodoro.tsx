@@ -22,8 +22,9 @@ function Spoken({ children }: { children: string }) {
 /**
  * The rule over the current task, which is also its countdown. With no countdown running
  * it is one ink line: "you are here". While a pomodoro or a break runs, the ink is what
- * remains, shortening from the right over a hairline track; a timer that has ended leaves
- * only the track. `fraction` null means no countdown to show.
+ * remains, shortening from the right over a hairline track. When the timer ends the line is
+ * whole again: the task is still here, waiting for an answer. `fraction` null means no
+ * countdown to show.
  */
 export function TimerRule({ fraction }: { fraction: number | null }) {
   if (fraction === null) return <div className="h-px w-full bg-rule" aria-hidden />;
@@ -73,9 +74,9 @@ export function Clocks({
 }
 
 /**
- * A rung pomodoro's answers, in the card's own action row, so nothing moves: another one
- * (the main answer, unless `quiet`), a break, or carry on without a timer. Done stays
- * beside them as a quiet action.
+ * A rung pomodoro's answers, in the card's own action row, so nothing moves: a break (the
+ * main answer, unless `quiet`, as in the nudge), another one, or carry on with no timer.
+ * Done stays beside them as a quiet action.
  */
 export function RingRow({
   task,
@@ -99,16 +100,20 @@ export function RingRow({
         variant={quiet ? "text" : "primary"}
         size="sm"
         className={quiet ? "" : "px-3"}
+        aria-label={`Take a ${bm}-minute break; task time pauses`}
+        onClick={onTakeFive}
+      >
+        Break {bm} min
+      </Button>
+      <Button
+        variant="link"
         aria-label={`Start another ${pomodoro.minutes}-minute pomodoro`}
         onClick={() => void dispatch(() => api.startPomodoro(task.id))}
       >
         Another {pomodoro.minutes} min
       </Button>
-      <Button variant="link" aria-label={`Take a ${bm}-minute break; task time pauses`} onClick={onTakeFive}>
-        Break {bm} min
-      </Button>
-      <Button variant="link" aria-label="Keep going without a timer; task time keeps recording" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
-        Keep going
+      <Button variant="link" aria-label="Carry on with no timer; task time keeps recording" onClick={() => void dispatch(() => api.acknowledgePomodoro(task.id))}>
+        No timer
       </Button>
       <Button variant="link" title="⌘↩" aria-label="Done (⌘↩)" onClick={onDone}>
         Done

@@ -1239,7 +1239,7 @@ fn a_pomodoro_counts_down_rings_at_its_planned_end_and_waits_for_a_tap() {
         "the session keeps running; only the pomodoro ended"
     );
 
-    // "Keep going" answers the ring; nothing starts by itself.
+    // "No timer" answers the ring; nothing starts by itself.
     day.acknowledge_pomodoro(&t1, &ctx(3, 9, 30)).unwrap();
     assert_eq!(day.pomodoro_state(at(3, 9, 30)).0, PomodoroPhase::Idle);
     assert_eq!(pom(&day, 0).acknowledged_at, Some(at(3, 9, 30)));

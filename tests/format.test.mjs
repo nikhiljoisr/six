@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { countdown, duration, hourLabel, shiftDays, tildePath, weekOf } from "../src/lib/format.ts";
+import { clockOn, clockTime, countdown, duration, hourLabel, idleSpan, shiftDays, tildePath, weekOf } from "../src/lib/format.ts";
 
 test("durations read one way everywhere", () => {
   assert.deepEqual([0, 59, 60, 2700, 3600, 4500, 7200].map(duration), ["0 min", "0 min", "1 min", "45 min", "1 h", "1 h 15 min", "2 h"]);
@@ -13,6 +13,15 @@ test("a countdown is m:ss and never negative", () => {
 
 test("hours read as a 12-hour clock", () => {
   assert.deepEqual([0, 5, 12, 18, 23].map(hourLabel), ["12 AM", "5 AM", "12 PM", "6 PM", "11 PM"]);
+});
+
+test("an idle stretch under a day is two clock times; a longer one carries its dates", () => {
+  const start = "2026-09-02T17:00:00Z";
+  const overnight = "2026-09-02T21:00:00Z";
+  assert.equal(idleSpan(start, overnight), `from ${clockTime(start)} to ${clockTime(overnight)}`);
+  const days = "2026-09-04T21:00:00Z";
+  assert.equal(idleSpan(start, days), `from ${clockOn(start, days)} to ${clockOn(days, start)}`);
+  assert.match(idleSpan(start, days), /Sep/);
 });
 
 test("dates shift across months and years, and weeks run Monday to Sunday", () => {

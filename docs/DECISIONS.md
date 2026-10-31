@@ -1143,3 +1143,41 @@ Nikhil saw the step 28 screens and the labelled test copy and answered "yes and 
 it": ship it as 1.8.0, and leave the menu bar panel as it is when a pomodoro rings (its
 four answers wrap onto two lines in the narrow panel; they still read cleanly). No
 migration.
+
+## 2026-10-31 — Step 30: polish after the second design review
+
+A second review of 1.8.0, run with fresh reviewers who saw only screenshots (a studio
+critique, plus checks for distinctiveness, for what could come off, and for machine-made
+habits), found no case for a redesign. Most of its larger suggestions conflict with this
+brief and were declined: dropping the streak flame (Nikhil keeps it), changing the
+palette, putting amber on the current task, setting task titles in the serif, a separate
+Settings window with menu navigation, and typing into the morning lines instead of the
+planner. Nikhil approved the small fixes and three choices ("go, 1 yes 2 yes 3 yes"):
+
+- **The idle-gap sentence reads as a sentence.** "Six sat idle from 10:30 PM to 2:30 AM."
+  (review and banner). The old one put a date in the middle ("…to 3 Sep 2:30 AM") and
+  broke there. Under a day, the two times say it; a longer gap carries both dates
+  (`idleSpan`).
+- **"Six done." stands alone.** "Today's list is complete." is gone from the day view and
+  the panel. The header's count already says it.
+- **Facts are the serif's.** The summary lines on Stats and the review were in the sans
+  beside serif facts. All of them are serif now, as §3's split says (the app's voice is
+  serif, the user's words are sans).
+- **The rule is whole again when a timer ends.** At zero the countdown used to leave only
+  the hairline track, so the current task lost its top edge just when it rang. When the
+  pomodoro or the break ends, the rule is a plain ink line again.
+- **Rules start at the text, like every other rule.** The current task's ink rule and
+  hairline, and the review's gap block, no longer reach into the numeral margin. The
+  numeral hangs outside the block, like every numeral.
+- **The ring leads with the break**, as the nudge already did: "Break 5 min" is the filled
+  answer, then "Another 25 min", "No timer" and "Done". "No timer" replaces "Keep going"
+  on the card and "Continue without timer" in the nudge, so it can't be mistaken for
+  another pomodoro. The check-in's "Keep going" is a different answer and is unchanged.
+- **Three filler lines are cut:** "Plan it now so morning starts clear." (evening ritual,
+  panel and nudge, whose body is now empty), and in Settings "Plan tomorrow after 6 PM."
+  and "Take 5, or however long you like." The morning's "Most important first. Work on
+  the first until it is done." stays: it is the method.
+
+Two of the reviewers' findings were wrong when checked and need no change: the timer
+digits are already tabular, and the current task's numeral is the same serif (with lining
+figures). SPEC §4's evening and six-done copy is amended by this entry.

@@ -57,6 +57,15 @@ export function clockOn(iso: string, ref: string): string {
   return sameDay ? clockTime(iso) : `${a.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${clockTime(iso)}`;
 }
 
+/**
+ * A stretch Six sat idle, "from 10:30 PM to 2:30 AM". Under a day the two times say it (an
+ * end earlier than the start is the next morning); a longer one carries both dates.
+ */
+export function idleSpan(start: string, end: string): string {
+  if (Date.parse(end) - Date.parse(start) < 24 * 60 * 60 * 1000) return `from ${clockTime(start)} to ${clockTime(end)}`;
+  return `from ${clockOn(start, end)} to ${clockOn(end, start)}`;
+}
+
 /** A countdown as m:ss, for the pomodoro line. */
 export function countdown(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

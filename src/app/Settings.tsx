@@ -88,7 +88,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
       <Rule className="mt-3" />
 
       <Section title="The day">
-        <Row label="Evening ritual" hint={`Plan tomorrow after ${hourLabel(s.evening_hour)}.`}>
+        <Row label="Evening ritual">
           <HourSelect value={s.evening_hour} onChange={(v) => set("evening_hour", v)} />
         </Row>
         <Row label="Day starts at" hint="Late-night work counts toward the evening before.">
@@ -97,7 +97,7 @@ export function Settings({ snapshot }: { snapshot: DaySnapshot }) {
         <Row label="Check-in after" hint="Minutes into a session before the nudge.">
           <NumberField value={s.checkin_minutes} min={5} max={480} onChange={(v) => set("checkin_minutes", v)} suffix="min" />
         </Row>
-        <Row label="Break length" hint="Take 5, or however long you like.">
+        <Row label="Break length">
           <NumberField value={s.break_minutes} min={1} max={60} onChange={(v) => set("break_minutes", v)} suffix="min" />
         </Row>
       </Section>

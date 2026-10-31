@@ -168,7 +168,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
             kind: NudgeKind::EveningRitual,
             due: snooze(NudgeKind::EveningRitual).unwrap_or(natural),
             title: "Set tomorrow's six.".into(),
-            body: "Plan it now so morning starts clear.".into(),
+            body: String::new(),
             actions: vec![act("plan", "Plan"), act("later", "Later")],
             task_id: None,
         });
@@ -286,7 +286,7 @@ pub fn plan(input: &NudgeInput) -> Vec<Nudge> {
                             "one_more",
                             another_label(input.settings.pomodoro_minutes),
                         ),
-                        act("keep_going", "Continue without timer"),
+                        act("keep_going", "No timer"),
                     ],
                     task_id: Some(task.id.clone()),
                 });
@@ -468,7 +468,7 @@ mod tests {
             [
                 ("take_break", "Break 5 min"),
                 ("one_more", "Another 25 min"),
-                ("keep_going", "Continue without timer")
+                ("keep_going", "No timer")
             ]
         );
     }

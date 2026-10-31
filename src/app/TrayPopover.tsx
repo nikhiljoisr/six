@@ -204,7 +204,6 @@ function Idle({ snapshot, plan, onOpen }: { snapshot: DaySnapshot | null; plan: 
     return (
       <Prompt
         title="Set tomorrow's six."
-        body="Plan it now so morning starts clear."
         action="Plan tomorrow"
         onAction={() => onOpen({ name: "planner", date: snapshot.tomorrow })}
       />
@@ -221,16 +220,16 @@ function Idle({ snapshot, plan, onOpen }: { snapshot: DaySnapshot | null; plan: 
     );
   }
   if (plan.all_done) {
-    return <Prompt title="Six done." body="Today's list is complete." amber />;
+    return <Prompt title="Six done." amber />;
   }
   return <Prompt title="Nothing running." body={plan.reviewed_at ? "Today is reviewed." : "Pick up the next task in Six."} />;
 }
 
-function Prompt({ title, body, action, onAction, amber = false }: { title: string; body: string; action?: string; onAction?: () => void; amber?: boolean }) {
+function Prompt({ title, body, action, onAction, amber = false }: { title: string; body?: string; action?: string; onAction?: () => void; amber?: boolean }) {
   return (
     <div>
       <h1 className={`font-serif text-[17px] leading-6 font-normal ${amber ? "text-amber-700" : "text-stone-900"}`}>{title}</h1>
-      <p className="mt-0.5 text-[13px] leading-5 text-stone-500">{body}</p>
+      {body && <p className="mt-0.5 text-[13px] leading-5 text-stone-500">{body}</p>}
       {action && onAction && (
         <Button size="sm" className="mt-3 px-3" onClick={onAction}>
           {action}

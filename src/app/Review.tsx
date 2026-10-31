@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Label, Numeral, Rule } from "../components/ui";
 import { api } from "../lib/api";
-import { clockOn, clockTime, duration, longDate } from "../lib/format";
+import { clockTime, duration, idleSpan, longDate } from "../lib/format";
 import { reviewFlow } from "../lib/reviewFlow";
 import type { DaySnapshot, Decision, IdleFlag, PlanView, ReviewView, TaskStatus } from "../lib/types";
 import { useStore } from "../store";
@@ -217,16 +217,16 @@ function WhatHappened({
   return (
     <section>
       <h2 className="mt-6 font-serif text-[20px] leading-7 font-normal text-stone-900">What happened</h2>
-      <p className="mt-2 text-[15px] leading-6 text-stone-900">
+      <p className="mt-2 font-serif text-[15px] leading-6 tabular-nums text-stone-900">
         {plan.done_count} of {plan.task_count} done · {top}
       </p>
       <p className="font-serif text-[12px] leading-5 tabular-nums text-stone-500">{also.join(" · ")}</p>
 
       {/* The one thing here that asks for a decision comes before the record. */}
       {flags.map((f) => (
-        <div key={f.session_id} className="-ml-10 mt-5 border-t border-b border-t-rule border-b-stone-200 py-4 pl-10">
+        <div key={f.session_id} className="mt-5 border-t border-b border-t-rule border-b-stone-200 py-4">
           <p className="text-[15px] leading-6 text-stone-900">
-            No interaction with Six from {clockOn(f.gap_start, f.started_at)} to {clockOn(f.gap_end, f.started_at)}.
+            Six sat idle {idleSpan(f.gap_start, f.gap_end)}.
           </p>
           <p className="mt-1 text-[13px] leading-5 text-stone-500">
             {titleOf(f.task_id)}: {duration(f.seconds)} recorded. Trimming keeps {duration(f.suggested_seconds)}.

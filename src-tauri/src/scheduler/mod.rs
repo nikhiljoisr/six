@@ -292,11 +292,11 @@ fn action_types(settings: &Settings) -> Vec<tauri_plugin_notifications::ActionTy
         json!({"id": "pomodoro_done", "actions": [
             {"id": "take_break", "title": short},
             {"id": "one_more", "title": another},
-            {"id": "keep_going", "title": "Continue without timer"}]}),
+            {"id": "keep_going", "title": "No timer"}]}),
         json!({"id": "pomodoro_done_long", "actions": [
             {"id": "take_break", "title": long},
             {"id": "one_more", "title": another},
-            {"id": "keep_going", "title": "Continue without timer"}]}),
+            {"id": "keep_going", "title": "No timer"}]}),
     ];
     defs.into_iter()
         .filter_map(|v| serde_json::from_value(v).ok())

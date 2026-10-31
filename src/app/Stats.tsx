@@ -72,7 +72,7 @@ export function Stats({ snapshot }: { snapshot: DaySnapshot }) {
           <p className="clock mt-1 text-[34px] leading-10 text-stone-900">
             {stats.top3_done} of {stats.top3_total}
           </p>
-          <div className="mt-3 text-[15px] leading-6 tabular-nums text-stone-900">
+          <div className="mt-3 font-serif text-[15px] leading-6 tabular-nums text-stone-900">
             <p>{facts([[stats.tasks_total, `${stats.tasks_done} of ${stats.tasks_total} tasks done`], [1, `${stats.days_planned} of ${stats.days_in_range} days planned`]])}</p>
             <p>
               {facts([

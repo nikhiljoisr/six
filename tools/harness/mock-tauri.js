@@ -680,7 +680,7 @@
     actions: [
       { id: "take_break", label: "Break 5 min" },
       { id: "one_more", label: "Another 25 min" },
-      { id: "keep_going", label: "Continue without timer" },
+      { id: "keep_going", label: "No timer" },
     ],
     task_id: second.id,
   });
