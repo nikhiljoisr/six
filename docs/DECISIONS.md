@@ -1181,3 +1181,7 @@ planner. Nikhil approved the small fixes and three choices ("go, 1 yes 2 yes 3 y
 Two of the reviewers' findings were wrong when checked and need no change: the timer
 digits are already tabular, and the current task's numeral is the same serif (with lining
 figures). SPEC §4's evening and six-done copy is amended by this entry.
+
+## 2026-10-31 — Step 31: version 1.8.1
+
+Nikhil saw the step 30 screens and answered "go": ship them as 1.8.1. No migration.
