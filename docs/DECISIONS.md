@@ -1136,3 +1136,10 @@ streak flame as is"). The streak flame is unchanged.
 
 SPEC §3 and §4 still describe a "Mark complete" button and a separate countdown line;
 this entry amends them.
+
+## 2026-10-31 — Step 29: version 1.8.0
+
+Nikhil saw the step 28 screens and the labelled test copy and answered "yes and leave
+it": ship it as 1.8.0, and leave the menu bar panel as it is when a pomodoro rings (its
+four answers wrap onto two lines in the narrow panel; they still read cleanly). No
+migration.
